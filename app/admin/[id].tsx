@@ -22,6 +22,9 @@ import {
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import {
+  SettingsToggleRow,
+} from '../../src/components/SettingsChrome';
+import {
   AVATAR_PRESETS,
   deleteAdminMember,
   getAdminMember,
@@ -33,6 +36,7 @@ import {
   type AdminMember,
 } from '../../src/lib/adminStore';
 import { safeBack } from '../../src/lib/navigation';
+import { setUserPremium } from '../../src/lib/premiumStore';
 
 export default function AdminMemberDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -187,6 +191,25 @@ export default function AdminMemberDetailScreen() {
             </Pressable>
           ))}
         </View>
+
+        <Text style={[styles.section, { color: colors.ink }]}>Premium</Text>
+        <SettingsToggleRow
+          icon="diamond-outline"
+          label="Premium"
+          hint={
+            member.isPremium
+              ? 'Accès Premium actif pour ce membre'
+              : 'Membre sans Premium (bloqué si paywall ON)'
+          }
+          value={Boolean(member.isPremium)}
+          onValueChange={async (v) => {
+            setBusy(true);
+            await setUserPremium(member.id, v, { actorLabel: `membre ${member.name}` });
+            setBusy(false);
+            setStatus(v ? 'Premium accordé.' : 'Premium retiré.');
+            await load();
+          }}
+        />
 
         <Text style={[styles.section, { color: colors.ink }]}>Modération</Text>
         <Text style={[styles.hint, { color: colors.inkMuted }]}>

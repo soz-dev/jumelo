@@ -8,6 +8,7 @@ import {
 import { listProfiles, patchProfileFields } from './api/profiles';
 import { dissolveTeam, listTeams } from './api/teams';
 import { getSupabase, isSupabaseConfigured } from './supabase';
+import { getPremiumUserIds } from './premiumStore';
 import { canWriteSupabaseUserId } from './userIds';
 
 const OVERRIDES_KEY = '@jumelo/admin-overrides';
@@ -19,6 +20,15 @@ const ACTIVITY_KEY = '@jumelo/admin-activity';
 const HIDDEN_TEAMS_KEY = '@jumelo/admin-hidden-teams';
 const TEAM_RENAMES_KEY = '@jumelo/admin-team-renames';
 const WARNINGS_KEY = '@jumelo/admin-warnings';
+
+export type AdminWarning = {
+  id: string;
+  userId: string;
+  message: string;
+  createdAt: string;
+  /** Renseigné quand l’utilisateur a fermé la pop-in (affichage une seule fois). */
+  acknowledgedAt?: string | null;
+};
 
 export type AdminMember = {
   id: string;
@@ -32,6 +42,9 @@ export type AdminMember = {
   banned?: boolean;
   suspended?: boolean;
   warnCount?: number;
+  /** Historique complet des avertissements (toujours visible côté admin). */
+  warnings?: AdminWarning[];
+  isPremium?: boolean;
 };
 
 export type AdminNotice = {
@@ -114,6 +127,39 @@ async function logActivity(action: string, detail: string): Promise<void> {
   await writeJson(ACTIVITY_KEY, rows.slice(0, 200));
 }
 
+/** Migre l’ancien format `{ userId: number }` → listes de messages. */
+async function readWarningsMap(): Promise<Record<string, AdminWarning[]>> {
+  const raw = await readJson<Record<string, AdminWarning[] | number>>(WARNINGS_KEY, {});
+  const out: Record<string, AdminWarning[]> = {};
+  let migrated = false;
+
+  for (const [userId, value] of Object.entries(raw)) {
+    if (Array.isArray(value)) {
+      out[userId] = value;
+      continue;
+    }
+    migrated = true;
+    const n = typeof value === 'number' ? value : 0;
+    out[userId] = Array.from({ length: Math.max(0, n) }, (_, i) => ({
+      id: `warn-legacy-${userId}-${i}`,
+      userId,
+      message: 'Avertissement (historique)',
+      createdAt: new Date(0).toISOString(),
+      acknowledgedAt: new Date(0).toISOString(),
+    }));
+  }
+
+  if (migrated) {
+    await writeJson(WARNINGS_KEY, out);
+  }
+  return out;
+}
+
+/** Journal admin (AsyncStorage) — utilisable hors modération (ex. premium). */
+export async function logAdminActivity(action: string, detail: string): Promise<void> {
+  await logActivity(action, detail);
+}
+
 function profileToMember(p: UserProfile, source: AdminMember['source']): AdminMember {
   return {
     id: p.id,
@@ -140,13 +186,15 @@ function applyOverrides(member: AdminMember, overrides: Overrides): AdminMember 
 
 /** Liste membres : démo + Supabase (si config) + overrides locaux. */
 export async function listAdminMembers(excludeId?: string): Promise<AdminMember[]> {
-  const [overrides, deleted, bans, warnings] = await Promise.all([
+  const [overrides, deleted, bans, warnings, premiumIds] = await Promise.all([
     readJson<Overrides>(OVERRIDES_KEY, {}),
     readJson<string[]>(DELETED_KEY, []),
     readJson<Record<string, AdminBanState>>(BANS_KEY, {}),
-    readJson<Record<string, number>>(WARNINGS_KEY, {}),
+    readWarningsMap(),
+    getPremiumUserIds(),
   ]);
   const deletedSet = new Set(deleted);
+  const premiumSet = new Set(premiumIds);
 
   const byId = new Map<string, AdminMember>();
 
@@ -168,12 +216,17 @@ export async function listAdminMembers(excludeId?: string): Promise<AdminMember[
   return [...byId.values()]
     .filter((m) => !deletedSet.has(m.id))
     .filter((m) => (excludeId ? m.id !== excludeId : true))
-    .map((m) => ({
-      ...m,
-      banned: bans[m.id]?.banned ?? false,
-      suspended: bans[m.id]?.suspended ?? false,
-      warnCount: warnings[m.id] ?? 0,
-    }))
+    .map((m) => {
+      const list = warnings[m.id] ?? [];
+      return {
+        ...m,
+        banned: bans[m.id]?.banned ?? false,
+        suspended: bans[m.id]?.suspended ?? false,
+        warnings: list,
+        warnCount: list.length,
+        isPremium: premiumSet.has(m.id),
+      };
+    })
     .sort((a, b) => a.name.localeCompare(b.name, 'fr'));
 }
 
@@ -274,14 +327,55 @@ export async function setMemberBanState(
 export async function warnAdminMember(
   id: string,
   reason: string,
-): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
-  const trimmed = reason.trim() || 'Avertissement modération';
-  const warnings = await readJson<Record<string, number>>(WARNINGS_KEY, {});
-  const count = (warnings[id] ?? 0) + 1;
-  warnings[id] = count;
+): Promise<{ ok: true; count: number; warning: AdminWarning } | { ok: false; error: string }> {
+  const trimmed = reason.trim();
+  if (!trimmed) {
+    return { ok: false, error: 'Le message d’avertissement est requis.' };
+  }
+  const warnings = await readWarningsMap();
+  const list = warnings[id] ?? [];
+  const warning: AdminWarning = {
+    id: `warn-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+    userId: id,
+    message: trimmed,
+    createdAt: new Date().toISOString(),
+    acknowledgedAt: null,
+  };
+  list.unshift(warning);
+  warnings[id] = list;
   await writeJson(WARNINGS_KEY, warnings);
-  await logActivity('warn_user', `${id} (#${count}) · ${trimmed}`);
-  return { ok: true, count };
+  await logActivity('warn_user', `${id} (#${list.length}) · ${trimmed}`);
+  return { ok: true, count: list.length, warning };
+}
+
+/** Avertissements d’un membre (admin — toujours visibles). */
+export async function listAdminWarningsForUser(userId: string): Promise<AdminWarning[]> {
+  const warnings = await readWarningsMap();
+  return warnings[userId] ?? [];
+}
+
+/**
+ * Premier avertissement non encore vu par l’utilisateur (pop-in au démarrage, une fois).
+ */
+export async function getPendingUserWarning(userId: string): Promise<AdminWarning | null> {
+  const list = await listAdminWarningsForUser(userId);
+  return list.find((w) => !w.acknowledgedAt) ?? null;
+}
+
+export async function acknowledgeUserWarning(
+  userId: string,
+  warningId: string,
+): Promise<void> {
+  const warnings = await readWarningsMap();
+  const list = warnings[userId] ?? [];
+  const idx = list.findIndex((w) => w.id === warningId);
+  if (idx < 0) return;
+  list[idx] = {
+    ...list[idx],
+    acknowledgedAt: new Date().toISOString(),
+  };
+  warnings[userId] = list;
+  await writeJson(WARNINGS_KEY, warnings);
 }
 
 /**
@@ -484,7 +578,7 @@ export async function getAdminDashboard(viewerId?: string | null): Promise<Admin
     listAdminTeams(viewerId),
     listAdminReports(),
     readJson<Record<string, AdminBanState>>(BANS_KEY, {}),
-    readJson<Record<string, number>>(WARNINGS_KEY, {}),
+    readWarningsMap(),
     readJson<string[]>(HIDDEN_TEAMS_KEY, []),
   ]);
 
@@ -497,7 +591,7 @@ export async function getAdminDashboard(viewerId?: string | null): Promise<Admin
     banned: banValues.filter((b) => b.banned).length,
     suspended: banValues.filter((b) => b.suspended).length,
     hiddenTeams: hidden.length,
-    warnings: Object.values(warnings).reduce((a, n) => a + n, 0),
+    warnings: Object.values(warnings).reduce((a, list) => a + list.length, 0),
   };
 }
 

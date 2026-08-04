@@ -131,6 +131,10 @@ function AppRootLayout() {
                 options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
               />
               <Stack.Screen name="likes/index" />
+              <Stack.Screen
+                name="premium"
+                options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+              />
               <Stack.Screen name="chat/[id]" />
               <Stack.Screen name="team/[id]" />
               <Stack.Screen name="team/create" options={{ presentation: 'modal' }} />

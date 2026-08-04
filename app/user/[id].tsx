@@ -26,12 +26,15 @@ import { useTheme } from '../../src/context/ThemeContext';
 import type { UserProfile } from '../../src/data/mock';
 import { getCommonPoints } from '../../src/lib/commonPoints';
 import { computeMatch, scoreLabel } from '../../src/lib/matching';
+import { useRequirePremium } from '../../src/lib/premiumStore';
 import { chatPathForUser, openChatWithUser, resolveUserById } from '../../src/lib/users';
 
 export default function PublicProfileScreen() {
   const { colors } = useTheme();
   const { user: me } = useAuth();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const isSelfParam = Boolean(me && id && me.id === id);
+  const { ready: premiumReady, allowed } = useRequirePremium(!isSelfParam);
   const [profile, setProfile] = useState<UserProfile | undefined>(undefined);
   const [loadingProfile, setLoadingProfile] = useState(Boolean(id));
 
@@ -40,6 +43,9 @@ export default function PublicProfileScreen() {
     if (!id) {
       setProfile(undefined);
       setLoadingProfile(false);
+      return;
+    }
+    if (!isSelfParam && (!premiumReady || !allowed)) {
       return;
     }
     setLoadingProfile(true);
@@ -53,7 +59,7 @@ export default function PublicProfileScreen() {
     return () => {
       active = false;
     };
-  }, [id]);
+  }, [id, isSelfParam, premiumReady, allowed]);
 
   const match = me && profile ? computeMatch(me, profile) : undefined;
   const commonPoints = me && profile ? getCommonPoints(me, profile) : [];
@@ -63,7 +69,7 @@ export default function PublicProfileScreen() {
     .map((a) => availabilities.find((x) => x.id === a)?.label ?? a)
     .join(' · ');
 
-  if (loadingProfile) {
+  if ((!isSelfParam && (!premiumReady || !allowed)) || loadingProfile) {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]}>
         <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />

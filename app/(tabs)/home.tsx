@@ -51,6 +51,7 @@ import {
   type ActivityItem,
 } from '../../src/lib/likesStore';
 import { isOfficialJumelage, rankMatches } from '../../src/lib/matching';
+import { usePremiumAccess } from '../../src/lib/premiumStore';
 
 const showDemoTools = typeof __DEV__ !== 'undefined' && __DEV__;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -88,10 +89,26 @@ export default function HomeScreen() {
   const { user, usingSupabase } = useAuth();
   const { teams } = useTeams();
   const { colors } = useTheme();
+  const { guard } = usePremiumAccess();
   const [pool, setPool] = useState<UserProfile[]>(mockUsers);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [unreadLikes, setUnreadLikes] = useState(0);
   const [seedHint, setSeedHint] = useState<string | null>(null);
+
+  const goLikes = () => {
+    if (!guard()) return;
+    router.push('/likes');
+  };
+
+  const goLikedMe = (userId: string) => {
+    if (!guard()) return;
+    router.push(`/liked-me/${userId}`);
+  };
+
+  const goUserProfile = (userId: string) => {
+    if (!guard()) return;
+    router.push(`/user/${userId}`);
+  };
 
   useEffect(() => {
     let active = true;
@@ -151,7 +168,7 @@ export default function HomeScreen() {
       'Maxime veut jumeler. Tape la ligne dans Activité récente (ou le badge) pour ouvrir « Maxime veut jumeler avec toi ».',
       [
         { text: 'Plus tard', style: 'cancel' },
-        { text: 'Voir', onPress: () => router.push(`/liked-me/${likerId}`) },
+        { text: 'Voir', onPress: () => goLikedMe(likerId) },
       ],
     );
   };
@@ -165,7 +182,7 @@ export default function HomeScreen() {
       'Maya veut déjà jumeler. Réponds « Jumeler aussi » (sheet) ou trouve-la dans Discover (swipe droite) → « C’est un jumelage ! ».',
       [
         { text: 'Discover', onPress: () => router.push('/(tabs)/discover') },
-        { text: 'Jumeler Maya', onPress: () => router.push(`/liked-me/${likerId}`) },
+        { text: 'Jumeler Maya', onPress: () => goLikedMe(likerId) },
       ],
     );
   };
@@ -187,7 +204,7 @@ export default function HomeScreen() {
             </View>
             <View style={styles.topActions}>
               <Pressable
-                onPress={() => router.push('/likes')}
+                onPress={goLikes}
                 style={[
                   styles.notifBtn,
                   { backgroundColor: 'rgba(255,255,255,0.72)', borderColor: colors.border },
@@ -328,7 +345,7 @@ export default function HomeScreen() {
                   entering={FadeInRight.delay(160 + index * 50).duration(340)}
                 >
                   <Pressable
-                    onPress={() => router.push(`/user/${match.user.id}`)}
+                    onPress={() => goUserProfile(match.user.id)}
                     style={[styles.matchCard, elevation.lift]}
                   >
                     <ImageBackground
@@ -411,7 +428,7 @@ export default function HomeScreen() {
             actionLabel={
               unreadLikes > 0 ? `${unreadLikes} non lu${unreadLikes > 1 ? 's' : ''}` : 'Voir'
             }
-            onAction={() => router.push('/likes')}
+            onAction={goLikes}
           />
           {activity.map((item) => (
             <ListRow
@@ -430,11 +447,9 @@ export default function HomeScreen() {
               onPress={
                 item.userId
                   ? () =>
-                      router.push(
-                        item.kind === 'incoming_like'
-                          ? `/liked-me/${item.userId}`
-                          : `/user/${item.userId}`,
-                      )
+                      item.kind === 'incoming_like'
+                        ? goLikedMe(item.userId!)
+                        : goUserProfile(item.userId!)
                   : undefined
               }
             />

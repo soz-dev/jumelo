@@ -28,18 +28,20 @@ import { createLike, dismissIncomingLike, markIncomingLikeRead } from '../../src
 import { getCommonPoints } from '../../src/lib/commonPoints';
 import { computeMatch } from '../../src/lib/matching';
 import { safeBack } from '../../src/lib/navigation';
+import { useRequirePremium } from '../../src/lib/premiumStore';
 import { resolveUserById } from '../../src/lib/users';
 
 export default function LikedMeScreen() {
   const { colors } = useTheme();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user: me } = useAuth();
+  const { ready: premiumReady, allowed } = useRequirePremium();
   const [profile, setProfile] = useState<UserProfile | null | undefined>(undefined);
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
-    if (!id || !me) {
+    if (!id || !me || !allowed) {
       setProfile(null);
       return;
     }
@@ -51,9 +53,19 @@ export default function LikedMeScreen() {
     return () => {
       active = false;
     };
-  }, [id, me]);
+  }, [id, me, allowed]);
 
   if (!me || !id) return null;
+
+  if (!premiumReady || !allowed) {
+    return (
+      <Atmosphere>
+        <SafeAreaView style={styles.safe}>
+          <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
+        </SafeAreaView>
+      </Atmosphere>
+    );
+  }
 
   if (profile === undefined) {
     return (

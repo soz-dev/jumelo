@@ -90,8 +90,8 @@ export default function AdminMembersScreen() {
             filtered.map((m) => (
               <ListRow
                 key={m.id}
-                title={`${m.name}${m.banned ? ' · BAN' : m.suspended ? ' · SUSPENDU' : ''}`}
-                subtitle={`${m.email} · ${m.source}${m.warnCount ? ` · ⚠ ${m.warnCount}` : ''}`}
+                title={`${m.name}${m.isPremium ? ' · ★' : ''}${m.banned ? ' · BAN' : m.suspended ? ' · SUSPENDU' : ''}`}
+                subtitle={`${m.email} · ${m.source}${m.isPremium ? ' · Premium' : ''}${m.warnCount ? ` · ⚠ ${m.warnCount}` : ''}`}
                 left={
                   <Avatar name={m.name} photo={m.photo} color={m.avatarColor} size={44} />
                 }

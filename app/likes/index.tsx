@@ -20,6 +20,7 @@ import { mockUsers } from '../../src/data/mock';
 import { listIncomingLikes } from '../../src/lib/api/likes';
 import type { LikeRecord } from '../../src/lib/likesStore';
 import { safeBack } from '../../src/lib/navigation';
+import { useRequirePremium } from '../../src/lib/premiumStore';
 
 function relativeTime(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
@@ -32,12 +33,13 @@ function relativeTime(iso: string): string {
 export default function LikesInboxScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
+  const { ready: premiumReady, allowed } = useRequirePremium();
   const [likes, setLikes] = useState<LikeRecord[] | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      if (!user) {
+      if (!user || !allowed) {
         setLikes([]);
         return () => {
           active = false;
@@ -50,10 +52,19 @@ export default function LikesInboxScreen() {
       return () => {
         active = false;
       };
-    }, [user]),
+    }, [user, allowed]),
   );
 
   if (!user) return null;
+  if (!premiumReady || !allowed) {
+    return (
+      <Atmosphere variant="soft">
+        <SafeAreaView style={styles.safe} edges={['top']}>
+          <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
+        </SafeAreaView>
+      </Atmosphere>
+    );
+  }
 
   return (
     <Atmosphere variant="soft">

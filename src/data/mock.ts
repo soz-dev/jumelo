@@ -27,6 +27,8 @@ export type UserProfile = {
   onboardingComplete: boolean;
   /** Préférence thème sync (optionnel, côté API) */
   themeId?: ThemeId;
+  /** Premium (optionnel) — source de vérité MVP = AsyncStorage `@jumelo/premium-users` */
+  isPremium?: boolean;
 };
 
 export const DEMO_EMAIL = 'lea@jumelo.app';

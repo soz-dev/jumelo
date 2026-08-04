@@ -11,7 +11,11 @@ import {
   View,
 } from 'react-native';
 
-import { SettingsBackHeader } from '../../src/components/SettingsChrome';
+import {
+  SettingsBackHeader,
+  SettingsSectionLabel,
+  SettingsToggleRow,
+} from '../../src/components/SettingsChrome';
 import { Screen, spacing, typography } from '../../src/design-system';
 import { useTheme } from '../../src/context/ThemeContext';
 import { useAuth } from '../../src/context/AuthContext';
@@ -19,6 +23,7 @@ import {
   getAdminDashboard,
   type AdminDashboard,
 } from '../../src/lib/adminStore';
+import { usePremium, usePremiumGating } from '../../src/lib/premiumStore';
 
 type NavItem = {
   href: '/admin/members' | '/admin/teams' | '/admin/reports' | '/admin/activity';
@@ -58,6 +63,8 @@ const NAV: NavItem[] = [
 export default function AdminDashboardScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
+  const { gatingEnabled, setGatingEnabled, ready: gatingReady } = usePremiumGating();
+  const { isPremium, setPremium, ready: premiumReady } = usePremium();
   const [dash, setDash] = useState<AdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -123,6 +130,34 @@ export default function AdminDashboardScreen() {
               Suspendus {dash?.suspended ?? 0} · Équipes masquées {dash?.hiddenTeams ?? 0} ·
               Warnings {dash?.warnings ?? 0} · Signalements {dash?.reportsTotal ?? 0}
             </Text>
+
+            <SettingsSectionLabel label="Premium / paywall" />
+            {gatingReady ? (
+              <SettingsToggleRow
+                icon="lock-closed-outline"
+                label="Mode premium (paywall actif)"
+                hint="Bloque invites & profils pour les non-premium"
+                value={gatingEnabled}
+                onValueChange={(v) => {
+                  setGatingEnabled(v, user?.name ?? 'admin').catch(() => undefined);
+                }}
+              />
+            ) : null}
+            {premiumReady ? (
+              <SettingsToggleRow
+                icon="diamond-outline"
+                label="Premium sur mon compte"
+                hint={
+                  isPremium
+                    ? 'Ce compte contourne le paywall'
+                    : 'Ce compte est traité comme non-premium'
+                }
+                value={isPremium}
+                onValueChange={(v) => {
+                  setPremium(v, 'mon compte').catch(() => undefined);
+                }}
+              />
+            ) : null}
 
             <Text style={[styles.section, { color: colors.ink }]}>Sections</Text>
             {NAV.map((item) => (
