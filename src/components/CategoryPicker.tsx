@@ -164,20 +164,13 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
                     },
                   ]}
                 >
-                  <View
-                    style={[
-                      isGamingGrid ? styles.gameGlyph : styles.activityGlyph,
-                      { backgroundColor: `${accent}22` },
-                    ]}
-                  >
-                    <Icon
-                      name={resolveCatalogIcon(item.id)}
-                      size={isGamingGrid ? 26 : 20}
-                      color={accent}
-                      weight="bold"
-                      branded={isGamingGrid}
-                    />
-                  </View>
+                  <Icon
+                    name={resolveCatalogIcon(item.id)}
+                    size={isGamingGrid ? 28 : 22}
+                    color={accent}
+                    weight="bold"
+                    branded={isGamingGrid}
+                  />
                   <Text
                     style={[styles.gameLabel, { color: colors.ink }]}
                     numberOfLines={2}
@@ -338,20 +331,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-  },
-  gameGlyph: {
-    width: 52,
-    height: 52,
-    borderRadius: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activityGlyph: {
-    width: 40,
-    height: 40,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   gameLabel: {
     fontFamily: fonts.bodyBold,

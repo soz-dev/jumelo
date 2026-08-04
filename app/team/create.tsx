@@ -140,25 +140,15 @@ export default function CreateTeamScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.heroRow}>
-              <View
-                style={[
-                  styles.icon,
-                  {
-                    backgroundColor:
-                      path.universeId === 'gaming' ? '#0F8F8A' : colors.primary,
-                  },
-                ]}
-              >
-                <Icon
-                  name={resolveCatalogIcon(
-                    selectedSub?.id ?? path.universeId ?? 'teams',
-                  )}
-                  size={26}
-                  color="#fff"
-                  weight="bold"
-                  branded={path.universeId === 'gaming'}
-                />
-              </View>
+              <Icon
+                name={resolveCatalogIcon(
+                  selectedSub?.id ?? path.universeId ?? 'teams',
+                )}
+                size={32}
+                color={colors.primary}
+                weight="bold"
+                branded={path.universeId === 'gaming'}
+              />
               <View style={{ flex: 1 }}>
                 <Text style={[styles.kicker, { color: colors.primaryDark }]}>
                   LOBBY · CRÉATION
@@ -335,13 +325,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     marginBottom: spacing.sm,
-  },
-  icon: {
-    width: 64,
-    height: 64,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   kicker: {
     fontFamily: fonts.bodyBold,
