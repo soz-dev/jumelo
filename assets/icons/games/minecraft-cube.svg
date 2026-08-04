@@ -1,0 +1,4 @@
+<!-- Original Jumelo isometric cube pictogram (not Mojang/Minecraft wordmark or creeper). viewBox 24×24 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Cube block">
+  <path fill="#62B74B" fill-rule="evenodd" d="M12 2.2 21 7.2v9.6L12 21.8 3 16.8V7.2L12 2.2Zm0 1.9L5.2 7.8v8.4L12 20l6.8-3.8V7.8L12 4.1Zm0 1.7 4.6 2.6-4.6 2.6-4.6-2.6L12 5.8Zm-4.2 4.1 4.2 2.4v5.5l-4.2-2.4V9.9Zm8.4 0v5.5l-4.2 2.4v-5.5l4.2-2.4Z"/>
+</svg>

@@ -1,0 +1,4 @@
+<!-- Original Jumelo pictogram (form factor), not an official Nintendo trademark glyph. viewBox 24×24 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Handheld console">
+  <path fill="#E60012" fill-rule="evenodd" d="M4.75 3.25A2.75 2.75 0 0 0 2 6v12a2.75 2.75 0 0 0 2.75 2.75h2V3.25h-2Zm1.1 5.9a1.35 1.35 0 1 1 0 2.7 1.35 1.35 0 0 1 0-2.7ZM7.75 3.25h8.5v17.5h-8.5V3.25Zm8.5 0h2A2.75 2.75 0 0 1 22 6v12a2.75 2.75 0 0 1-2.75 2.75h-2V3.25Zm2.35 8.65a1.35 1.35 0 1 0 0-2.7 1.35 1.35 0 0 0 0 2.7Z"/>
+</svg>

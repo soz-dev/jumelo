@@ -24,7 +24,7 @@ export function BrandIcon({
       style={style}
       accessibilityRole="image"
     >
-      <Path d={path} fill={color} />
+      <Path d={path} fill={color} fillRule="evenodd" />
     </Svg>
   );
 }
