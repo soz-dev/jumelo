@@ -52,6 +52,14 @@ Les tokens `baseColors` (ink, cream, border…) restent stables ; primary/accent
 | `iconSizes` | `xs` 14 → `xl` 36 |
 | `motion` | `fast` / `base` / `slow` + spring |
 
+## Icônes
+
+- **Phosphor** (`phosphor-react-native`, MIT) — icônes produit par défaut (nav, sport, vibes, fallbacks).
+- **Simple Icons** (`simple-icons` + `react-native-svg`, paths CC0) — glyphes marque pour jeux/plateformes mappés dans `src/constants/gameIcons.ts`.
+- Composant unique : `Icon` (`branded` optionnel pour la couleur marque). `BrandIcon` pour le rendu SVG brut.
+- **Jamais d’emoji** dans l’UI produit. Absents de Simple Icons (Minecraft, Xbox, Switch, Apex…) → Phosphor.
+- Marques : disclaimer dans `LEGAL.md` — CC0 ≠ droit d’usage commercial des trademarks.
+
 ## Composants
 
 - **Button** — primary / secondary / ghost / accent + micro-spring
@@ -61,8 +69,9 @@ Les tokens `baseColors` (ink, cream, border…) restent stables ; primary/accent
 - **ListRow** — lignes listes / réglages
 - **Avatar** — photo ou initiales + online
 - **Badge** / **ScoreBadge** — pastilles
-- **Chip** — filtres / tags
+- **Chip** — filtres / tags (Simple Icons si `name` mappé)
 - **EmptyState** — vide + CTA / Lottie
+- **Icon** / **BrandIcon** — Phosphor + marque
 
 ## Surfaces
 

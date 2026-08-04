@@ -140,7 +140,7 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
           </Text>
           <Text style={[styles.sectionHint, { color: colors.inkMuted }]}>
             {isGamingGrid
-              ? 'Tuiles joueur — icônes Phosphor, pas de logos officiels'
+              ? 'Tuiles joueur — icônes marque (Simple Icons) si dispo, sinon Phosphor'
               : `${category.subCategories.length} options`}
           </Text>
           <View style={isGamingGrid ? styles.gameGrid : styles.activityGrid}>
@@ -175,6 +175,7 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
                       size={isGamingGrid ? 26 : 20}
                       color={accent}
                       weight="bold"
+                      branded={isGamingGrid}
                     />
                   </View>
                   <Text

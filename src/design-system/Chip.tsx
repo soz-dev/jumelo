@@ -9,15 +9,25 @@ type ChipProps = {
   label: string;
   selected?: boolean;
   onPress?: () => void;
-  /** Icône Phosphor sémantique. */
+  /** Icône catalogue (Simple Icons si mappé, sinon Phosphor). */
   name?: IconName;
-  /** @deprecated Préférer `name`. */
+  /** @deprecated Ne plus utiliser — préférer `name`. */
   emoji?: string;
   /** Alias de `name` pour migration. */
   icon?: IconName;
+  /** Couleur marque Simple Icons quand disponible. */
+  branded?: boolean;
 };
 
-export function Chip({ label, selected, onPress, name, emoji, icon }: ChipProps) {
+export function Chip({
+  label,
+  selected,
+  onPress,
+  name,
+  emoji,
+  icon,
+  branded,
+}: ChipProps) {
   const { colors } = useTheme();
   const iconName = name ?? icon;
   const tint = selected ? colors.primaryDark : colors.inkMuted;
@@ -41,6 +51,7 @@ export function Chip({ label, selected, onPress, name, emoji, icon }: ChipProps)
           size={iconSizes.xs}
           color={tint}
           weight="bold"
+          branded={branded}
           style={{ marginRight: 6 }}
         />
       ) : emoji ? (

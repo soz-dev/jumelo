@@ -1,6 +1,6 @@
 /**
- * Icônes Jumelo — Phosphor Icons (MIT, libre de droits, commercial OK).
- * Pas d’emoji téléphone ni de mix Ionicons/emoji dans l’UI produit.
+ * Icônes Jumelo — Phosphor (MIT) + glyphes marque Simple Icons (CC0) quand mappés.
+ * Pas d’emoji dans l’UI produit. Marques : voir LEGAL.md.
  */
 import React from 'react';
 import type { StyleProp, ViewStyle } from 'react-native';
@@ -100,6 +100,8 @@ import {
 } from 'phosphor-react-native';
 
 import type { Availability, PlatformId, UniverseId, Vibe } from '../constants/catalog';
+import { getBrandIcon, readableBrandFill } from '../constants/gameIcons';
+import { BrandIcon } from './BrandIcon';
 
 export type IconName =
   | UniverseId
@@ -420,6 +422,12 @@ type IconProps = {
   color?: string;
   weight?: IconWeight;
   style?: StyleProp<ViewStyle>;
+  /**
+   * Si un glyphe Simple Icons existe pour `name` :
+   * - `true` → fill marque (hex SI), sauf noir/blanc → `color`
+   * - `false` (défaut) → mono teinté avec `color` (thème / accent)
+   */
+  branded?: boolean;
 };
 
 export function Icon({
@@ -428,7 +436,13 @@ export function Icon({
   color = '#12212B',
   weight = 'regular',
   style,
+  branded = false,
 }: IconProps) {
+  const brand = getBrandIcon(name);
+  if (brand) {
+    const fill = branded ? readableBrandFill(brand.hex, color) : color;
+    return <BrandIcon path={brand.path} size={size} color={fill} style={style} />;
+  }
   const Comp = ICONS[name] ?? ICONS.spark;
   return <Comp size={size} color={color} weight={weight} style={style} />;
 }

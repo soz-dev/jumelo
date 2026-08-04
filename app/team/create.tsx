@@ -156,6 +156,7 @@ export default function CreateTeamScreen() {
                   size={26}
                   color="#fff"
                   weight="bold"
+                  branded={path.universeId === 'gaming'}
                 />
               </View>
               <View style={{ flex: 1 }}>

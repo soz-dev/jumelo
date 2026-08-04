@@ -49,3 +49,16 @@ Fichiers concernés : `src/legal/*.ts`, notamment `version.ts`, `mentions.ts`, `
 ## Honnêteté produit
 
 Cette fondation vise un MVP « en normes » côté UX et documentation. Elle n’est **pas** une garantie de conformité réglementaire. Toute communication externe doit rester prudente jusqu’à validation juridique.
+
+## Marques & icônes de jeux (Simple Icons)
+
+Jumelo affiche des **glyphes SVG** issus du projet open-source [Simple Icons](https://simpleicons.org/) (licence **CC0** sur les chemins SVG) pour certains jeux et plateformes (Valorant, League of Legends, etc.). Voir `src/constants/gameIcons.ts`.
+
+**Point juridique important :**
+
+- La licence CC0 concerne le **fichier SVG / path**, pas le droit des marques.
+- Les noms, logos et identités visuelles des jeux (Riot, Epic, Valve, Microsoft, Nintendo, etc.) restent des **marques déposées** de leurs titulaires.
+- Expédier ces glyphes dans une app **commerciale** (App Store / Google Play) sans droits ou guidelines d’usage peut être risqué (refus store, mise en demeure).
+- Avant publication store : **vérifier l’usage des marques** auprès d’un conseil, ou **remplacer** par des assets licenciés / press kits officiels / pictogrammes génériques (Phosphor reste le fallback).
+
+Ce n’est **pas** un avis d’avocat. Simple Icons ≠ autorisation de marque.

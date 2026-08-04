@@ -28,3 +28,12 @@ export { Title, Subtitle } from './Typography';
 export { CategoryPill } from './CategoryPill';
 export { Icon, resolveCatalogIcon, universeIcon } from './Icon';
 export type { IconName } from './Icon';
+export { BrandIcon } from './BrandIcon';
+export {
+  BRAND_ICONS,
+  BRAND_ICON_GAPS,
+  getBrandIcon,
+  hasBrandIcon,
+  readableBrandFill,
+} from '../constants/gameIcons';
+export type { BrandGlyph } from '../constants/gameIcons';
