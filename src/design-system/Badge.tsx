@@ -36,8 +36,8 @@ export function ScoreBadge({ score }: { score: number }) {
   const bg =
     score >= MATCH_THRESHOLD ? colors.primary : score >= 60 ? colors.accent : colors.inkMuted;
   return (
-    <View style={[styles.score, { backgroundColor: bg }]}>
-      <Text style={[styles.scoreText, { color: colors.white }]}>{score}</Text>
+    <View style={[styles.score, { backgroundColor: bg }]} accessibilityLabel={`Score ${score} pour cent`}>
+      <Text style={[styles.scoreText, { color: colors.white }]}>{score}%</Text>
     </View>
   );
 }
@@ -54,7 +54,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   score: {
-    minWidth: 44,
+    minWidth: 48,
     height: 44,
     borderRadius: 22,
     alignItems: 'center',
@@ -63,6 +63,6 @@ const styles = StyleSheet.create({
   },
   scoreText: {
     fontFamily: fonts.bodyBold,
-    fontSize: 15,
+    fontSize: 14,
   },
 });

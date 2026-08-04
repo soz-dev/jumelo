@@ -11,6 +11,8 @@ export type UserProfile = {
   bio: string;
   avatarColor: string;
   photo?: string;
+  /** Avatar persona prédéfini (prioritaire après photo bibliothèque). */
+  avatarPersonaId?: string;
   universes: UniverseId[];
   interests: string[];
   /** ex: valorant */
@@ -64,18 +66,18 @@ export const mockUsers: UserProfile[] = [
     name: 'Maxime',
     age: 26,
     city: 'Lyon',
-    bio: 'Jam sessions, funk & rock. Cherche un partenaire régulier.',
+    bio: 'Valorant ranked + muscu. Cherche un duo régulier le soir à Lyon.',
     avatarColor: '#F59E0B',
     photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
-    universes: ['music'],
-    interests: ['Guitare', 'Prod / DAW'],
-    subCategoryIds: ['guitare', 'prod'],
-    platforms: ['irl', 'discord'],
-    level: 'avance',
-    vibes: ['casual', 'fun'],
+    universes: ['gaming', 'sports'],
+    interests: ['Valorant', 'Musculation', 'Apex Legends'],
+    subCategoryIds: ['valorant', 'muscu', 'apex'],
+    platforms: ['pc'],
+    level: 'intermediaire',
+    vibes: ['fun', 'casual'],
     availability: ['soir', 'week-end'],
-    objectives: ['S’amuser', 'Réseauter'],
-    reliability: 87,
+    objectives: ['S’amuser', 'Trouver une team fixe'],
+    reliability: 92,
     languages: ['Français', 'English'],
     online: false,
     onboardingComplete: true,
@@ -130,17 +132,17 @@ export const mockUsers: UserProfile[] = [
     name: 'Maya',
     age: 25,
     city: 'Lyon',
-    bio: 'Foot en salle + running. Ambiance chill mais régulière.',
+    bio: 'Foot, muscu et un peu de Valorant. Ambiance chill mais régulière.',
     avatarColor: '#1FA97A',
     photo: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=800',
-    universes: ['sports'],
-    interests: ['Football', 'Running'],
-    subCategoryIds: ['football', 'running'],
-    platforms: ['irl'],
+    universes: ['sports', 'gaming'],
+    interests: ['Musculation', 'Valorant', 'Apex Legends'],
+    subCategoryIds: ['muscu', 'valorant', 'apex'],
+    platforms: ['pc', 'irl'],
     level: 'intermediaire',
     vibes: ['fun', 'chill', 'casual'],
     availability: ['soir', 'week-end'],
-    objectives: ['Rester motivé'],
+    objectives: ['S’amuser', 'Trouver une team fixe'],
     reliability: 93,
     languages: ['Français'],
     online: false,
@@ -178,6 +180,11 @@ export type TeamJoinRequest = {
   userId: string;
   status: JoinRequestStatus;
   createdAt: string;
+  /** Snapshot affichage (Firebase / profil local) — optionnel pour les seeds. */
+  userName?: string;
+  avatarColor?: string;
+  city?: string;
+  photo?: string;
 };
 
 export type Team = {
@@ -253,18 +260,18 @@ export const mockTeams: Team[] = [
   },
   {
     id: 't-funk',
-    name: 'Funk Jam Crew',
-    universe: 'music',
-    activity: 'Jam funk / rock',
+    name: 'Duo Ranked Lyon',
+    universe: 'gaming',
+    activity: 'Valorant duo soir',
     ownerId: 'u-maxime',
     memberIds: ['u-maxime'],
     membersCount: 1,
     capacity: 5,
-    city: 'Villeurbanne',
-    levelLabel: 'avancé',
-    vibe: 'casual',
-    nextSession: 'Jeudi · 19h',
-    blurb: 'Jam improvisée, amène ton instrument.',
+    city: 'Lyon',
+    levelLabel: 'intermédiaire',
+    vibe: 'fun',
+    nextSession: 'Jeudi · 21h',
+    blurb: 'Duo ranked chill, coms clean, pas de tilt.',
     locked: false,
   },
   {
@@ -314,7 +321,7 @@ export const mockChats: ChatThread[] = [
     id: 'c-maxime',
     peerId: 'u-maxime',
     name: 'Maxime',
-    preview: 'Jam jeudi soir, ça te dit ?',
+    preview: 'Ranked ce soir, ça te dit ?',
     updatedAt: '11:08',
     unread: 1,
   },
@@ -340,12 +347,12 @@ export const mockChats: ChatThread[] = [
   {
     id: 'c-funk',
     teamId: 't-funk',
-    name: 'Funk Jam Crew · groupe',
+    name: 'Duo Ranked Lyon · groupe',
     isGroup: true,
-    preview: "Théo: J'amène ma gratte",
+    preview: 'Maxime: On lance une ranked ?',
     updatedAt: 'Lun',
     unread: 0,
-    avatarLetter: 'F',
+    avatarLetter: 'D',
     avatarColor: '#A7F3D0',
   },
 ];
@@ -367,7 +374,7 @@ export const mockMessages: Record<string, ChatMessage[]> = {
     { id: 'm4', fromMe: false, text: 'Parfait, on lance la ranked ce soir ? 🎮', at: '12:32' },
   ],
   'c-maxime': [
-    { id: 'm1', fromMe: false, text: 'Jam jeudi soir, ça te dit ?', at: '11:08' },
+    { id: 'm1', fromMe: false, text: 'Ranked ce soir, ça te dit ?', at: '11:08' },
   ],
   'c-sara': [
     { id: 'm1', fromMe: false, text: 'On revoit les intégrales demain ?', at: 'Hier' },
@@ -376,12 +383,12 @@ export const mockMessages: Record<string, ChatMessage[]> = {
     { id: 'm1', fromMe: false, text: 'Karim: GG les gens 🔥', at: 'Hier' },
   ],
   'c-funk': [
-    { id: 'm1', fromMe: false, text: "Théo: J'amène ma gratte", at: 'Lun' },
+    { id: 'm1', fromMe: false, text: 'Maxime: On lance une ranked ?', at: 'Lun' },
   ],
 };
 
 export const mockActivity = [
   { id: 'a1', text: 'Léa veut jumeler', time: 'il y a 2h', color: '#FF5A45' },
-  { id: 'a2', text: 'Nouveau match à 92% avec Maxime', time: 'il y a 5h', color: '#0F8F8A' },
+  { id: 'a2', text: 'Nouveau jumelage à 84% avec Maxime', time: 'il y a 5h', color: '#0F8F8A' },
   { id: 'a3', text: "Karim t'a invité dans une équipe", time: 'hier', color: '#7C5CFC' },
 ];

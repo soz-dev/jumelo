@@ -91,7 +91,7 @@ function seedMessagesFor(chatId: string, teamId: string): StoredMessage[] {
         id: 'm1',
         senderId: 'u-maxime',
         senderName: 'Maxime',
-        text: "J'amène ma gratte",
+        text: 'On lance une ranked ?',
         createdAt: new Date(Date.now() - 3 * 86_400_000).toISOString(),
       },
     ];
@@ -313,6 +313,34 @@ export async function sendTeamChatMessage(params: {
   chat.preview = `${params.senderName}: ${text}`;
   chat.updatedAt = msg.createdAt;
   await saveLocal(state);
+
+  try {
+    const { listTeams } = await import('./teams');
+    const { notifyUser } = await import('../notifications');
+    const teams = await listTeams(params.senderId);
+    const team = teams.find((t) => t.id === chat.teamId);
+    const recipients = (team?.memberIds ?? []).filter((id) => id && id !== params.senderId);
+    const preview = text.length > 80 ? `${text.slice(0, 77)}…` : text;
+    await Promise.all(
+      recipients.map((userId) =>
+        notifyUser({
+          userId,
+          title: chat.name || team?.name || 'Message d’équipe',
+          body: `${params.senderName}: ${preview}`,
+          data: {
+            type: 'team_chat',
+            chatId: chat.id,
+            teamId: chat.teamId,
+            senderId: params.senderId,
+          },
+          kind: 'message',
+        }),
+      ),
+    );
+  } catch {
+    // best-effort
+  }
+
   return toUiMessage(msg, params.senderId);
 }
 

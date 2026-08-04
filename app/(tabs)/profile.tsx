@@ -1,14 +1,21 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
+import { AchievementsSection } from '../../src/components/AchievementsSection';
+import { CategoryIcon } from '../../src/components/CategoryIcon';
+import { ProfileAvatarEditor } from '../../src/components/ProfileAvatarEditor';
+import { ProfileStatsCard } from '../../src/components/ProfileStatsCard';
+import { TeammateRatingsCard } from '../../src/components/TeammateRatingsCard';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import {
   Avatar,
   Chip,
   HeaderRow,
+  Icon,
   ListRow,
   Screen,
   elevation,
@@ -16,15 +23,20 @@ import {
   radii,
   spacing,
   typography,
+  withHexAlpha,
 } from '../../src/design-system';
 import { getCategory } from '../../src/constants/catalog';
 import { useAuth } from '../../src/context/AuthContext';
+import { useTeams } from '../../src/context/TeamsContext';
 import { useTheme } from '../../src/context/ThemeContext';
 
 export default function ProfileScreen() {
   const { user, logout } = useAuth();
   const { colors } = useTheme();
+  const { myActiveTeams } = useTeams();
+  const [avatarOpen, setAvatarOpen] = useState(false);
   if (!user) return null;
+  const profileTeams = myActiveTeams.slice(0, 4);
 
   const onLogout = async () => {
     await logout();
@@ -59,20 +71,32 @@ export default function ProfileScreen() {
             end={{ x: 1, y: 1 }}
             style={[styles.hero, elevation.glow(colors.primary)]}
           >
-            <View>
+            <Pressable
+              onPress={() => setAvatarOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Changer photo ou avatar"
+              style={styles.avatarTap}
+            >
               <Avatar
                 name={user.name}
                 photo={user.photo}
+                personaId={user.avatarPersonaId}
                 color={user.avatarColor}
                 size={96}
                 online={user.online}
               />
+              <View style={[styles.cameraBadge, { backgroundColor: colors.white }]}>
+                <Ionicons name="camera" size={16} color={colors.primary} />
+              </View>
               <View style={[styles.relBadge, { backgroundColor: colors.accent }]}>
                 <Text style={styles.relBadgeText}>{user.reliability}</Text>
               </View>
-            </View>
+            </Pressable>
             <Text style={styles.name}>{user.name}</Text>
-            <Text style={styles.city}>📍 {user.city || '—'}</Text>
+            <View style={styles.cityRow}>
+              <Icon name="city" size={14} color="rgba(255,255,255,0.85)" />
+              <Text style={styles.city}>{user.city || '—'}</Text>
+            </View>
             <Text style={styles.tagline}>
               {user.bio || 'Nouveau sur Jumelo — compléter mon profil !'}
             </Text>
@@ -85,8 +109,16 @@ export default function ProfileScreen() {
                 Compléter mon profil
               </Text>
             </Pressable>
+            <Pressable
+              style={styles.avatarHintBtn}
+              onPress={() => setAvatarOpen(true)}
+            >
+              <Text style={styles.avatarHintText}>Changer photo / avatar</Text>
+            </Pressable>
           </LinearGradient>
         </Animated.View>
+
+        <ProfileStatsCard userId={user.id} />
 
         <Text style={[styles.section, { color: colors.ink }]}>Univers</Text>
         <View style={styles.wrap}>
@@ -128,22 +160,74 @@ export default function ProfileScreen() {
           ))}
         </View>
 
+        <TeammateRatingsCard userId={user.id} compact />
+
+        <Text style={[styles.section, { color: colors.ink }]}>Équipes actives</Text>
+        {profileTeams.length === 0 ? (
+          <ListRow
+            title="Aucune équipe"
+            subtitle="Rejoins un lobby pour le voir ici"
+            left={<Ionicons name="people-outline" size={20} color={colors.inkMuted} />}
+            onPress={() => router.push('/(tabs)/teams')}
+          />
+        ) : (
+          profileTeams.map((team) => (
+            <ListRow
+              key={team.id}
+              title={team.name}
+              subtitle={team.activity}
+              left={<CategoryIcon universeId={team.universe} />}
+              right={
+                <Text
+                  style={{
+                    fontFamily: fonts.bodyMedium,
+                    color: colors.inkMuted,
+                    fontSize: 13,
+                  }}
+                >
+                  {team.membersCount}/{team.capacity}
+                </Text>
+              }
+              onPress={() => router.push(`/team/${team.id}`)}
+            />
+          ))
+        )}
+
+        <AchievementsSection userId={user.id} reliability={user.reliability} />
+
         <View
           style={[
             styles.reliability,
-            { backgroundColor: colors.white, borderColor: colors.border },
+            {
+              backgroundColor: withHexAlpha(colors.white, 0.55),
+              borderColor: withHexAlpha(colors.warning, 0.28),
+            },
           ]}
         >
-          <Ionicons name="ribbon" size={28} color={colors.warning} />
+          <View
+            style={[
+              styles.reliabilityIcon,
+              { backgroundColor: withHexAlpha(colors.warning, 0.16) },
+            ]}
+          >
+            <Ionicons name="ribbon" size={22} color={colors.warning} />
+          </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ fontFamily: fonts.bodyBold, color: colors.ink }}>
+            <Text style={{ fontFamily: fonts.bodyBold, color: colors.ink, fontSize: 15 }}>
               Score de fiabilité
             </Text>
             <Text style={{ fontFamily: fonts.body, color: colors.inkMuted, fontSize: 13 }}>
               Basé sur tes sessions & feedbacks
             </Text>
           </View>
-          <Text style={{ fontFamily: fonts.display, fontSize: 28, color: colors.primary }}>
+          <Text
+            style={{
+              fontFamily: fonts.display,
+              fontSize: 30,
+              letterSpacing: -0.6,
+              color: colors.primary,
+            }}
+          >
             {user.reliability}
           </Text>
         </View>
@@ -178,6 +262,8 @@ export default function ProfileScreen() {
           Jumelo · Trouve ton Jumelo
         </Text>
       </ScrollView>
+
+      <ProfileAvatarEditor visible={avatarOpen} onClose={() => setAvatarOpen(false)} />
     </Screen>
   );
 }
@@ -201,6 +287,19 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     overflow: 'hidden',
   },
+  avatarTap: { position: 'relative' },
+  cameraBadge: {
+    position: 'absolute',
+    left: -2,
+    bottom: -2,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'rgba(255,255,255,0.9)',
+  },
   relBadge: {
     position: 'absolute',
     right: -2,
@@ -216,18 +315,25 @@ const styles = StyleSheet.create({
   relBadgeText: { color: '#fff', fontFamily: fonts.bodyBold, fontSize: 12 },
   name: {
     fontFamily: fonts.displaySemi,
-    fontSize: 26,
+    fontSize: 28,
+    letterSpacing: -0.5,
     marginTop: spacing.sm,
     color: '#fff',
   },
+  cityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   city: {
     color: 'rgba(255,255,255,0.85)',
-    fontFamily: fonts.body,
+    fontFamily: fonts.bodyMedium,
+    fontSize: 14,
   },
   tagline: {
     fontFamily: fonts.body,
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 21,
     color: 'rgba(255,255,255,0.9)',
     maxWidth: 300,
   },
@@ -238,10 +344,19 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: radii.pill,
     paddingHorizontal: 18,
-    paddingVertical: 12,
+    paddingVertical: 13,
     backgroundColor: '#fff',
   },
   completeText: { fontFamily: fonts.bodyBold },
+  avatarHintBtn: {
+    paddingVertical: 4,
+  },
+  avatarHintText: {
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    textDecorationLine: 'underline',
+  },
   section: {
     marginTop: spacing.xl,
     marginBottom: spacing.sm,
@@ -259,8 +374,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     borderWidth: 1,
-    borderRadius: radii.md,
+    borderRadius: radii.lg,
     padding: spacing.md,
+  },
+  reliabilityIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   footer: {
     textAlign: 'center',

@@ -4,6 +4,8 @@ import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
+import { getNotifPrefs } from '../legal';
+
 const TOKENS_KEY = '@jumelo/push-tokens';
 const INBOX_KEY = '@jumelo/notif-inbox';
 
@@ -16,6 +18,8 @@ export type AppNotification = {
   createdAt: string;
   read: boolean;
 };
+
+export type NotifyKind = 'message' | 'team' | 'match' | 'other';
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -62,6 +66,15 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
       name: 'Jumelo',
       importance: Notifications.AndroidImportance.DEFAULT,
     });
+    await Notifications.setNotificationChannelAsync('messages', {
+      name: 'Messages',
+      importance: Notifications.AndroidImportance.HIGH,
+      vibrationPattern: [0, 250, 120, 250],
+    });
+    await Notifications.setNotificationChannelAsync('teams', {
+      name: 'Équipes',
+      importance: Notifications.AndroidImportance.DEFAULT,
+    });
   }
 
   const projectId =
@@ -84,7 +97,13 @@ export async function registerPushTokenForUser(userId: string): Promise<string |
   }
 }
 
-async function pushToExpo(token: string, title: string, body: string, data?: Record<string, string>) {
+async function pushToExpo(
+  token: string,
+  title: string,
+  body: string,
+  data?: Record<string, string>,
+  channelId?: string,
+) {
   try {
     await fetch('https://exp.host/--/api/v2/push/send', {
       method: 'POST',
@@ -98,6 +117,7 @@ async function pushToExpo(token: string, title: string, body: string, data?: Rec
         title,
         body,
         data: data ?? {},
+        channelId: channelId ?? 'default',
       }),
     });
   } catch {
@@ -105,13 +125,41 @@ async function pushToExpo(token: string, title: string, body: string, data?: Rec
   }
 }
 
-/** Notifie un user (inbox + push si token + notif locale de secours). */
+async function prefsAllow(kind: NotifyKind): Promise<boolean> {
+  try {
+    const prefs = await getNotifPrefs();
+    if (kind === 'message') return prefs.messageAlerts;
+    if (kind === 'team') return prefs.teamAlerts;
+    if (kind === 'match') return prefs.matchAlerts;
+    return true;
+  } catch {
+    return true;
+  }
+}
+
+function channelForKind(kind: NotifyKind): string {
+  if (kind === 'message') return 'messages';
+  if (kind === 'team') return 'teams';
+  return 'default';
+}
+
+/**
+ * Notifie un user (inbox + push Expo si token).
+ * `presentLocally` = bannière sur CET appareil (uniquement si le destinataire est l’utilisateur courant).
+ */
 export async function notifyUser(params: {
   userId: string;
   title: string;
   body: string;
   data?: Record<string, string>;
+  kind?: NotifyKind;
+  /** Affiche une notif locale sur l’appareil courant (destinataire = user connecté). */
+  presentLocally?: boolean;
 }): Promise<void> {
+  if (!params.userId) return;
+  const kind = params.kind ?? 'other';
+  if (!(await prefsAllow(kind))) return;
+
   const inbox = await readJson<AppNotification[]>(INBOX_KEY, []);
   inbox.unshift({
     id: `n-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
@@ -124,13 +172,15 @@ export async function notifyUser(params: {
   });
   await writeJson(INBOX_KEY, inbox.slice(0, 100));
 
+  const channelId = channelForKind(kind);
   const tokens = await readJson<Record<string, string>>(TOKENS_KEY, {});
   const token = tokens[params.userId];
   if (token) {
-    await pushToExpo(token, params.title, params.body, params.data);
+    await pushToExpo(token, params.title, params.body, params.data, channelId);
   }
 
-  if (Platform.OS !== 'web') {
+  // Ne pas spammer l’appareil de l’émetteur quand on notifie quelqu’un d’autre.
+  if (params.presentLocally && Platform.OS !== 'web') {
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
@@ -138,6 +188,7 @@ export async function notifyUser(params: {
           body: params.body,
           data: params.data ?? {},
           sound: true,
+          ...(Platform.OS === 'android' ? { channelId } : {}),
         },
         trigger: null,
       });
@@ -150,4 +201,23 @@ export async function notifyUser(params: {
 export async function listInboxForUser(userId: string): Promise<AppNotification[]> {
   const inbox = await readJson<AppNotification[]>(INBOX_KEY, []);
   return inbox.filter((n) => n.userId === userId);
+}
+
+/** Confirmation après join / approve (« Tu as rejoint [nom] »). */
+export async function notifyTeamJoined(params: {
+  userId: string;
+  teamId: string;
+  teamName: string;
+  /** Bannière locale (appareil du membre qui vient de rejoindre). */
+  presentLocally?: boolean;
+}): Promise<void> {
+  const name = params.teamName.trim() || 'cette équipe';
+  await notifyUser({
+    userId: params.userId,
+    title: 'Équipe rejointe',
+    body: `Tu as rejoint « ${name} » — bienvenue dans le lobby !`,
+    data: { type: 'team_joined', teamId: params.teamId },
+    kind: 'team',
+    presentLocally: params.presentLocally,
+  });
 }

@@ -140,9 +140,9 @@ export default function MatchSuccessScreen() {
             end={{ x: 1, y: 1 }}
             style={styles.scorePill}
           >
-            <Text style={styles.scoreValue}>{match.score}</Text>
+            <Text style={styles.scoreValue}>{match.score}%</Text>
             <View>
-              <Text style={styles.scoreLabel}>score de jumelage</Text>
+              <Text style={styles.scoreLabel}>compatibilité</Text>
               <Text style={styles.scoreHint}>{scoreLabel(match.score)}</Text>
             </View>
           </LinearGradient>

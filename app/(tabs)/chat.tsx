@@ -15,10 +15,12 @@ import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import {
   EmptyState,
   HeaderRow,
+  Icon,
   Screen,
   fonts,
   radii,
   spacing,
+  withHexAlpha,
 } from '../../src/design-system';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTeams } from '../../src/context/TeamsContext';
@@ -138,23 +140,19 @@ export default function ChatListScreen() {
         <HeaderRow
           title="Messages"
           subtitle="DMs, groupes & notices"
-          right={
-            <View style={styles.actions}>
-              <ThemeSwitcherButton />
-              <Pressable>
-                <Ionicons name="create-outline" size={24} color={colors.ink} />
-              </Pressable>
-            </View>
-          }
+          right={<ThemeSwitcherButton />}
         />
 
         <View
           style={[
             styles.search,
-            { backgroundColor: colors.white, borderColor: colors.border },
+            {
+              backgroundColor: withHexAlpha(colors.white, 0.78),
+              borderColor: withHexAlpha(colors.border, 0.95),
+            },
           ]}
         >
-          <Ionicons name="search" size={18} color={colors.inkFaint} />
+          <Icon name="search" size={18} color={colors.inkFaint} />
           <TextInput
             value={query}
             onChangeText={setQuery}
@@ -185,7 +183,16 @@ export default function ChatListScreen() {
               key={thread.id}
               style={[
                 styles.row,
-                thread.isGroup && { backgroundColor: colors.cream, borderRadius: radii.md },
+                {
+                  backgroundColor: thread.isGroup
+                    ? withHexAlpha(colors.primary, 0.06)
+                    : withHexAlpha(colors.white, 0.55),
+                  borderRadius: radii.md,
+                  borderWidth: 1,
+                  borderColor: thread.isGroup
+                    ? withHexAlpha(colors.primary, 0.12)
+                    : withHexAlpha(colors.border, 0.8),
+                },
               ]}
               onPress={() => router.push(`/chat/${thread.id}`)}
             >
@@ -275,8 +282,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.md,
-    paddingHorizontal: spacing.sm,
-    marginBottom: 4,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
   },
   avatar: { width: 52, height: 52, borderRadius: 26 },
   groupAvatar: {

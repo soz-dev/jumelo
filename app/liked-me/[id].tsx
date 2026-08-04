@@ -4,8 +4,10 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ImageBackground,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -26,7 +28,11 @@ import {
 import type { UserProfile } from '../../src/data/mock';
 import { createLike, dismissIncomingLike, markIncomingLikeRead } from '../../src/lib/api/likes';
 import { getCommonPoints } from '../../src/lib/commonPoints';
-import { computeMatch } from '../../src/lib/matching';
+import {
+  computeMatch,
+  isOfficialJumelage,
+  MATCH_THRESHOLD,
+} from '../../src/lib/matching';
 import { safeBack } from '../../src/lib/navigation';
 import { useRequirePremium } from '../../src/lib/premiumStore';
 import { resolveUserById } from '../../src/lib/users';
@@ -93,9 +99,17 @@ export default function LikedMeScreen() {
   const match = computeMatch(me, profile);
   const score = match.score;
   const commonPoints = getCommonPoints(me, profile);
+  const canJumeler = isOfficialJumelage(score);
 
   const onLikeBack = async () => {
     if (busy) return;
+    if (!canJumeler) {
+      Alert.alert(
+        'Pas encore un jumelage',
+        `Il faut au moins ${MATCH_THRESHOLD}% de points communs pour jumeler. Ici : ${score}%.`,
+      );
+      return;
+    }
     setBusy(true);
     try {
       const result = await createLike(me.id, profile.id, score);
@@ -103,7 +117,6 @@ export default function LikedMeScreen() {
         router.replace(`/match-success/${profile.id}`);
         return;
       }
-      // Pas mutuel (cas rare si seed absent) — toast via retour Home
       safeBack('/(tabs)/home');
     } finally {
       setBusy(false);
@@ -132,7 +145,10 @@ export default function LikedMeScreen() {
           <Ionicons name="close" size={22} color={colors.ink} />
         </Pressable>
 
-        <View style={styles.hero}>
+        <ScrollView
+          contentContainerStyle={styles.scroll}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={[styles.photoWrap, { borderColor: colors.primary }]}>
             <ImageBackground
               source={{
@@ -169,21 +185,27 @@ export default function LikedMeScreen() {
           </LinearGradient>
 
           <Text style={[styles.subcopy, { color: colors.inkMuted }]}>
-            Points communs et raisons visibles — pas de romance, juste un coéquipier.
+            Voici pourquoi — pas de romance, juste un coéquipier.
           </Text>
 
           <Text style={[styles.bio, { color: colors.inkMuted }]} numberOfLines={3}>
             {profile.bio}
           </Text>
 
-          <CommonPointsBlock points={commonPoints} score={score} compact />
-        </View>
+          <CommonPointsBlock
+            points={commonPoints}
+            score={score}
+            reasons={match.reasons}
+            compact
+          />
+        </ScrollView>
 
         <View style={styles.actions}>
           <Button
-            label="Jumeler aussi"
+            label={canJumeler ? 'Jumeler aussi' : `Jumelage dès ${MATCH_THRESHOLD}%`}
             icon="people"
             loading={busy}
+            disabled={!canJumeler}
             onPress={onLikeBack}
           />
           <Button
@@ -220,6 +242,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 2,
   },
   missing: {
     fontFamily: fonts.display,
@@ -227,20 +250,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
   },
-  hero: {
-    flex: 1,
+  scroll: {
     paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingBottom: spacing.md,
+    alignItems: 'stretch',
   },
   photoWrap: {
     width: '100%',
     maxWidth: 340,
-    aspectRatio: 0.85,
+    aspectRatio: 0.95,
     borderRadius: radii.lg + 4,
     borderWidth: 3,
     overflow: 'hidden',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
+    alignSelf: 'center',
   },
   photo: { flex: 1 },
   photoGradient: {
@@ -268,12 +291,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     paddingHorizontal: 18,
     paddingVertical: 12,
-    marginBottom: spacing.md,
+    marginBottom: spacing.sm,
     alignSelf: 'stretch',
   },
   bannerText: {
     fontFamily: fonts.bodyBold,
     fontSize: 16,
+    flex: 1,
   },
   subcopy: {
     fontFamily: fonts.body,
@@ -289,14 +313,11 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 22,
     paddingHorizontal: spacing.sm,
-  },
-  scoreHint: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-    marginTop: spacing.sm,
+    marginBottom: spacing.sm,
   },
   actions: {
     paddingHorizontal: spacing.lg,
     paddingBottom: spacing.lg,
+    paddingTop: spacing.sm,
   },
 });

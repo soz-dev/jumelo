@@ -57,8 +57,11 @@ import {
   Joystick,
   Lightning,
   LockKey,
+  LockKeyOpen,
   MagicWand,
+  MagnifyingGlass,
   MapPin,
+  Plus,
   MaskHappy,
   Microphone,
   Moon,
@@ -125,6 +128,10 @@ export type IconName =
   | 'pulse'
   | 'city'
   | 'interest'
+  | 'lock'
+  | 'lock-open'
+  | 'plus'
+  | 'search'
   // Activités (sous-catégories + alias sémantiques)
   | 'sport'
   | 'football'
@@ -301,6 +308,10 @@ const ICONS: Record<IconName, PhosphorIcon> = {
   pulse: Pulse,
   city: MapPin,
   interest: Star,
+  lock: LockKey,
+  'lock-open': LockKeyOpen,
+  plus: Plus,
+  search: MagnifyingGlass,
 
   // Sport
   football: SoccerBall,

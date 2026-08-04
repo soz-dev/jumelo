@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { JumeloLottie } from '../components/JumeloLottie';
 import { useTheme } from '../context/ThemeContext';
+import { withHexAlpha } from '../constants/theme';
 import { Button } from './Button';
-import { iconSizes, spacing, typography } from './tokens';
+import { iconSizes, motion, radii, spacing, typography } from './tokens';
 
 type EmptyStateProps = {
   title: string;
@@ -26,11 +28,19 @@ export function EmptyState({
 }: EmptyStateProps) {
   const { colors } = useTheme();
   return (
-    <View style={styles.wrap}>
+    <Animated.View entering={FadeInDown.duration(motion.slow)} style={styles.wrap}>
       {lottie ? (
-        <JumeloLottie name={lottie} size={88} />
+        <JumeloLottie name={lottie} size={96} />
       ) : (
-        <View style={[styles.iconBubble, { backgroundColor: colors.primarySoft }]}>
+        <View
+          style={[
+            styles.iconBubble,
+            {
+              backgroundColor: withHexAlpha(colors.primary, 0.12),
+              borderColor: withHexAlpha(colors.primary, 0.22),
+            },
+          ]}
+        >
           <Ionicons name={icon} size={iconSizes.lg} color={colors.primary} />
         </View>
       )}
@@ -39,9 +49,13 @@ export function EmptyState({
         <Text style={[styles.desc, { color: colors.inkMuted }]}>{description}</Text>
       ) : null}
       {actionLabel && onAction ? (
-        <Button label={actionLabel} onPress={onAction} style={{ marginTop: spacing.md }} />
+        <Button
+          label={actionLabel}
+          onPress={onAction}
+          style={{ marginTop: spacing.md, minWidth: 200 }}
+        />
       ) : null}
-    </View>
+    </Animated.View>
   );
 }
 
@@ -53,12 +67,13 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   iconBubble: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
+    width: 80,
+    height: 80,
+    borderRadius: radii.full,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
+    borderWidth: 1,
   },
   title: {
     ...typography.titleSm,

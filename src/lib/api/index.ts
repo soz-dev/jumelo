@@ -52,3 +52,18 @@ export {
   resetTeamsDemoState,
 } from './teams';
 export type { TeamMembershipState } from './teams';
+export {
+  clearSessionsForTeam,
+  endTeamSession,
+  getLatestSession,
+  getPendingRatingSession,
+  getUserRatingSummary,
+  sessionUiStatus,
+  startTeamSession,
+  submitSessionRatings,
+} from '../teamSessions';
+export type {
+  TeamSession,
+  TeamSessionStatus,
+  UserRatingSummary,
+} from '../teamSessions';

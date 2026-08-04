@@ -10,6 +10,7 @@ import {
 import type { IconName } from '../design-system/Icon';
 import { resolveCatalogIcon } from '../design-system/Icon';
 import type { UserProfile } from '../data/mock';
+import { activityKeys } from './matching';
 
 export type CommonPointKind =
   | 'universe'
@@ -40,20 +41,10 @@ function subLabel(subId: string): string {
   return subId;
 }
 
-function interestLabels(profile: UserProfile): string[] {
-  const fromSubs = (profile.subCategoryIds ?? []).map(subLabel);
-  const merged = [...fromSubs, ...profile.interests];
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const label of merged) {
-    const normalized = label.trim();
-    if (!normalized) continue;
-    const key = normalized.toLowerCase();
-    if (seen.has(key)) continue;
-    seen.add(key);
-    out.push(normalized);
-  }
-  return out;
+function activityLabelFromKey(key: string): string {
+  if (key.startsWith('id:')) return subLabel(key.slice(3));
+  if (key.startsWith('label:')) return key.slice(6);
+  return key;
 }
 
 function interestIcon(label: string): IconName {
@@ -83,12 +74,13 @@ export function getCommonPoints(me: UserProfile, other: UserProfile): CommonPoin
     });
   }
 
-  for (const interest of overlap(interestLabels(me), interestLabels(other))) {
+  for (const activityKey of overlap(activityKeys(me), activityKeys(other))) {
+    const label = activityLabelFromKey(activityKey);
     points.push({
-      key: `interest:${interest.toLowerCase()}`,
+      key: `interest:${activityKey}`,
       kind: 'interest',
-      label: interest,
-      icon: interestIcon(interest),
+      label,
+      icon: interestIcon(label),
     });
   }
 

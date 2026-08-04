@@ -21,6 +21,7 @@ export { Screen } from './Screen';
 export { SectionHeader, HeaderRow } from './SectionHeader';
 export { ListRow } from './ListRow';
 export { Avatar } from './Avatar';
+export { PersonaAvatar } from './PersonaAvatar';
 export { Badge, ScoreBadge } from './Badge';
 export { Chip } from './Chip';
 export { EmptyState } from './EmptyState';

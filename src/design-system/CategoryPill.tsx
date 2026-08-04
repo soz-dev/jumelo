@@ -34,12 +34,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 5,
+    paddingVertical: 6,
     borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
   },
   catPillText: {
     color: '#fff',
     fontFamily: fonts.bodyBold,
     fontSize: 12,
+    letterSpacing: 0.2,
   },
 });

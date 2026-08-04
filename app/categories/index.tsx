@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { Atmosphere } from '../../src/components/Atmosphere';
 import {
   CategoryPath,
   CategoryPicker,
@@ -29,56 +30,62 @@ export default function CategoriesScreen() {
       ? getSubCategory(path.universeId, path.subCategoryId)
       : undefined;
   const platform = platforms.find((p) => p.id === path.platformId);
+  const atPlatformStep = Boolean(sub);
+  const canSearch = Boolean(sub && (!sub.platforms?.length || platform));
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]}>
-      <View style={styles.top}>
-        <Pressable
-          style={[styles.back, { backgroundColor: colors.white, borderColor: colors.border }]}
-          onPress={() => safeBack('/(tabs)/home')}
-        >
-          <Ionicons name="arrow-back" size={20} color={colors.ink} />
-        </Pressable>
-        <ThemeSwitcherButton />
-      </View>
-
-      <ScrollView contentContainerStyle={styles.content}>
-        <HeaderRow
-          title="Catégories"
-          subtitle="Univers → activité → plateforme"
-        />
-
-        <View style={[styles.card, { backgroundColor: colors.white, borderColor: colors.border }]}>
-          <CategoryPicker value={path} onChange={setPath} requirePlatform />
+    <Atmosphere variant="soft">
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.top}>
+          <Pressable
+            style={[styles.back, { backgroundColor: colors.white, borderColor: colors.border }]}
+            onPress={() => safeBack('/(tabs)/home')}
+          >
+            <Ionicons name="arrow-back" size={20} color={colors.ink} />
+          </Pressable>
+          <ThemeSwitcherButton />
         </View>
 
-        {(cat || sub || platform) && (
-          <View style={[styles.summary, { backgroundColor: colors.primarySoft }]}>
-            <Text style={[styles.summaryTitle, { color: colors.primaryDark }]}>
-              Sélection
-            </Text>
-            <Text style={{ color: colors.ink, fontFamily: fonts.body }}>
-              {[cat?.label, sub?.label, platform?.label].filter(Boolean).join(' › ')}
-            </Text>
+        <ScrollView contentContainerStyle={styles.content}>
+          {!atPlatformStep ? (
+            <HeaderRow
+              title="Catégories"
+              subtitle="Univers → activité → plateforme"
+            />
+          ) : (
+            <HeaderRow
+              title="Presque prêt"
+              subtitle="Choisis ta plateforme pour lancer la recherche"
+            />
+          )}
+
+          <View style={styles.picker}>
+            <CategoryPicker value={path} onChange={setPath} requirePlatform />
+          </View>
+
+          {canSearch ? (
             <Pressable
               style={[styles.cta, { backgroundColor: colors.primary }]}
               onPress={() =>
                 router.push({
                   pathname: '/maintenant',
                   params: {
-                    // prefill via navigation only — Maintenant has its own state
+                    universe: path.universeId ?? '',
+                    activity: sub?.label ?? '',
+                    platform: platform?.id ?? '',
                   },
                 })
               }
             >
-              <Text style={{ color: '#fff', fontFamily: fonts.bodyBold }}>
-                Chercher un partenaire dans cette catégorie
+              <Text style={{ color: '#fff', fontFamily: fonts.bodyBold, textAlign: 'center' }}>
+                Chercher un partenaire
+                {platform ? ` · ${platform.label}` : ''}
               </Text>
             </Pressable>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+          ) : null}
+        </ScrollView>
+      </SafeAreaView>
+    </Atmosphere>
   );
 }
 
@@ -98,25 +105,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  content: { padding: spacing.lg },
-  card: {
-    marginTop: spacing.lg,
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    padding: spacing.md,
+  content: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl ?? 48,
+    flexGrow: 1,
   },
-  summary: {
+  picker: {
     marginTop: spacing.lg,
-    borderRadius: radii.lg,
-    padding: spacing.md,
-    gap: spacing.sm,
   },
-  summaryTitle: { fontFamily: fonts.bodyBold },
   cta: {
-    marginTop: spacing.sm,
+    marginTop: spacing.lg,
     borderRadius: radii.pill,
     alignItems: 'center',
-    paddingVertical: 14,
+    paddingVertical: 16,
     paddingHorizontal: 16,
   },
 });

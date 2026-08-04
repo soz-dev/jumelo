@@ -267,7 +267,7 @@ export default function DiscoverScreen() {
                   ) : null;
                 })()}
                 <View style={styles.scoreCircle}>
-                  <Text style={styles.scoreNum}>{current.score}</Text>
+                  <Text style={styles.scoreNum}>{current.score}%</Text>
                 </View>
               </View>
 
@@ -417,7 +417,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  scoreNum: { color: '#fff', fontFamily: fonts.bodyBold, fontSize: 16 },
+  scoreNum: { color: '#fff', fontFamily: fonts.bodyBold, fontSize: 14 },
   overlay: {
     position: 'absolute',
     left: 0,

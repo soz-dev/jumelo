@@ -63,7 +63,7 @@ export default function RegisterScreen() {
 
   const requireLegal = () => {
     if (!legalChecked) {
-      setError('Accepte les CGU et la politique de confidentialité pour continuer.');
+      setError('Accepte les règles Jumelo pour créer ton compte.');
       return false;
     }
     return true;
@@ -164,6 +164,13 @@ export default function RegisterScreen() {
             </Text>
             <Text
               style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
+              onPress={() => router.push('/settings/rules' as Href)}
+            >
+              règles Jumelo
+            </Text>
+            <Text onPress={() => setLegalChecked((v) => !v)}>{' '}(dont les{' '}</Text>
+            <Text
+              style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
               onPress={() => router.push('/settings/cgu' as Href)}
             >
               CGU
@@ -173,9 +180,9 @@ export default function RegisterScreen() {
               style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
               onPress={() => router.push('/settings/privacy' as Href)}
             >
-              Politique de confidentialité
+              confidentialité
             </Text>
-            <Text onPress={() => setLegalChecked((v) => !v)}>.</Text>
+            <Text onPress={() => setLegalChecked((v) => !v)}>).</Text>
           </Text>
         </View>
         {error && !legalChecked ? (
@@ -185,7 +192,10 @@ export default function RegisterScreen() {
         <View style={styles.socialBlock}>
           {showAppleButton ? (
             <Pressable
-              style={[styles.socialBtn, { backgroundColor: '#000' }]}
+              style={[
+                styles.socialBtn,
+                { backgroundColor: '#000', opacity: legalChecked ? 1 : 0.55 },
+              ]}
               onPress={() => onOAuth('apple')}
               disabled={Boolean(oauthLoading) || loading}
             >
@@ -203,6 +213,7 @@ export default function RegisterScreen() {
                   backgroundColor: colors.white,
                   borderWidth: 1,
                   borderColor: colors.border,
+                  opacity: legalChecked ? 1 : 0.55,
                 },
               ]}
               onPress={() => onOAuth('google')}
@@ -275,7 +286,12 @@ export default function RegisterScreen() {
           {error && legalChecked ? (
             <Text style={[styles.error, { color: colors.accent }]}>{error}</Text>
           ) : null}
-          <Button label="Continuer" onPress={onSubmit} loading={loading} />
+          <Button
+            label="Continuer"
+            onPress={onSubmit}
+            loading={loading}
+            disabled={!legalChecked || loading}
+          />
         </View>
         </ScrollView>
       </KeyboardAvoidingView>

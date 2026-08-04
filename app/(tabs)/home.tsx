@@ -87,7 +87,7 @@ function ScalePressable({
 
 export default function HomeScreen() {
   const { user, usingSupabase } = useAuth();
-  const { teams } = useTeams();
+  const { myActiveTeams } = useTeams();
   const { colors } = useTheme();
   const { guard } = usePremiumAccess();
   const [pool, setPool] = useState<UserProfile[]>(mockUsers);
@@ -156,7 +156,7 @@ export default function HomeScreen() {
 
   if (!user) return null;
 
-  const activeTeams = teams.slice(0, 3);
+  const activeTeams = myActiveTeams.slice(0, 3);
   const firstName = user.name?.split(' ')[0] ?? '';
 
   const onSeedIncoming = async () => {
@@ -179,7 +179,7 @@ export default function HomeScreen() {
     setSeedHint('Maya veut déjà jumeler — jumelle aussi ou via Discover');
     Alert.alert(
       'Cas de test : jumelage mutuel',
-      'Maya veut déjà jumeler. Réponds « Jumeler aussi » (sheet) ou trouve-la dans Discover (swipe droite) → « C’est un jumelage ! ».',
+      'Maya veut déjà jumeler (≥80%). Réponds « Jumeler aussi » (sheet) ou trouve-la dans Discover (swipe droite) → « C’est un jumelage ! ».',
       [
         { text: 'Discover', onPress: () => router.push('/(tabs)/discover') },
         { text: 'Jumeler Maya', onPress: () => goLikedMe(likerId) },
@@ -405,23 +405,32 @@ export default function HomeScreen() {
             onAction={() => router.push('/(tabs)/teams')}
           />
 
-          {activeTeams.map((team) => (
+          {activeTeams.length === 0 ? (
             <ListRow
-              key={team.id}
-              title={team.name}
-              subtitle={team.activity}
-              left={<CategoryIcon universeId={team.universe} />}
-              right={
-                <View style={styles.members}>
-                  <Icon name="teams" size={14} color={colors.inkMuted} />
-                  <Text style={{ color: colors.inkMuted, fontFamily: fonts.bodyMedium }}>
-                    {team.membersCount}/{team.capacity}
-                  </Text>
-                </View>
-              }
-              onPress={() => router.push(`/team/${team.id}`)}
+              title="Aucune équipe pour l’instant"
+              subtitle="Rejoins un lobby — il apparaîtra ici en premier"
+              left={<Icon name="teams" size={20} color={colors.inkMuted} />}
+              onPress={() => router.push('/(tabs)/teams')}
             />
-          ))}
+          ) : (
+            activeTeams.map((team) => (
+              <ListRow
+                key={team.id}
+                title={team.name}
+                subtitle={team.activity}
+                left={<CategoryIcon universeId={team.universe} />}
+                right={
+                  <View style={styles.members}>
+                    <Icon name="teams" size={14} color={colors.inkMuted} />
+                    <Text style={{ color: colors.inkMuted, fontFamily: fonts.bodyMedium }}>
+                      {team.membersCount}/{team.capacity}
+                    </Text>
+                  </View>
+                }
+                onPress={() => router.push(`/team/${team.id}`)}
+              />
+            ))
+          )}
 
           <SectionHeader
             title="Activité récente"
@@ -455,19 +464,23 @@ export default function HomeScreen() {
             />
           ))}
 
-          <Pressable
-            style={[
-              styles.categoriesCta,
-              { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-            ]}
+          <ScalePressable
             onPress={() => router.push('/categories')}
+            style={[styles.categoriesPress, elevation.glow(colors.primary)]}
           >
-            <Icon name="spark" size={18} color={colors.primaryDark} weight="bold" />
-            <Text style={{ fontFamily: fonts.bodyBold, color: colors.primaryDark }}>
-              Parcourir les catégories
-            </Text>
-            <Icon name="chevronRight" size={16} color={colors.primaryDark} weight="bold" />
-          </Pressable>
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.categoriesCta}
+            >
+              <View style={styles.categoriesIcon}>
+                <Icon name="spark" size={18} color={colors.white} weight="bold" />
+              </View>
+              <Text style={styles.categoriesLabel}>Parcourir les catégories</Text>
+              <Icon name="chevronRight" size={16} color={colors.white} weight="bold" />
+            </LinearGradient>
+          </ScalePressable>
         </ScrollView>
       </SafeAreaView>
     </Atmosphere>
@@ -758,14 +771,33 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 2,
   },
-  categoriesCta: {
+  categoriesPress: {
     marginTop: spacing.xl,
-    borderRadius: radii.md,
-    padding: spacing.md,
+    borderRadius: radii.pill,
+  },
+  categoriesCta: {
+    minHeight: 56,
+    borderRadius: radii.pill,
+    paddingVertical: spacing.md,
+    paddingHorizontal: spacing.lg,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1,
+    gap: 10,
+    overflow: 'hidden',
+  },
+  categoriesIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoriesLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 16,
+    color: '#fff',
+    letterSpacing: 0.15,
   },
 });

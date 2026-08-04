@@ -85,8 +85,9 @@ export default function SettingsHubScreen() {
         />
         <SettingsRow
           icon="people-outline"
-          label="Charte communauté"
-          onPress={() => router.push('/settings/community')}
+          label="Règles Jumelo"
+          hint="Respect, anti-harcèlement, signalements"
+          onPress={() => router.push('/settings/rules')}
         />
         <SettingsRow
           icon="phone-portrait-outline"

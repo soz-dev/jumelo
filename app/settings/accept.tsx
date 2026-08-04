@@ -32,9 +32,9 @@ export default function LegalAcceptScreen() {
         </Text>
 
         <View style={[styles.card, { backgroundColor: colors.white, borderColor: colors.border }]}>
+          <LinkRow label="Règles Jumelo" href="/settings/rules" />
           <LinkRow label="Conditions générales d’utilisation" href="/settings/cgu" />
           <LinkRow label="Politique de confidentialité (RGPD)" href="/settings/privacy" />
-          <LinkRow label="Charte communauté" href="/settings/community" />
         </View>
 
         <Pressable
@@ -55,7 +55,8 @@ export default function LegalAcceptScreen() {
             {checked ? <Text style={styles.tick}>✓</Text> : null}
           </View>
           <Text style={[styles.checkLabel, { color: colors.ink }]}>
-            J’ai au moins 16 ans et j’accepte les CGU et la Politique de confidentialité Jumelo.
+            J’ai au moins 16 ans et j’accepte les règles Jumelo, les CGU et la Politique de
+            confidentialité.
           </Text>
         </Pressable>
 

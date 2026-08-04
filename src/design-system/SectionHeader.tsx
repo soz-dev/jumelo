@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '../context/ThemeContext';
+import { Icon } from './Icon';
 import { fonts, spacing, typography } from './tokens';
 
 type SectionHeaderProps = {
@@ -30,10 +31,14 @@ export function SectionHeader({
       </View>
       {right}
       {actionLabel && onAction ? (
-        <Pressable onPress={onAction} hitSlop={8} accessibilityRole="button">
-          <Text style={{ color: colors.primary, fontFamily: fonts.bodyBold }}>
-            {actionLabel}
-          </Text>
+        <Pressable
+          onPress={onAction}
+          hitSlop={8}
+          accessibilityRole="button"
+          style={({ pressed }) => [styles.action, { opacity: pressed ? 0.75 : 1 }]}
+        >
+          <Text style={[styles.actionLabel, { color: colors.primary }]}>{actionLabel}</Text>
+          <Icon name="chevronRight" size={14} color={colors.primary} weight="bold" />
         </Pressable>
       ) : null}
     </View>
@@ -68,5 +73,15 @@ const styles = StyleSheet.create({
   sub: {
     ...typography.caption,
     marginTop: 4,
+  },
+  action: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    paddingBottom: 2,
+  },
+  actionLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
   },
 });

@@ -1,4 +1,4 @@
-import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -10,39 +10,28 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
-import { CategoryIcon } from '../../src/components/CategoryIcon';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
-import { UniverseId, categories, getCategory } from '../../src/constants/catalog';
+import { TeamLobbyCard } from '../../src/components/TeamLobbyCard';
+import { UniverseId, categories } from '../../src/constants/catalog';
 import { useTheme } from '../../src/context/ThemeContext';
 import { useTeams } from '../../src/context/TeamsContext';
 import {
   Chip,
   EmptyState,
   HeaderRow,
+  Icon,
+  elevation,
   fonts,
   radii,
   spacing,
+  withHexAlpha,
 } from '../../src/design-system';
 import { ensureTeamChat } from '../../src/lib/api/teamChats';
 import type { TeamMembershipState } from '../../src/lib/api/teams';
-
-function joinLabel(state: TeamMembershipState): string {
-  switch (state) {
-    case 'owner':
-      return 'Gérer';
-    case 'member':
-      return 'Chat groupe';
-    case 'pending':
-      return 'En attente';
-    case 'rejected':
-      return 'Redemander';
-    default:
-      return 'Demander';
-  }
-}
 
 export default function TeamsScreen() {
   const { colors } = useTheme();
@@ -102,52 +91,73 @@ export default function TeamsScreen() {
   };
 
   return (
-    <Atmosphere>
+    <Atmosphere variant="bold">
       <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]} edges={['top']}>
-        <ScrollView contentContainerStyle={styles.content}>
+        <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <HeaderRow
             title="Lobby équipes"
-            subtitle="Trouve un squad ou crée le tien — vibe joueur"
+            subtitle="Trouve un squad ou crée le tien"
             right={
               <View style={styles.actions}>
                 <ThemeSwitcherButton />
                 <Pressable
-                  style={[styles.fab, { backgroundColor: colors.primary }]}
+                  style={[
+                    styles.fab,
+                    { backgroundColor: colors.primary },
+                    elevation.glow(colors.primary),
+                  ]}
                   onPress={() => router.push('/team/create')}
                   accessibilityLabel="Créer une équipe"
                 >
-                  <Ionicons name="add" size={24} color="#fff" />
+                  <Icon name="plus" size={22} color="#fff" weight="bold" />
                 </Pressable>
               </View>
             }
           />
 
-          <Pressable
-            onPress={() => router.push('/team/create')}
-            style={[
-              styles.ctaBanner,
-              { backgroundColor: colors.primarySoft, borderColor: colors.primary },
-            ]}
-          >
-            <Text style={styles.ctaEmoji}>🎮</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={[styles.ctaTitle, { color: colors.primaryDark }]}>
-                Créer un lobby
-              </Text>
-              <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, fontSize: 13 }}>
-                Choisis ton jeu, fixe les slots, invite ta team
-              </Text>
-            </View>
-            <Ionicons name="arrow-forward" size={18} color={colors.primaryDark} />
-          </Pressable>
+          <Animated.View entering={FadeInDown.duration(320)}>
+            <Pressable
+              onPress={() => router.push('/team/create')}
+              style={[styles.ctaPress, elevation.glow(colors.primary)]}
+            >
+              <LinearGradient
+                colors={[colors.primaryDark, colors.primary, colors.primary]}
+                locations={[0, 0.55, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.ctaBanner}
+              >
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.2)', 'transparent']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
+                <View style={styles.ctaIcon}>
+                  <Icon name="teams" size={22} color="#fff" weight="bold" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.ctaEyebrow}>Nouveau lobby</Text>
+                  <Text style={styles.ctaTitle}>Créer une équipe</Text>
+                  <Text style={styles.ctaSub}>
+                    Choisis ton jeu, fixe les slots, invite
+                  </Text>
+                </View>
+                <Icon name="chevronRight" size={18} color="#fff" weight="bold" />
+              </LinearGradient>
+            </Pressable>
+          </Animated.View>
 
           <View
             style={[
               styles.search,
-              { backgroundColor: colors.white, borderColor: colors.border },
+              {
+                backgroundColor: withHexAlpha(colors.white, 0.78),
+                borderColor: withHexAlpha(colors.border, 0.95),
+              },
             ]}
           >
-            <Ionicons name="search" size={18} color={colors.inkFaint} />
+            <Icon name="search" size={18} color={colors.inkFaint} />
             <TextInput
               value={query}
               onChangeText={setQuery}
@@ -188,120 +198,21 @@ export default function TeamsScreen() {
             />
           ) : null}
 
-          {filtered.map((team) => {
-            const cat = getCategory(team.universe);
-            const progress = team.membersCount / team.capacity;
+          {filtered.map((team, index) => {
             const state = getMembership(team.id);
-            const label = joinLabel(state);
-            const joinDisabled = state === 'pending' || busyId === team.id;
-            const joinBg =
-              state === 'pending'
-                ? colors.inkFaint
-                : state === 'member' || state === 'owner'
-                  ? colors.primarySoft
-                  : colors.primary;
-            const joinTextColor =
-              state === 'member' || state === 'owner' ? colors.primaryDark : '#fff';
-
             return (
-              <View
+              <Animated.View
                 key={team.id}
-                style={[
-                  styles.card,
-                  {
-                    backgroundColor: colors.white,
-                    borderColor:
-                      team.universe === 'gaming' ? `${cat?.color ?? colors.primary}99` : colors.border,
-                  },
-                ]}
+                entering={FadeInDown.delay(Math.min(index, 6) * 40).duration(300)}
               >
-                <View style={[styles.topBar, { backgroundColor: cat?.color ?? colors.primary }]} />
-                <View style={styles.cardBody}>
-                  <View style={styles.cardTop}>
-                    <CategoryIcon universeId={team.universe} size={44} />
-                    <View style={{ flex: 1 }}>
-                      <Text style={[styles.name, { color: colors.ink }]}>{team.name}</Text>
-                      <Text style={{ color: colors.inkMuted, fontFamily: fonts.body }}>
-                        {team.universe === 'gaming' ? '🎮 ' : ''}
-                        {team.activity}
-                      </Text>
-                    </View>
-                    <View style={[styles.vibe, { backgroundColor: colors.primarySoft }]}>
-                      <Text
-                        style={{
-                          color: colors.primaryDark,
-                          fontFamily: fonts.bodyMedium,
-                          fontSize: 12,
-                        }}
-                      >
-                        {team.vibe}
-                      </Text>
-                    </View>
-                  </View>
-
-                  <View style={styles.metaRow}>
-                    <Ionicons name="location-outline" size={14} color={colors.inkMuted} />
-                    <Text style={[styles.meta, { color: colors.inkMuted }]}>{team.city}</Text>
-                    <Ionicons name="people-outline" size={14} color={colors.inkMuted} />
-                    <Text style={[styles.meta, { color: colors.inkMuted }]}>
-                      {team.membersCount}/{team.capacity}
-                    </Text>
-                    <Text style={[styles.meta, { color: colors.inkMuted }]}>
-                      · Niveau: {team.levelLabel}
-                    </Text>
-                  </View>
-
-                  {state === 'pending' ? (
-                    <View style={[styles.pendingBanner, { backgroundColor: colors.primarySoft }]}>
-                      <Ionicons name="time-outline" size={16} color={colors.primaryDark} />
-                      <Text
-                        style={{
-                          color: colors.primaryDark,
-                          fontFamily: fonts.bodyMedium,
-                          fontSize: 13,
-                          flex: 1,
-                        }}
-                      >
-                        En attente d’approbation
-                      </Text>
-                    </View>
-                  ) : null}
-
-                  <View style={[styles.progressTrack, { backgroundColor: colors.border }]}>
-                    <View
-                      style={[
-                        styles.progressFill,
-                        {
-                          width: `${Math.min(progress, 1) * 100}%`,
-                          backgroundColor: cat?.color ?? colors.primary,
-                        },
-                      ]}
-                    />
-                  </View>
-
-                  <View style={styles.rowBtns}>
-                    <Pressable
-                      style={[styles.join, { backgroundColor: joinBg }]}
-                      disabled={joinDisabled && state === 'pending'}
-                      onPress={() => onJoinPress(team.id, state)}
-                    >
-                      {busyId === team.id ? (
-                        <ActivityIndicator color={joinTextColor} />
-                      ) : (
-                        <Text style={[styles.joinText, { color: joinTextColor }]}>{label}</Text>
-                      )}
-                    </Pressable>
-                    <Pressable
-                      style={[styles.details, { borderColor: colors.border }]}
-                      onPress={() => router.push(`/team/${team.id}`)}
-                    >
-                      <Text style={{ color: colors.ink, fontFamily: fonts.bodyMedium }}>
-                        Détails
-                      </Text>
-                    </Pressable>
-                  </View>
-                </View>
-              </View>
+                <TeamLobbyCard
+                  team={team}
+                  state={state}
+                  busy={busyId === team.id}
+                  onJoin={() => onJoinPress(team.id, state)}
+                  onDetails={() => router.push(`/team/${team.id}`)}
+                />
+              </Animated.View>
             );
           })}
         </ScrollView>
@@ -315,23 +226,53 @@ const styles = StyleSheet.create({
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   actions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   fab: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  ctaBanner: {
+  ctaPress: {
     marginTop: spacing.md,
-    borderWidth: 1.5,
-    borderRadius: radii.lg,
-    padding: spacing.md,
+    borderRadius: radii.xl,
+  },
+  ctaBanner: {
+    borderRadius: radii.xl,
+    padding: spacing.lg,
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.md,
+    overflow: 'hidden',
+    minHeight: 108,
   },
-  ctaEmoji: { fontSize: 28 },
-  ctaTitle: { fontFamily: fonts.bodyBold, fontSize: 16, marginBottom: 2 },
+  ctaIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  ctaEyebrow: {
+    color: 'rgba(255,255,255,0.72)',
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    letterSpacing: 1.2,
+    textTransform: 'uppercase',
+    marginBottom: 4,
+  },
+  ctaTitle: {
+    color: '#fff',
+    fontFamily: fonts.displaySemi,
+    fontSize: 20,
+    letterSpacing: -0.4,
+    marginBottom: 2,
+  },
+  ctaSub: {
+    color: 'rgba(255,255,255,0.78)',
+    fontFamily: fonts.body,
+    fontSize: 13,
+  },
   search: {
     marginTop: spacing.md,
     flexDirection: 'row',
@@ -344,60 +285,4 @@ const styles = StyleSheet.create({
   },
   searchInput: { flex: 1, fontFamily: fonts.body, fontSize: 15 },
   filters: { paddingVertical: spacing.md },
-  card: {
-    borderWidth: 1,
-    borderRadius: radii.lg,
-    overflow: 'hidden',
-    marginBottom: spacing.md,
-  },
-  topBar: { height: 4 },
-  cardBody: { padding: spacing.md },
-  cardTop: { flexDirection: 'row', gap: spacing.md, alignItems: 'center' },
-  name: { fontFamily: fonts.bodyBold, fontSize: 16 },
-  vibe: {
-    borderRadius: radii.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginTop: spacing.md,
-  },
-  meta: { fontFamily: fonts.body, fontSize: 13 },
-  pendingBanner: {
-    marginTop: spacing.sm,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  progressTrack: {
-    height: 6,
-    borderRadius: 999,
-    marginTop: spacing.sm,
-    overflow: 'hidden',
-  },
-  progressFill: { height: '100%' },
-  rowBtns: { flexDirection: 'row', gap: 10, marginTop: spacing.md },
-  join: {
-    flex: 1,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    minHeight: 44,
-  },
-  joinText: { fontFamily: fonts.bodyBold },
-  details: {
-    borderWidth: 1,
-    borderRadius: radii.pill,
-    paddingHorizontal: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
 });

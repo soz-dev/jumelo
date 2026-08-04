@@ -1,10 +1,17 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
 import { useTheme } from '../context/ThemeContext';
 import { withHexAlpha } from '../constants/theme';
 import { Icon, type IconName } from './Icon';
-import { fonts, iconSizes, radii } from './tokens';
+import { fonts, iconSizes, motion, radii } from './tokens';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
 type ChipProps = {
   label: string;
@@ -38,6 +45,7 @@ export function Chip({
 }: ChipProps) {
   const { colors } = useTheme();
   const iconName = name ?? icon;
+  const scale = useSharedValue(1);
 
   const surface =
     tone === 'glass'
@@ -50,10 +58,15 @@ export function Chip({
             backgroundColor: 'rgba(255,255,255,0.55)',
             borderColor: withHexAlpha(colors.primaryLight, 0.85),
           }
-        : {
-            backgroundColor: selected ? withHexAlpha(colors.primaryLight, 0.35) : colors.white,
-            borderColor: selected ? withHexAlpha(colors.primary, 0.45) : colors.border,
-          };
+        : selected
+          ? {
+              backgroundColor: withHexAlpha(colors.primary, 0.14),
+              borderColor: withHexAlpha(colors.primary, 0.55),
+            }
+          : {
+              backgroundColor: withHexAlpha(colors.primarySoft, 0.75),
+              borderColor: colors.border,
+            };
 
   const tint =
     tone === 'glass' || tone === 'outline'
@@ -66,35 +79,46 @@ export function Chip({
     tone === 'glass' || tone === 'outline'
       ? colors.ink
       : selected
-        ? colors.ink
+        ? colors.primaryDark
         : colors.inkMuted;
 
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+
   return (
-    <Pressable
+    <AnimatedPressable
       onPress={onPress}
       disabled={!onPress}
-      style={({ pressed }) => [
-        styles.chip,
-        surface,
-        {
-          opacity: pressed && onPress ? 0.9 : 1,
-        },
-      ]}
+      onPressIn={() => {
+        if (onPress) scale.value = withSpring(0.96, motion.spring);
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, motion.spring);
+      }}
+      style={[styles.chip, surface, animStyle]}
     >
       {iconName ? (
         <Icon
           name={iconName}
           size={iconSizes.xs}
           color={tint}
-          weight="bold"
+          weight={selected ? 'fill' : 'bold'}
           branded={branded}
           style={{ marginRight: 6 }}
         />
       ) : emoji ? (
         <Text style={{ marginRight: 4 }}>{emoji}</Text>
       ) : null}
-      <Text style={[styles.chipText, { color: labelColor }]}>{label}</Text>
-    </Pressable>
+      <Text
+        style={[
+          styles.chipText,
+          { color: labelColor, fontFamily: selected ? fonts.bodyBold : fonts.bodyMedium },
+        ]}
+      >
+        {label}
+      </Text>
+    </AnimatedPressable>
   );
 }
 
@@ -105,7 +129,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
     borderRadius: radii.pill,
-    borderWidth: 1,
+    borderWidth: 1.5,
     marginRight: 8,
     marginBottom: 8,
   },

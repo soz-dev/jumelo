@@ -1,7 +1,7 @@
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
-import { elevation, fonts, Icon, type IconName } from '../../src/design-system';
+import { elevation, fonts, Icon, type IconName, withHexAlpha } from '../../src/design-system';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
 
@@ -41,12 +41,13 @@ export default function TabsLayout() {
           letterSpacing: 0.2,
         },
         tabBarStyle: {
-          backgroundColor: 'rgba(247,244,239,0.96)',
-          borderTopColor: colors.border,
+          backgroundColor: withHexAlpha(colors.cream, 0.96),
+          borderTopColor: withHexAlpha(colors.primary, 0.1),
+          borderTopWidth: 1,
           height: 90,
           paddingTop: 10,
           ...elevation.soft,
-          shadowOpacity: 0.05,
+          shadowOpacity: 0.06,
         },
       }}
     >

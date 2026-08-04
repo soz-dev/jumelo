@@ -4,6 +4,7 @@ import React, {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 
@@ -19,13 +20,22 @@ import {
   membershipState,
   rejectJoinRequest,
   joinTeam,
+  withMemberId,
   type CreateTeamInput,
   type TeamMembershipState,
 } from '../lib/api/teams';
+import {
+  bumpMyTeam,
+  getMyTeamsOrder,
+  sortTeamsByMyOrder,
+} from '../lib/myTeamsOrder';
+import { rememberProfile } from '../lib/profileDirectory';
 import { useAuth } from './AuthContext';
 
 type TeamsContextValue = {
   teams: Team[];
+  /** Équipes dont je suis membre/chef, récentes / rejointes en premier. */
+  myActiveTeams: Team[];
   joinRequests: TeamJoinRequest[];
   loading: boolean;
   refresh: () => Promise<void>;
@@ -54,21 +64,41 @@ const TeamsContext = createContext<TeamsContextValue | null>(null);
 export function TeamsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [teams, setTeams] = useState<Team[]>([]);
+  const [teamOrder, setTeamOrder] = useState<string[]>([]);
   const [joinRequests, setJoinRequests] = useState<TeamJoinRequest[]>([]);
   const [loading, setLoading] = useState(true);
+  const refreshSeq = useRef(0);
 
   const refresh = useCallback(async () => {
+    const seq = ++refreshSeq.current;
     const userId = user?.id ?? null;
     const nextTeams = await listTeams(userId);
+    if (seq !== refreshSeq.current) return;
     setTeams(nextTeams);
+    if (userId) {
+      const order = await getMyTeamsOrder(userId);
+      if (seq !== refreshSeq.current) return;
+      setTeamOrder(order);
+    } else {
+      setTeamOrder([]);
+    }
 
     const allRequests: TeamJoinRequest[] = [];
     for (const team of nextTeams) {
       const reqs = await listJoinRequestsForTeam(team.id, userId);
       allRequests.push(...reqs);
     }
+    if (seq !== refreshSeq.current) return;
     setJoinRequests(allRequests);
   }, [user?.id]);
+
+  const myActiveTeams = useMemo(() => {
+    if (!user?.id) return [];
+    const mine = teams.filter(
+      (t) => t.ownerId === user.id || t.memberIds.includes(user.id),
+    );
+    return sortTeamsByMyOrder(mine, teamOrder);
+  }, [teams, teamOrder, user?.id]);
 
   useEffect(() => {
     let active = true;
@@ -102,9 +132,34 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
   const create = useCallback(
     async (input: CreateTeamInput) => {
       if (!user) return { ok: false as const, error: 'Connecte-toi pour créer une équipe.' };
+      await rememberProfile(user).catch(() => undefined);
       const result = await createTeam(user.id, input);
       if (result.ok) {
+        // Optimistic : le chef se voit tout de suite dans Membres.
+        setTeams((prev) => {
+          const next = withMemberId(result.team, user.id);
+          const without = prev.filter((t) => t.id !== next.id);
+          return [next, ...without];
+        });
+        await bumpMyTeam(user.id, result.team.id);
+        setTeamOrder((prev) => [
+          result.team.id,
+          ...prev.filter((id) => id !== result.team.id),
+        ]);
         await ensureTeamChat(result.team);
+        try {
+          const { notifyUser } = await import('../lib/notifications');
+          await notifyUser({
+            userId: user.id,
+            title: 'Équipe créée',
+            body: `« ${result.team.name} » est en tête de tes équipes actives.`,
+            data: { type: 'team_created', teamId: result.team.id },
+            kind: 'team',
+            presentLocally: true,
+          });
+        } catch {
+          // best-effort
+        }
         await refresh();
       }
       return result;
@@ -115,28 +170,82 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
   const requestToJoin = useCallback(
     async (teamId: string) => {
       if (!user) return { ok: false as const, error: 'Connecte-toi pour rejoindre.' };
-      const result = await joinTeam(teamId, user.id, user.name);
+      await rememberProfile(user).catch(() => undefined);
+      const result = await joinTeam(teamId, user.id, {
+        name: user.name,
+        avatarColor: user.avatarColor,
+        city: user.city,
+        photo: user.photo,
+      });
       if (result.ok) {
         if (result.mode === 'joined') {
-          const team = (await listTeams(user.id)).find((t) => t.id === teamId);
-          if (team) await ensureTeamChat(team);
+          // Optimistic : s’afficher immédiatement dans le roster (fb-* inclus).
+          setTeams((prev) =>
+            prev.map((t) => (t.id === teamId ? withMemberId(t, user.id) : t)),
+          );
+          const team =
+            teams.find((t) => t.id === teamId) ??
+            (await listTeams(user.id)).find((t) => t.id === teamId);
+          await bumpMyTeam(user.id, teamId);
+          setTeamOrder((prev) => [teamId, ...prev.filter((id) => id !== teamId)]);
+          if (team) {
+            await ensureTeamChat(team);
+            try {
+              const { notifyTeamJoined } = await import('../lib/notifications');
+              await notifyTeamJoined({
+                userId: user.id,
+                teamId,
+                teamName: team.name,
+                presentLocally: true,
+              });
+            } catch {
+              // best-effort
+            }
+          }
+        } else if (result.mode === 'requested') {
+          const team = teams.find((t) => t.id === teamId);
+          try {
+            const { notifyUser } = await import('../lib/notifications');
+            await notifyUser({
+              userId: user.id,
+              title: 'Demande envoyée',
+              body: team
+                ? `Ta demande pour « ${team.name} » est partie au chef.`
+                : 'Ta demande d’adhésion est partie au chef.',
+              data: { type: 'team_join_pending', teamId },
+              kind: 'team',
+              presentLocally: true,
+            });
+          } catch {
+            // best-effort
+          }
         }
         await refresh();
         return { ok: true as const, mode: result.mode };
       }
       return result;
     },
-    [user, refresh],
+    [user, refresh, teams],
   );
 
   const approveRequest = useCallback(
     async (requestId: string) => {
       if (!user) return { ok: false as const, error: 'Non connecté.' };
+      const pending = joinRequests.find((r) => r.id === requestId);
       const result = await approveJoinRequest(requestId, user.id);
-      if (result.ok) await refresh();
+      if (result.ok) {
+        if (pending) {
+          setTeams((prev) =>
+            prev.map((t) =>
+              t.id === pending.teamId ? withMemberId(t, pending.userId) : t,
+            ),
+          );
+        }
+        await refresh();
+      }
       return result;
     },
-    [user, refresh],
+    [user, refresh, joinRequests],
   );
 
   const rejectRequest = useCallback(
@@ -175,6 +284,7 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
   const value = useMemo(
     () => ({
       teams,
+      myActiveTeams,
       joinRequests,
       loading,
       refresh,
@@ -189,6 +299,7 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
     }),
     [
       teams,
+      myActiveTeams,
       joinRequests,
       loading,
       refresh,

@@ -30,12 +30,12 @@ export default function NotificationsSettingsScreen() {
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
       <SettingsBackHeader
         title="Notifications"
-        subtitle="Préférences locales (stubs — push à brancher)"
+        subtitle="Push iOS / Android + préférences locales"
       />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.note, { color: colors.inkMuted }]}>
-          Ces interrupteurs mémorisent vos choix sur l’appareil. L’envoi de notifications push
-          sera branché ultérieurement (APNs / FCM).
+          Les alertes messages et équipes partent via Expo Push (APNs / FCM) quand un token est
+          enregistré. Sur simulateur, les bannières locales couvrent les actions te concernant.
         </Text>
 
         <SettingsSectionLabel label="Alertes" />

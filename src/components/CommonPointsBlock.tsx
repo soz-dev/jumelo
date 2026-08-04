@@ -1,16 +1,16 @@
-import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Chip, ScoreBadge } from './ui';
-import { Icon, type IconName } from '../design-system';
-import {
-  themeGradientAngles,
-  themeWashColors,
-  withHexAlpha,
-} from '../design-system/themeGradients';
-import { fonts, radii, spacing } from '../constants/theme';
+import { Icon, ListRow, SectionHeader, type IconName } from '../design-system';
+import { fonts, spacing } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import type { CommonPoint } from '../lib/commonPoints';
+import {
+  isOfficialJumelage,
+  MATCH_THRESHOLD,
+  scoreLabel,
+  type MatchReason,
+} from '../lib/matching';
 
 const KIND_ICON: Record<CommonPoint['kind'], IconName> = {
   universe: 'spark',
@@ -23,50 +23,70 @@ const KIND_ICON: Record<CommonPoint['kind'], IconName> = {
 
 type Props = {
   points: CommonPoint[];
-  /** Score de match déjà calculé — affiché à côté du titre. */
+  /** Score de match déjà calculé — affiché en pourcentage. */
   score?: number;
+  /** Raisons du score (intérêts, dispos, vibe…) — le « pourquoi ». */
+  reasons?: MatchReason[];
   /** Variante compacte (sheet like / cartes). */
   compact?: boolean;
   /** Masquer le bloc si l’utilisateur regarde son propre profil. */
   hidden?: boolean;
 };
 
-export function CommonPointsBlock({ points, score, compact, hidden }: Props) {
+export function CommonPointsBlock({
+  points,
+  score,
+  reasons,
+  compact,
+  hidden,
+}: Props) {
   const { colors } = useTheme();
 
   if (hidden) return null;
 
-  const wash = themeWashColors(colors);
-  const { start, end } = themeGradientAngles.wash;
+  const topReasons = (reasons ?? [])
+    .filter((r) => r.points > 0)
+    .sort((a, b) => b.points - a.points)
+    .slice(0, compact ? 3 : 4);
+
+  const jumelageReady =
+    typeof score === 'number' ? isOfficialJumelage(score) : false;
+
+  const subtitle =
+    typeof score === 'number'
+      ? jumelageReady
+        ? `${scoreLabel(score)} · ${score}% (≥ ${MATCH_THRESHOLD}% pour jumeler)`
+        : `${score}% — ${MATCH_THRESHOLD}% minimum pour jumeler`
+      : 'Ce qui vous rapproche vraiment';
 
   return (
-    <LinearGradient
-      colors={[...wash]}
-      start={start}
-      end={end}
-      style={[
-        styles.card,
-        compact && styles.cardCompact,
-        {
-          borderColor: withHexAlpha(colors.primary, 0.28),
-        },
-      ]}
-    >
-      <View style={styles.header}>
-        <View style={styles.titleRow}>
-          <Icon name="common" size={compact ? 18 : 20} color={colors.primary} weight="bold" />
-          <Text
-            style={[
-              styles.title,
-              compact && styles.titleCompact,
-              { color: colors.ink },
-            ]}
-          >
-            Vos points communs
-          </Text>
+    <View style={[styles.root, compact && styles.rootCompact]}>
+      <SectionHeader
+        title="Pourquoi ce jumelage"
+        subtitle={subtitle}
+        right={typeof score === 'number' ? <ScoreBadge score={score} /> : undefined}
+      />
+
+      {topReasons.length > 0 ? (
+        <View style={styles.reasons}>
+          {topReasons.map((reason) => (
+            <ListRow
+              key={reason.key}
+              title={reason.label}
+              subtitle={reason.detail}
+              chevron={false}
+              left={
+                <View style={[styles.reasonDot, { backgroundColor: colors.primary }]} />
+              }
+              right={
+                <Text style={[styles.reasonPts, { color: colors.primary }]}>
+                  {Math.round((reason.similarity ?? reason.points / Math.max(reason.max, 1)) * 100)}%
+                </Text>
+              }
+            />
+          ))}
         </View>
-        {typeof score === 'number' ? <ScoreBadge score={score} /> : null}
-      </View>
+      ) : null}
 
       {points.length === 0 ? (
         <Text style={[styles.empty, { color: colors.inkMuted }]}>
@@ -79,50 +99,43 @@ export function CommonPointsBlock({ points, score, compact, hidden }: Props) {
               key={point.key}
               label={point.label}
               name={point.icon ?? KIND_ICON[point.kind]}
-              selected
-              tone="glass"
+              tone="outline"
             />
           ))}
         </View>
       )}
-    </LinearGradient>
+
+      {typeof score === 'number' && !jumelageReady ? (
+        <View style={[styles.thresholdHint, { backgroundColor: colors.white, borderColor: colors.border }]}>
+          <Icon name="spark" size={16} color={colors.inkMuted} />
+          <Text style={[styles.thresholdText, { color: colors.inkMuted }]}>
+            Jumelage possible dès {MATCH_THRESHOLD}% de points communs.
+          </Text>
+        </View>
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
+  root: {
     marginTop: spacing.md,
-    borderWidth: 1.5,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    overflow: 'hidden',
-  },
-  cardCompact: {
-    marginTop: spacing.sm,
-    padding: spacing.sm,
     alignSelf: 'stretch',
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: spacing.sm,
-    gap: spacing.sm,
+  rootCompact: {
+    marginTop: spacing.sm,
   },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    flex: 1,
+  reasons: {
+    marginBottom: spacing.xs,
   },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 20,
-    letterSpacing: -0.3,
-    flexShrink: 1,
+  reasonDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
   },
-  titleCompact: {
-    fontSize: 16,
+  reasonPts: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
   },
   wrap: {
     flexDirection: 'row',
@@ -132,5 +145,21 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 14,
     lineHeight: 20,
+  },
+  thresholdHint: {
+    marginTop: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  thresholdText: {
+    flex: 1,
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
   },
 });

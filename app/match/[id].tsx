@@ -113,35 +113,40 @@ export default function MatchRevealScreen() {
         </Pressable>
 
         <View style={[styles.scoreRing, { backgroundColor: colors.primary }]}>
-          <Text style={styles.scoreValue}>{match.score}</Text>
-          <Text style={styles.scoreHint}>/ 100</Text>
+          <Text style={styles.scoreValue}>{match.score}%</Text>
+          <Text style={styles.scoreHint}>compatibilité</Text>
         </View>
 
         <Text style={[styles.section, { color: colors.ink }]}>Pourquoi ce jumelage</Text>
-        {match.reasons.map((reason) => (
-          <View key={reason.key} style={[styles.reasonCard, { backgroundColor: colors.white }]}>
-            <View style={styles.reasonTop}>
-              <Text style={[styles.reasonLabel, { color: colors.ink }]}>{reason.label}</Text>
-              <Text style={{ fontFamily: fonts.bodyMedium, color: colors.primary }}>
-                {reason.points}/{reason.max}
+        {match.reasons.map((reason) => {
+          const fitPct = Math.round(
+            (reason.similarity ?? reason.points / Math.max(reason.max, 1)) * 100,
+          );
+          return (
+            <View key={reason.key} style={[styles.reasonCard, { backgroundColor: colors.white }]}>
+              <View style={styles.reasonTop}>
+                <Text style={[styles.reasonLabel, { color: colors.ink }]}>{reason.label}</Text>
+                <Text style={{ fontFamily: fonts.bodyMedium, color: colors.primary }}>
+                  {fitPct}% · +{reason.points} pts
+                </Text>
+              </View>
+              <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
+                <View
+                  style={[
+                    styles.barFill,
+                    {
+                      width: `${Math.max(8, fitPct)}%`,
+                      backgroundColor: colors.accent,
+                    },
+                  ]}
+                />
+              </View>
+              <Text style={{ marginTop: spacing.sm, fontFamily: fonts.body, color: colors.inkMuted }}>
+                {reason.detail}
               </Text>
             </View>
-            <View style={[styles.barTrack, { backgroundColor: colors.border }]}>
-              <View
-                style={[
-                  styles.barFill,
-                  {
-                    width: `${Math.max(8, (reason.points / reason.max) * 100)}%`,
-                    backgroundColor: colors.accent,
-                  },
-                ]}
-              />
-            </View>
-            <Text style={{ marginTop: spacing.sm, fontFamily: fonts.body, color: colors.inkMuted }}>
-              {reason.detail}
-            </Text>
-          </View>
-        ))}
+          );
+        })}
 
         <Button
           label="Voir le profil"

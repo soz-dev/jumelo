@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
+import { withHexAlpha } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { fonts, iconSizes, radii, spacing, surface, typography } from './tokens';
 
@@ -58,8 +59,8 @@ export function ListRow({
     styles.row,
     inset
       ? {
-          backgroundColor: colors.white,
-          borderColor: colors.border,
+          backgroundColor: withHexAlpha(colors.primarySoft, 0.92),
+          borderColor: withHexAlpha(colors.primary, 0.14),
           borderWidth: surface.inset,
           borderRadius: radii.md,
           marginBottom: spacing.sm,

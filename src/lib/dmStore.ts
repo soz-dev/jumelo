@@ -308,6 +308,33 @@ export async function sendLocalDmMessage(params: {
   chat.preview = text;
   chat.updatedAt = msg.createdAt;
   await saveLocal(state);
+
+  const peerId =
+    chat.peerId && chat.peerId !== params.senderId
+      ? chat.peerId
+      : chat.memberIds.find((id) => id !== params.senderId);
+  if (peerId) {
+    try {
+      const { notifyUser } = await import('./notifications');
+      const { getCachedProfile } = await import('./profileDirectory');
+      const sender = await getCachedProfile(params.senderId);
+      const preview = text.length > 80 ? `${text.slice(0, 77)}…` : text;
+      await notifyUser({
+        userId: peerId,
+        title: sender?.name?.trim() || 'Nouveau message',
+        body: preview,
+        data: {
+          type: 'dm',
+          conversationId: chat.id,
+          senderId: params.senderId,
+        },
+        kind: 'message',
+      });
+    } catch {
+      // best-effort
+    }
+  }
+
   return toUiMessage(msg, params.senderId);
 }
 

@@ -12,7 +12,7 @@ import {
   getCategory,
   getSubCategory,
 } from '../constants/catalog';
-import { fonts, radii, spacing } from '../constants/theme';
+import { fonts, radii, spacing, withHexAlpha } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import { Icon, resolveCatalogIcon, universeIcon } from '../design-system';
 
@@ -86,51 +86,46 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
             </Pressable>
           </>
         ) : null}
-        {sub ? (
-          <>
-            <Text style={{ color: colors.inkFaint }}> › </Text>
-            <View style={styles.crumbRow}>
-              <Icon
-                name={resolveCatalogIcon(sub.id)}
-                size={14}
-                color={colors.ink}
-                weight="bold"
-              />
-              <Text style={[styles.crumbCurrent, { color: colors.ink }]}>{sub.label}</Text>
-            </View>
-          </>
-        ) : null}
+        {/* Pas le nom du jeu ici : il est mis en avant dans le hero plateforme */}
       </View>
 
       {!value.universeId ? (
-        <View style={styles.list}>
-          {categories.map((cat) => (
-            <Pressable
-              key={cat.id}
-              onPress={() =>
-                onChange({
-                  universeId: cat.id,
-                  subCategoryId: null,
-                  platformId: null,
-                })
-              }
-              style={[
-                styles.card,
-                { backgroundColor: colors.white, borderColor: colors.border },
-              ]}
-            >
-              <View style={[styles.icon, { backgroundColor: cat.color }]}>
-                <Icon name={universeIcon(cat.id)} size={22} color="#fff" weight="bold" />
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={[styles.cardTitle, { color: colors.ink }]}>{cat.label}</Text>
-                <Text style={{ color: colors.inkMuted, fontFamily: fonts.body }}>
-                  {cat.subCategories.length} choix · {cat.description}
+        <View>
+          <Text style={[styles.section, { color: colors.ink }]}>Choisis ton univers</Text>
+          <Text style={[styles.sectionHint, { color: colors.inkMuted }]}>
+            Tuiles — même esprit que les jeux
+          </Text>
+          <View style={styles.universeGrid}>
+            {categories.map((cat) => (
+              <Pressable
+                key={cat.id}
+                onPress={() =>
+                  onChange({
+                    universeId: cat.id,
+                    subCategoryId: null,
+                    platformId: null,
+                  })
+                }
+                style={[
+                  styles.universeTile,
+                  {
+                    backgroundColor: withHexAlpha(colors.primarySoft, 0.9),
+                    borderColor: withHexAlpha(colors.primary, 0.14),
+                  },
+                ]}
+              >
+                <View style={[styles.universeIcon, { backgroundColor: cat.color }]}>
+                  <Icon name={universeIcon(cat.id)} size={28} color="#fff" weight="bold" />
+                </View>
+                <Text style={[styles.universeTitle, { color: colors.ink }]} numberOfLines={2}>
+                  {cat.shortLabel || cat.label}
                 </Text>
-              </View>
-              <Icon name="chevronRight" size={18} color={colors.inkFaint} />
-            </Pressable>
-          ))}
+                <Text style={[styles.universeMeta, { color: colors.inkMuted }]} numberOfLines={2}>
+                  {cat.subCategories.length} choix
+                </Text>
+              </Pressable>
+            ))}
+          </View>
         </View>
       ) : null}
 
@@ -160,8 +155,8 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
                   style={[
                     isGamingGrid ? styles.gameTile : styles.activityTile,
                     {
-                      backgroundColor: colors.white,
-                      borderColor: colors.border,
+                      backgroundColor: withHexAlpha(colors.primarySoft, 0.9),
+                      borderColor: withHexAlpha(colors.primary, 0.14),
                     },
                   ]}
                 >
@@ -194,13 +189,63 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
       ) : null}
 
       {value.universeId && value.subCategoryId && sub ? (
-        <View>
+        <View style={styles.platformStep}>
+          <View
+            style={[
+              styles.hero,
+              {
+                backgroundColor: withHexAlpha(colors.primarySoft, 0.95),
+                borderColor: withHexAlpha(colors.primary, 0.18),
+              },
+            ]}
+          >
+            {isGamingGrid ? (
+              <GameArtImage
+                catalogId={sub.id}
+                size={96}
+                color={category?.color ?? colors.primary}
+                brandedFallback
+              />
+            ) : (
+              <View
+                style={[
+                  styles.heroIcon,
+                  { backgroundColor: category?.color ?? colors.primary },
+                ]}
+              >
+                <Icon
+                  name={resolveCatalogIcon(sub.id)}
+                  size={40}
+                  color="#fff"
+                  weight="bold"
+                />
+              </View>
+            )}
+            <Text style={[styles.heroTitle, { color: colors.ink }]}>{sub.label}</Text>
+            {category ? (
+              <View style={[styles.heroBadge, { backgroundColor: colors.primarySoft }]}>
+                <Icon
+                  name={universeIcon(category.id)}
+                  size={14}
+                  color={colors.primaryDark}
+                  weight="bold"
+                />
+                <Text style={[styles.heroBadgeText, { color: colors.primaryDark }]}>
+                  {category.shortLabel}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+
           <Text style={[styles.section, { color: colors.ink }]}>
             {sub.platforms?.length
               ? requirePlatform
-                ? 'Plateforme'
+                ? 'Sur quelle plateforme ?'
                 : 'Plateforme (optionnel)'
               : 'Aucune plateforme pour cette activité'}
+          </Text>
+          <Text style={[styles.sectionHint, { color: colors.inkMuted }]}>
+            Choisis où tu joues pour trouver un partenaire au bon endroit
           </Text>
           <View style={styles.platformGrid}>
             {(sub.platforms ?? []).map((platform) => {
@@ -216,22 +261,35 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
                     })
                   }
                   style={[
-                    styles.platformTile,
+                    styles.platformTileLarge,
                     {
-                      backgroundColor: selected ? colors.primarySoft : colors.white,
-                      borderColor: selected ? colors.primary : colors.border,
+                      backgroundColor: selected
+                        ? withHexAlpha(colors.primary, 0.16)
+                        : withHexAlpha(colors.primarySoft, 0.9),
+                      borderColor: selected
+                        ? colors.primary
+                        : withHexAlpha(colors.primary, 0.14),
                     },
                   ]}
                 >
-                  <Icon
-                    name={resolveCatalogIcon(platform.id)}
-                    size={16}
-                    color={selected ? colors.primaryDark : colors.ink}
-                    weight="bold"
-                  />
+                  <View
+                    style={[
+                      styles.platformIconWrap,
+                      {
+                        backgroundColor: selected ? colors.primary : withHexAlpha(colors.primary, 0.12),
+                      },
+                    ]}
+                  >
+                    <Icon
+                      name={resolveCatalogIcon(platform.id)}
+                      size={22}
+                      color={selected ? '#fff' : colors.primaryDark}
+                      weight="bold"
+                    />
+                  </View>
                   <Text
                     style={[
-                      styles.platformLabel,
+                      styles.platformLabelLarge,
                       { color: selected ? colors.primaryDark : colors.ink },
                     ]}
                   >
@@ -278,25 +336,41 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 14,
   },
-  list: { gap: spacing.sm },
-  card: {
+  universeGrid: {
     flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
+    flexWrap: 'wrap',
+    gap: 10,
   },
-  icon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+  universeTile: {
+    width: '47%',
+    flexGrow: 1,
+    minWidth: 140,
+    maxWidth: '48.5%',
+    borderWidth: 1.5,
+    borderRadius: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    gap: 8,
+  },
+  universeIcon: {
+    width: 56,
+    height: 56,
+    borderRadius: 18,
     alignItems: 'center',
     justifyContent: 'center',
+    marginBottom: 2,
   },
-  cardTitle: {
+  universeTitle: {
     fontFamily: fonts.bodyBold,
-    fontSize: 16,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  universeMeta: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    textAlign: 'center',
   },
   section: {
     fontFamily: fonts.displaySemi,
@@ -347,23 +421,69 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 16,
   },
+  platformStep: {
+    gap: spacing.sm,
+  },
+  hero: {
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderRadius: 20,
+    paddingVertical: spacing.xl,
+    paddingHorizontal: spacing.lg,
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  heroIcon: {
+    width: 96,
+    height: 96,
+    borderRadius: 24,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  heroTitle: {
+    fontFamily: fonts.displaySemi,
+    fontSize: 26,
+    lineHeight: 30,
+    textAlign: 'center',
+    letterSpacing: -0.4,
+  },
+  heroBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+  },
+  heroBadgeText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+  },
   platformGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 10,
   },
-  platformTile: {
+  platformTileLarge: {
+    width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 14,
     borderWidth: 1.5,
-    borderRadius: radii.pill,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
   },
-  platformLabel: {
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
+  platformIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  platformLabelLarge: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 17,
   },
   wrapChips: {
     flexDirection: 'row',

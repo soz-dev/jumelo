@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { mockUsers } from '../data/mock';
+import { isOfficialJumelage } from './matching';
 
 const STORAGE_KEY = '@jumelo/likes';
 
@@ -123,8 +124,10 @@ export async function recordOutgoingLike(
     (l) => l.fromUserId === peerId && l.toUserId === myId && !l.dismissed,
   );
 
+  // Jumelage officiel seulement si score ≥ MATCH_THRESHOLD (sinon like enregistré, pas de match).
+  const scoreOk = typeof score !== 'number' || isOfficialJumelage(score);
   let mutual = false;
-  if (theyLikedMe && !alreadyMatched) {
+  if (theyLikedMe && !alreadyMatched && scoreOk) {
     state.matches.push({
       userA,
       userB,

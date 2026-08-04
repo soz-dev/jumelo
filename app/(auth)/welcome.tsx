@@ -55,7 +55,7 @@ export default function WelcomeScreen() {
 
   const requireLegal = () => {
     if (!legalChecked) {
-      setError('Accepte les CGU pour continuer avec Apple ou Google.');
+      setError('Accepte les règles Jumelo pour continuer.');
       return false;
     }
     return true;
@@ -169,18 +169,25 @@ export default function WelcomeScreen() {
               J’accepte les{' '}
               <Text
                 style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
+                onPress={() => router.push('/settings/rules' as Href)}
+              >
+                règles Jumelo
+              </Text>
+              {' '}(dont{' '}
+              <Text
+                style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
                 onPress={() => router.push('/settings/cgu' as Href)}
               >
                 CGU
               </Text>
-              {' '}et la{' '}
+              {' '}et{' '}
               <Text
                 style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
                 onPress={() => router.push('/settings/privacy' as Href)}
               >
                 confidentialité
               </Text>
-              .
+              ).
             </Text>
           </Pressable>
 
@@ -188,7 +195,7 @@ export default function WelcomeScreen() {
 
           {showAppleCta ? (
             <Pressable
-              style={[styles.socialBtn, styles.appleBtn]}
+              style={[styles.socialBtn, styles.appleBtn, { opacity: legalChecked ? 1 : 0.55 }]}
               onPress={() => onOAuth('apple')}
               disabled={oauthLoading}
               accessibilityRole="button"
@@ -206,7 +213,11 @@ export default function WelcomeScreen() {
               style={[
                 styles.socialBtn,
                 styles.googleBtn,
-                { borderColor: colors.border, backgroundColor: colors.white },
+                {
+                  borderColor: colors.border,
+                  backgroundColor: colors.white,
+                  opacity: legalChecked ? 1 : 0.55,
+                },
               ]}
               onPress={() => onOAuth('google')}
               disabled={oauthLoading}

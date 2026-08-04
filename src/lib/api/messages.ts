@@ -142,6 +142,29 @@ export async function sendMessage(params: {
     .update({ updated_at: new Date().toISOString() })
     .eq('id', params.conversationId);
 
+  try {
+    const peerId = await getDmPeerId(params.conversationId, senderId);
+    if (peerId) {
+      const { notifyUser } = await import('../notifications');
+      const { getCachedProfile } = await import('../profileDirectory');
+      const sender = await getCachedProfile(senderId);
+      const preview = trimmed.length > 80 ? `${trimmed.slice(0, 77)}…` : trimmed;
+      await notifyUser({
+        userId: peerId,
+        title: sender?.name?.trim() || 'Nouveau message',
+        body: preview,
+        data: {
+          type: 'dm',
+          conversationId: params.conversationId,
+          senderId,
+        },
+        kind: 'message',
+      });
+    }
+  } catch {
+    // best-effort
+  }
+
   return toChatMessage(data as DbMessage, senderId);
 }
 

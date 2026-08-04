@@ -52,23 +52,44 @@ function useLocalStore(userId?: string | null): boolean {
 
 function hydrateTeam(raw: Team): Team {
   const seed = mockTeams.find((t) => t.id === raw.id);
-  const ownerId = raw.ownerId || seed?.ownerId || raw.memberIds[0] || '';
-  const memberIds = raw.memberIds?.length
+  const ownerId = raw.ownerId || seed?.ownerId || raw.memberIds?.[0] || '';
+  // Préférer les memberIds persistés (join Firebase inclus) ; seed seulement si absents.
+  const baseIds = raw.memberIds?.length
     ? raw.memberIds
-    : seed?.memberIds
+    : seed?.memberIds?.length
       ? [...seed.memberIds]
       : ownerId
         ? [ownerId]
         : [];
-  // Garantit que le chef est toujours dans la liste des membres
-  const withOwner =
-    ownerId && !memberIds.includes(ownerId) ? [ownerId, ...memberIds] : memberIds;
+  // Chef toujours présent ; déduplique sans perdre les fb-* / u-* ajoutés.
+  const memberIds = [
+    ...new Set(
+      ownerId && !baseIds.includes(ownerId) ? [ownerId, ...baseIds] : baseIds,
+    ),
+  ].filter(Boolean);
+  const locked =
+    typeof raw.locked === 'boolean'
+      ? raw.locked
+      : typeof seed?.locked === 'boolean'
+        ? seed.locked
+        : true;
   return syncMemberCount({
     ...seed,
     ...raw,
     ownerId,
-    memberIds: withOwner,
-    locked: raw.locked ?? seed?.locked ?? true,
+    memberIds,
+    locked,
+  });
+}
+
+/** Ajoute un membre au roster local (idempotent). */
+export function withMemberId(team: Team, userId: string): Team {
+  if (!userId || team.memberIds.includes(userId)) {
+    return syncMemberCount(team);
+  }
+  return syncMemberCount({
+    ...team,
+    memberIds: [...team.memberIds, userId],
   });
 }
 
@@ -218,10 +239,25 @@ export function membershipState(
   return 'none';
 }
 
+export type JoinTeamUserMeta = {
+  name?: string;
+  avatarColor?: string;
+  city?: string;
+  photo?: string;
+};
+
 export type JoinTeamResult =
   | { ok: true; mode: 'joined' }
   | { ok: true; mode: 'requested'; request: TeamJoinRequest }
   | { ok: false; error: string };
+
+function normalizeJoinMeta(
+  meta?: string | JoinTeamUserMeta,
+): JoinTeamUserMeta {
+  if (!meta) return {};
+  if (typeof meta === 'string') return { name: meta };
+  return meta;
+}
 
 /**
  * Rejoint une équipe ouverte, ou crée une demande si l’équipe est verrouillée.
@@ -229,8 +265,9 @@ export type JoinTeamResult =
 export async function joinTeam(
   teamId: string,
   userId: string,
-  userName?: string,
+  userMeta?: string | JoinTeamUserMeta,
 ): Promise<JoinTeamResult> {
+  const meta = normalizeJoinMeta(userMeta);
   if (useLocalStore(userId)) {
     const state = await loadLocal();
     const team = state.teams.find((t) => t.id === teamId);
@@ -242,10 +279,9 @@ export async function joinTeam(
       return { ok: false, error: 'Cette équipe est complète.' };
     }
 
-    // Groupe ouvert → entrée directe
+    // Groupe ouvert → entrée directe (garantit userId dans memberIds, y compris fb-*).
     if (!team.locked) {
-      team.memberIds = [...team.memberIds, userId];
-      Object.assign(team, syncMemberCount(team));
+      Object.assign(team, withMemberId(team, userId));
       state.joinRequests = state.joinRequests.filter(
         (r) => !(r.teamId === teamId && r.userId === userId),
       );
@@ -253,11 +289,11 @@ export async function joinTeam(
       return { ok: true, mode: 'joined' };
     }
 
-    return requestJoinLocked(state, team, userId, userName);
+    return requestJoinLocked(state, team, userId, meta);
   }
 
   // Cloud : pour l’instant demande (colonne locked absente) — même flux request
-  const req = await requestJoin(teamId, userId, userName);
+  const req = await requestJoin(teamId, userId, meta);
   if (!req.ok) return req;
   return { ok: true, mode: 'requested', request: req.request };
 }
@@ -266,7 +302,7 @@ async function requestJoinLocked(
   state: TeamsState,
   team: Team,
   userId: string,
-  userName?: string,
+  userMeta?: JoinTeamUserMeta,
 ): Promise<JoinTeamResult> {
   const existing = state.joinRequests.find(
     (r) => r.teamId === team.id && r.userId === userId && r.status === 'pending',
@@ -281,6 +317,10 @@ async function requestJoinLocked(
     userId,
     status: 'pending',
     createdAt: new Date().toISOString(),
+    userName: userMeta?.name?.trim() || undefined,
+    avatarColor: userMeta?.avatarColor,
+    city: userMeta?.city?.trim() || undefined,
+    photo: userMeta?.photo,
   };
   state.joinRequests = [
     ...state.joinRequests.filter((r) => !(r.teamId === team.id && r.userId === userId)),
@@ -293,8 +333,9 @@ async function requestJoinLocked(
     await notifyUser({
       userId: team.ownerId,
       title: 'Demande d’adhésion',
-      body: `${userName?.trim() || 'Quelqu’un'} veut rejoindre « ${team.name} »`,
+      body: `${userMeta?.name?.trim() || 'Quelqu’un'} veut rejoindre « ${team.name} »`,
       data: { type: 'team_join_request', teamId: team.id, requestId: request.id },
+      kind: 'team',
     });
   } catch {
     // best-effort
@@ -307,8 +348,9 @@ async function requestJoinLocked(
 export async function requestJoin(
   teamId: string,
   userId: string,
-  userName?: string,
+  userMeta?: string | JoinTeamUserMeta,
 ): Promise<{ ok: true; request: TeamJoinRequest } | { ok: false; error: string }> {
+  const meta = normalizeJoinMeta(userMeta);
   if (useLocalStore(userId)) {
     const state = await loadLocal();
     const team = state.teams.find((t) => t.id === teamId);
@@ -319,7 +361,7 @@ export async function requestJoin(
     if (team.memberIds.length >= team.capacity) {
       return { ok: false, error: 'Cette équipe est complète.' };
     }
-    const result = await requestJoinLocked(state, team, userId, userName);
+    const result = await requestJoinLocked(state, team, userId, meta);
     if (!result.ok) return result;
     if (result.mode === 'joined') {
       return {
@@ -379,14 +421,26 @@ export async function approveJoinRequest(
     if (team.memberIds.length >= team.capacity) {
       return { ok: false, error: 'Équipe complète.' };
     }
-    if (!team.memberIds.includes(request.userId)) {
-      team.memberIds = [...team.memberIds, request.userId];
-    }
-    Object.assign(team, syncMemberCount(team));
+    Object.assign(team, withMemberId(team, request.userId));
     request.status = 'approved';
     await saveLocal(state);
+
+    try {
+      const { bumpMyTeam } = await import('../myTeamsOrder');
+      const { notifyTeamJoined } = await import('../notifications');
+      await bumpMyTeam(request.userId, team.id);
+      await notifyTeamJoined({
+        userId: request.userId,
+        teamId: team.id,
+        teamName: team.name,
+      });
+    } catch {
+      // best-effort
+    }
+
     return { ok: true };
   }
+
 
   const supabase = getSupabase();
   if (!supabase) return { ok: false, error: 'Supabase indisponible.' };
@@ -400,7 +454,7 @@ export async function approveJoinRequest(
 
   const { data: team } = await supabase
     .from('teams')
-    .select('owner_id, capacity')
+    .select('id, name, owner_id, capacity')
     .eq('id', request.team_id)
     .single();
   if (!team || team.owner_id !== ownerId) {
@@ -419,6 +473,19 @@ export async function approveJoinRequest(
     role: 'member',
   });
   if (memErr) return { ok: false, error: memErr.message };
+
+  try {
+    const { bumpMyTeam } = await import('../myTeamsOrder');
+    const { notifyTeamJoined } = await import('../notifications');
+    await bumpMyTeam(request.user_id, request.team_id);
+    await notifyTeamJoined({
+      userId: request.user_id,
+      teamId: request.team_id,
+      teamName: typeof team.name === 'string' ? team.name : 'cette équipe',
+    });
+  } catch {
+    // best-effort
+  }
 
   return { ok: true };
 }

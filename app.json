@@ -43,6 +43,12 @@
       "expo-apple-authentication",
       "expo-dev-client",
       [
+        "expo-image-picker",
+        {
+          "photosPermission": "Jumelo utilise tes photos pour ta photo de profil."
+        }
+      ],
+      [
         "expo-notifications",
         {
           "color": "#0F8F8A"

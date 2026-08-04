@@ -1,18 +1,29 @@
 import React from 'react';
 import { Image, StyleSheet, Text, View } from 'react-native';
 
+import { PersonaAvatar } from './PersonaAvatar';
 import { useTheme } from '../context/ThemeContext';
+import { getPersona } from '../lib/profilePersonas';
 import { fonts } from './tokens';
 
 type AvatarProps = {
   name: string;
   color?: string;
   photo?: string | null;
+  /** Persona prédéfini — utilisé si pas de photo */
+  personaId?: string | null;
   size?: number;
   online?: boolean;
 };
 
-export function Avatar({ name, color, photo, size = 48, online }: AvatarProps) {
+export function Avatar({
+  name,
+  color,
+  photo,
+  personaId,
+  size = 48,
+  online,
+}: AvatarProps) {
   const { colors } = useTheme();
   const initials = name
     .split(' ')
@@ -20,7 +31,8 @@ export function Avatar({ name, color, photo, size = 48, online }: AvatarProps) {
     .join('')
     .slice(0, 2)
     .toUpperCase();
-  const bg = color ?? colors.primary;
+  const persona = getPersona(personaId ?? undefined);
+  const bg = color ?? persona?.color ?? colors.primary;
 
   return (
     <View style={{ width: size, height: size }}>
@@ -34,6 +46,8 @@ export function Avatar({ name, color, photo, size = 48, online }: AvatarProps) {
             backgroundColor: bg,
           }}
         />
+      ) : personaId && persona ? (
+        <PersonaAvatar personaId={personaId} size={size} />
       ) : (
         <View
           style={{

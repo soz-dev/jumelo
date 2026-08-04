@@ -18,17 +18,27 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { safeBack } from '../../src/lib/navigation';
 
+import { AchievementsSection } from '../../src/components/AchievementsSection';
 import { Atmosphere } from '../../src/components/Atmosphere';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
 import { CommonPointsBlock } from '../../src/components/CommonPointsBlock';
+import { ProfileStatsCard } from '../../src/components/ProfileStatsCard';
+import { TeammateRatingsCard } from '../../src/components/TeammateRatingsCard';
 import { Button, Chip, ScoreBadge } from '../../src/components/ui';
-import { availabilities, getCategory, levels } from '../../src/constants/catalog';
+import { availabilities, getCategory, levels, vibes } from '../../src/constants/catalog';
 import { fonts, radii, shadows, spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
+import { Avatar, ListRow, SectionHeader } from '../../src/design-system';
+import { getPersona } from '../../src/lib/profilePersonas';
 import type { UserProfile } from '../../src/data/mock';
 import { getCommonPoints } from '../../src/lib/commonPoints';
-import { computeMatch, scoreLabel } from '../../src/lib/matching';
+import {
+  computeMatch,
+  isOfficialJumelage,
+  MATCH_THRESHOLD,
+  scoreLabel,
+} from '../../src/lib/matching';
 import { useRequirePremium } from '../../src/lib/premiumStore';
 import {
   REPORT_REASONS,
@@ -117,18 +127,55 @@ export default function PublicProfileScreen() {
           </View>
 
           <View style={[styles.heroCard, shadows.soft, { backgroundColor: colors.white }]}>
-            <ImageBackground
-              source={{
-                uri:
-                  profile.photo ??
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(profile.name)}&size=800&background=0F8F8A&color=fff`,
-              }}
-              style={styles.heroPhoto}
-              imageStyle={{ borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg }}
-            >
+            {profile.photo ? (
+              <ImageBackground
+                source={{ uri: profile.photo }}
+                style={styles.heroPhoto}
+                imageStyle={{ borderTopLeftRadius: radii.lg, borderTopRightRadius: radii.lg }}
+              >
+                <LinearGradient
+                  colors={['transparent', 'rgba(10,20,28,0.85)']}
+                  style={styles.heroGradient}
+                >
+                  {profile.universes[0] ? (
+                    <View style={styles.heroPill}>
+                      <CategoryIcon universeId={profile.universes[0]} size={28} />
+                      <Text style={styles.heroPillText}>
+                        {getCategory(profile.universes[0])?.shortLabel}
+                      </Text>
+                    </View>
+                  ) : null}
+                  {match ? (
+                    <View style={styles.heroScore}>
+                      <ScoreBadge score={match.score} />
+                    </View>
+                  ) : null}
+                  <Text style={styles.heroName}>
+                    {profile.name}
+                    {profile.age ? ` · ${profile.age}` : ''}
+                  </Text>
+                  <View style={styles.heroMeta}>
+                    <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.9)" />
+                    <Text style={styles.heroMetaText}>{profile.city}</Text>
+                    {profile.online ? (
+                      <>
+                        <Text style={styles.heroMetaText}>·</Text>
+                        <View style={styles.onlineDot} />
+                        <Text style={styles.heroMetaText}>En ligne</Text>
+                      </>
+                    ) : null}
+                  </View>
+                </LinearGradient>
+              </ImageBackground>
+            ) : (
               <LinearGradient
-                colors={['transparent', 'rgba(10,20,28,0.85)']}
-                style={styles.heroGradient}
+                colors={[
+                  getPersona(profile.avatarPersonaId)?.color ?? profile.avatarColor ?? colors.primary,
+                  colors.primaryDark,
+                ]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.heroPhoto, styles.heroPersona]}
               >
                 {profile.universes[0] ? (
                   <View style={styles.heroPill}>
@@ -143,7 +190,14 @@ export default function PublicProfileScreen() {
                     <ScoreBadge score={match.score} />
                   </View>
                 ) : null}
-                <Text style={styles.heroName}>
+                <Avatar
+                  name={profile.name}
+                  personaId={profile.avatarPersonaId}
+                  color={profile.avatarColor}
+                  size={112}
+                  online={profile.online}
+                />
+                <Text style={[styles.heroName, { marginTop: spacing.md }]}>
                   {profile.name}
                   {profile.age ? ` · ${profile.age}` : ''}
                 </Text>
@@ -159,127 +213,116 @@ export default function PublicProfileScreen() {
                   ) : null}
                 </View>
               </LinearGradient>
-            </ImageBackground>
+            )}
 
             <View style={styles.heroBody}>
               <Text style={[styles.bio, { color: colors.ink }]}>{profile.bio}</Text>
               {match && !isSelf ? (
-                <Text style={[styles.matchLabel, { color: colors.primary }]}>
-                  {scoreLabel(match.score)} · {match.score}/100
+                <Text
+                  style={[
+                    styles.matchLabel,
+                    {
+                      color: isOfficialJumelage(match.score)
+                        ? colors.primary
+                        : colors.inkMuted,
+                    },
+                  ]}
+                >
+                  {scoreLabel(match.score)} · {match.score}%
+                  {!isOfficialJumelage(match.score)
+                    ? ` · seuil ${MATCH_THRESHOLD}%`
+                    : ''}
                 </Text>
               ) : null}
             </View>
           </View>
 
-          {!isSelf ? (
-            <CommonPointsBlock points={commonPoints} score={match?.score} />
-          ) : null}
+          <ProfileStatsCard userId={profile.id} />
 
-          <Text style={[styles.section, { color: colors.ink }]}>Univers</Text>
-          <View style={styles.wrap}>
-            {profile.universes.map((universeId) => {
-              const cat = getCategory(universeId);
-              return (
-                <Chip
-                  key={universeId}
-                  name={universeId}
-                  label={cat?.shortLabel ?? universeId}
-                  selected
-                />
-              );
-            })}
-          </View>
-
-          <Text style={[styles.section, { color: colors.ink }]}>Intérêts</Text>
-          <View style={styles.wrap}>
-            {profile.interests.map((interest) => (
-              <Chip key={interest} label={interest} selected />
-            ))}
-          </View>
-
-          <Text style={[styles.section, { color: colors.ink }]}>Vibe & niveau</Text>
-          <View style={[styles.infoCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
-            <View style={styles.infoRow}>
-              <Ionicons name="happy-outline" size={18} color={colors.primary} />
-              <Text style={[styles.infoText, { color: colors.ink }]}>
-                Vibe {profile.vibes.join(' · ')}
-              </Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="trophy-outline" size={18} color={colors.primary} />
-              <Text style={[styles.infoText, { color: colors.ink }]}>Niveau {levelLabel}</Text>
-            </View>
-            <View style={styles.infoRow}>
-              <Ionicons name="time-outline" size={18} color={colors.primary} />
-              <Text style={[styles.infoText, { color: colors.ink }]}>
-                {dispos || 'Dispos non renseignées'}
-              </Text>
-            </View>
-          </View>
-
-          <Text style={[styles.section, { color: colors.ink }]}>Objectifs</Text>
-          <View style={styles.wrap}>
-            {profile.objectives.map((objective) => (
-              <Chip key={objective} label={objective} />
-            ))}
-          </View>
-
-          <Text style={[styles.section, { color: colors.ink }]}>Fiabilité</Text>
-          <View style={[styles.reliability, { backgroundColor: colors.white, borderColor: colors.border }]}>
-            <Ionicons name="ribbon-outline" size={26} color={colors.warning} />
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: fonts.bodyBold, color: colors.ink }}>
-                Score de fiabilité
-              </Text>
-              <Text style={{ fontFamily: fonts.body, color: colors.inkMuted, fontSize: 13 }}>
-                Basé sur sessions & feedbacks
-              </Text>
-            </View>
-            <Text style={{ fontFamily: fonts.display, fontSize: 28, color: colors.primary }}>
-              {profile.reliability}
-            </Text>
-          </View>
-
-          {(profile.languages?.length ?? 0) > 0 ? (
+          {!isSelf && match ? (
             <>
-              <Text style={[styles.section, { color: colors.ink }]}>Langues</Text>
-              <View style={styles.wrap}>
-                {profile.languages!.map((lang) => (
-                  <Chip key={lang} name="language" label={lang} selected />
-                ))}
-              </View>
-            </>
-          ) : null}
-
-          {match && match.reasons.length > 0 ? (
-            <>
-              <Text style={[styles.section, { color: colors.ink }]}>Pourquoi on match</Text>
-              {match.reasons.slice(0, 3).map((reason) => (
-                <View
-                  key={reason.key}
-                  style={[styles.reasonCard, { backgroundColor: colors.white, borderColor: colors.border }]}
-                >
-                  <View style={styles.reasonTop}>
-                    <Text style={{ fontFamily: fonts.bodyBold, color: colors.ink }}>
-                      {reason.label}
-                    </Text>
-                    <Text style={{ fontFamily: fonts.bodyMedium, color: colors.primary }}>
-                      {reason.points}/{reason.max}
-                    </Text>
-                  </View>
-                  <Text style={{ marginTop: 4, fontFamily: fonts.body, color: colors.inkMuted }}>
-                    {reason.detail}
-                  </Text>
-                </View>
-              ))}
+              <CommonPointsBlock
+                points={commonPoints}
+                score={match.score}
+                reasons={match.reasons}
+              />
               <Button
                 label="Voir le détail du jumelage"
-                variant="secondary"
+                variant="ghost"
                 onPress={() => router.push(`/match/${profile.id}`)}
-                style={{ marginTop: spacing.sm }}
+                style={{ marginTop: spacing.xs }}
               />
             </>
           ) : null}
+
+          <SectionHeader title="Univers" />
+          <View style={styles.wrap}>
+            {profile.universes.length === 0 ? (
+              <Text style={{ fontFamily: fonts.body, color: colors.inkMuted }}>
+                Aucun univers renseigné
+              </Text>
+            ) : (
+              profile.universes.map((universeId) => {
+                const cat = getCategory(universeId);
+                return (
+                  <Chip
+                    key={universeId}
+                    name={universeId}
+                    label={cat?.shortLabel ?? universeId}
+                    tone="outline"
+                  />
+                );
+              })
+            )}
+          </View>
+
+          <SectionHeader title="Intérêts" />
+          <View style={styles.wrap}>
+            {profile.interests.length === 0 ? (
+              <Text style={{ fontFamily: fonts.body, color: colors.inkMuted }}>
+                Aucun intérêt renseigné
+              </Text>
+            ) : (
+              profile.interests.map((interest) => (
+                <Chip key={interest} label={interest} tone="outline" />
+              ))
+            )}
+          </View>
+
+          <SectionHeader title="Profil" subtitle="Vibe, niveau et créneaux" />
+          <ListRow
+            title={`Vibe ${profile.vibes
+              .map((vibeId) => vibes.find((v) => v.id === vibeId)?.label ?? vibeId)
+              .join(' · ')}`}
+            subtitle={`Niveau ${levelLabel}`}
+            chevron={false}
+            left={<Ionicons name="happy-outline" size={20} color={colors.primary} />}
+          />
+          <ListRow
+            title={dispos || 'Dispos non renseignées'}
+            subtitle={profile.objectives.join(' · ') || 'Objectifs non renseignés'}
+            chevron={false}
+            left={<Ionicons name="time-outline" size={20} color={colors.primary} />}
+          />
+          <ListRow
+            title={`Fiabilité ${profile.reliability}%`}
+            subtitle={
+              (profile.languages?.length ?? 0) > 0
+                ? `Langues · ${profile.languages!.join(' · ')}`
+                : 'Basé sur sessions & feedbacks'
+            }
+            chevron={false}
+            left={<Ionicons name="ribbon-outline" size={20} color={colors.warning} />}
+          />
+
+          <View style={{ marginTop: spacing.md }}>
+            <TeammateRatingsCard userId={profile.id} />
+          </View>
+
+          <AchievementsSection
+            userId={profile.id}
+            reliability={profile.reliability}
+          />
 
           {!isSelf ? (
             <View style={styles.ctaBlock}>
@@ -445,6 +488,13 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   heroPhoto: { height: 320 },
+  heroPersona: {
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    padding: spacing.md,
+    borderTopLeftRadius: radii.lg,
+    borderTopRightRadius: radii.lg,
+  },
   heroGradient: {
     flex: 1,
     justifyContent: 'flex-end',
@@ -505,32 +555,6 @@ const styles = StyleSheet.create({
     letterSpacing: -0.4,
   },
   wrap: { flexDirection: 'row', flexWrap: 'wrap' },
-  infoCard: {
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    gap: spacing.sm,
-  },
-  infoRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  infoText: { fontFamily: fonts.bodyMedium, fontSize: 15 },
-  reliability: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.md,
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-  },
-  reasonCard: {
-    borderWidth: 1,
-    borderRadius: radii.md,
-    padding: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  reasonTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
   ctaBlock: { marginTop: spacing.xl },
   selfHint: {
     marginTop: spacing.xl,

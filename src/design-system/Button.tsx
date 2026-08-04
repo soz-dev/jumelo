@@ -96,7 +96,7 @@ export function Button({
 
 const styles = StyleSheet.create({
   btn: {
-    minHeight: 54,
+    minHeight: 56,
     borderRadius: radii.pill,
     alignItems: 'center',
     justifyContent: 'center',
@@ -110,5 +110,6 @@ const styles = StyleSheet.create({
   btnLabel: {
     fontFamily: fonts.bodyBold,
     fontSize: 16,
+    letterSpacing: 0.15,
   },
 });

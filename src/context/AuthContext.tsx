@@ -37,6 +37,7 @@ import {
   subscribeFirebaseAuth,
 } from '../lib/firebaseAuth';
 import { isFirebaseConfigured } from '../lib/firebase';
+import { rememberProfile } from '../lib/profileDirectory';
 import { canWriteSupabaseUserId } from '../lib/userIds';
 import type { OAuthProvider } from '../lib/oauth';
 import { getSupabase, isSupabaseConfigured } from '../lib/supabase';
@@ -152,6 +153,8 @@ async function persistLocal(user: UserProfile | null) {
     return;
   }
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+  // Annuaire local : afficher ce compte Firebase dans les rosters d’équipe.
+  await rememberProfile(user).catch(() => undefined);
 }
 
 async function loginDemoOrMock(
@@ -350,7 +353,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (raw && active) {
           try {
             const profile = coerceUserProfile(JSON.parse(raw));
-            if (profile) setUser(profile);
+            if (profile) {
+              setUser(profile);
+              await rememberProfile(profile).catch(() => undefined);
+            }
           } catch {
             // ignore corrupt cache
           }
@@ -618,6 +624,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...patch,
         vibes: clampVibes(patch.vibes ?? user.vibes),
       };
+      // Permet d’effacer photo / persona (JSON.stringify omettrait sinon le champ).
+      if ('photo' in patch && !patch.photo) {
+        delete next.photo;
+      }
+      if ('avatarPersonaId' in patch && !patch.avatarPersonaId) {
+        delete next.avatarPersonaId;
+      }
       setUser(next);
       await persistLocal(next);
       if (canSyncSupabaseProfile(next.id)) {

@@ -4,15 +4,14 @@ import { isOfficialJumelage } from './matching';
 /**
  * Règles de jumelage en mode démo / Expo Go.
  *
- * Un jumelage peut venir de :
- * 1. Invite mutuelle — la personne voulait déjà jumeler → « C’est un jumelage ! »
- * 2. Score ≥ MATCH_THRESHOLD (80) sur le premier swipe Discover, ou sur Léa / Noah
+ * Un jumelage officiel exige toujours score ≥ MATCH_THRESHOLD (80%), y compris
+ * en cas d’invite mutuelle. En dessous : invite seule / toast, pas de célébration.
  *
  * Cas de test (voir TEST.md) :
- * - Home → « Invite reçue » → Maxime dans Activité → sheet Jumeler aussi / Pas pour moi
- * - Home → « Jumelage mutuel » → jumeler Maya dans Discover → jumelage
+ * - Home → « Invite reçue » → Maxime (≥80%) → Jumeler aussi
+ * - Home → « Jumelage mutuel » → Maya (≥80%) dans Discover → jumelage
  * - Premier swipe Discover avec score ≥ 80 → « C’est un jumelage ! »
- * - Score < 80 sans invite entrante → toast seulement
+ * - Score < 80 → toast seulement (pas de jumelage)
  */
 export const DEMO_ALWAYS_MATCH_IDS = ['u-lea', 'u-noah'] as const;
 
@@ -37,7 +36,7 @@ export function isDemoMutualMatch(
 
 /**
  * Décide si un swipe droit doit ouvrir l’écran « C’est un jumelage ! ».
- * Priorité à l’invite mutuelle (incoming), puis aux règles score démo.
+ * Score ≥ 80 obligatoire ; invite mutuelle accélère le chemin si le seuil est atteint.
  */
 export async function shouldCelebrateMatch(params: {
   myId: string;
@@ -47,6 +46,7 @@ export async function shouldCelebrateMatch(params: {
   /** Résultat déjà calculé par createLike (évite un 2e round-trip) */
   mutualFromLike?: boolean;
 }): Promise<boolean> {
+  if (!isOfficialJumelage(params.score)) return false;
   if (params.mutualFromLike) return true;
   const theyLikedMe = await hasIncomingLike(params.myId, params.likedUserId);
   if (theyLikedMe) return true;
