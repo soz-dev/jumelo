@@ -41,7 +41,13 @@
       "expo-splash-screen",
       "expo-web-browser",
       "expo-apple-authentication",
-      "expo-dev-client"
+      "expo-dev-client",
+      [
+        "expo-notifications",
+        {
+          "color": "#0F8F8A"
+        }
+      ]
     ]
   }
 }

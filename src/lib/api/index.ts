@@ -47,6 +47,7 @@ export {
   listTeams,
   membershipState,
   rejectJoinRequest,
+  joinTeam,
   requestJoin,
   resetTeamsDemoState,
 } from './teams';

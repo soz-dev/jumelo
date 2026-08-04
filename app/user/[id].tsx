@@ -4,11 +4,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   ImageBackground,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -27,6 +30,11 @@ import type { UserProfile } from '../../src/data/mock';
 import { getCommonPoints } from '../../src/lib/commonPoints';
 import { computeMatch, scoreLabel } from '../../src/lib/matching';
 import { useRequirePremium } from '../../src/lib/premiumStore';
+import {
+  REPORT_REASONS,
+  reportUser,
+  type ReportReasonId,
+} from '../../src/lib/userReports';
 import { chatPathForUser, openChatWithUser, resolveUserById } from '../../src/lib/users';
 
 export default function PublicProfileScreen() {
@@ -37,6 +45,10 @@ export default function PublicProfileScreen() {
   const { ready: premiumReady, allowed } = useRequirePremium(!isSelfParam);
   const [profile, setProfile] = useState<UserProfile | undefined>(undefined);
   const [loadingProfile, setLoadingProfile] = useState(Boolean(id));
+  const [reportOpen, setReportOpen] = useState(false);
+  const [reportReason, setReportReason] = useState<ReportReasonId>('harassment');
+  const [reportDetails, setReportDetails] = useState('');
+  const [reportBusy, setReportBusy] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -296,6 +308,13 @@ export default function PublicProfileScreen() {
                 }
                 style={{ marginTop: spacing.sm }}
               />
+              <Button
+                label="Signaler ce profil"
+                icon="flag-outline"
+                variant="ghost"
+                onPress={() => setReportOpen(true)}
+                style={{ marginTop: spacing.sm }}
+              />
             </View>
           ) : (
             <Text style={[styles.selfHint, { color: colors.inkMuted }]}>
@@ -303,6 +322,86 @@ export default function PublicProfileScreen() {
             </Text>
           )}
         </ScrollView>
+
+        <Modal visible={reportOpen} transparent animationType="slide">
+          <Pressable
+            style={styles.reportBackdrop}
+            onPress={() => !reportBusy && setReportOpen(false)}
+          >
+            <Pressable
+              style={[styles.reportSheet, { backgroundColor: colors.cream }]}
+              onPress={(e) => e.stopPropagation()}
+            >
+              <Text style={[styles.section, { color: colors.ink, marginTop: 0 }]}>
+                Signaler {profile.name}
+              </Text>
+              <Text style={{ fontFamily: fonts.body, color: colors.inkMuted, marginBottom: 12 }}>
+                Choisis une raison. Le signalement part à la modération Jumelo.
+              </Text>
+              <View style={styles.wrap}>
+                {REPORT_REASONS.map((r) => (
+                  <Chip
+                    key={r.id}
+                    label={r.label}
+                    selected={reportReason === r.id}
+                    onPress={() => setReportReason(r.id)}
+                  />
+                ))}
+              </View>
+              <TextInput
+                value={reportDetails}
+                onChangeText={setReportDetails}
+                placeholder="Précisions (optionnel)"
+                placeholderTextColor={colors.inkFaint}
+                multiline
+                style={[
+                  styles.reportInput,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.white,
+                    color: colors.ink,
+                  },
+                ]}
+              />
+              <Button
+                label="Envoyer le signalement"
+                loading={reportBusy}
+                onPress={async () => {
+                  if (!me) {
+                    Alert.alert('Connexion requise', 'Connecte-toi pour signaler.');
+                    return;
+                  }
+                  setReportBusy(true);
+                  const result = await reportUser({
+                    reporterId: me.id,
+                    reporterName: me.name,
+                    targetId: profile.id,
+                    targetName: profile.name,
+                    reasonId: reportReason,
+                    details: reportDetails,
+                  });
+                  setReportBusy(false);
+                  if (!result.ok) {
+                    Alert.alert('Impossible', result.error);
+                    return;
+                  }
+                  setReportOpen(false);
+                  setReportDetails('');
+                  Alert.alert(
+                    'Merci',
+                    'Signalement envoyé. L’équipe modération le verra dans l’admin.',
+                  );
+                }}
+              />
+              <Button
+                label="Annuler"
+                variant="ghost"
+                onPress={() => setReportOpen(false)}
+                style={{ marginTop: 8 }}
+              />
+            </Pressable>
+          </Pressable>
+        </Modal>
       </SafeAreaView>
     </Atmosphere>
   );
@@ -437,5 +536,25 @@ const styles = StyleSheet.create({
     marginTop: spacing.xl,
     textAlign: 'center',
     fontFamily: fonts.body,
+  },
+  reportBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(20,28,36,0.45)',
+  },
+  reportSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  reportInput: {
+    borderWidth: 1,
+    borderRadius: radii.md,
+    padding: spacing.md,
+    minHeight: 80,
+    marginVertical: spacing.md,
+    fontFamily: fonts.body,
+    textAlignVertical: 'top',
   },
 });

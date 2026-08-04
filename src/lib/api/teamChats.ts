@@ -154,6 +154,7 @@ function cloneSeed(): TeamChatsState {
         vibe: '',
         nextSession: '',
         blurb: '',
+        locked: true,
       }),
     );
   }

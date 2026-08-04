@@ -54,6 +54,7 @@ export default function CreateTeamScreen() {
   const [nextSession, setNextSession] = useState('');
   const [blurb, setBlurb] = useState('');
   const [capacity, setCapacity] = useState(5);
+  const [locked, setLocked] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -104,6 +105,7 @@ export default function CreateTeamScreen() {
       nextSession: nextSession.trim(),
       blurb: blurb.trim(),
       capacity,
+      locked,
     });
     setSubmitting(false);
 
@@ -166,7 +168,8 @@ export default function CreateTeamScreen() {
               </View>
             </View>
             <Text style={[styles.sub, { color: colors.inkMuted }]}>
-              Assemble ton squad — tu seras chef·fe et tu valides les demandes.
+              Assemble ton squad — tu seras chef·fe. Choisis si l’entrée est libre ou sur
+              demande.
             </Text>
 
             <Text style={[styles.label, { color: colors.ink }]}>Nom de l’équipe *</Text>
@@ -258,6 +261,25 @@ export default function CreateTeamScreen() {
                 />
               ))}
             </View>
+
+            <Text style={[styles.label, { color: colors.ink }]}>Accès au groupe</Text>
+            <View style={styles.wrap}>
+              <Chip
+                label="Verrouillé · demandes"
+                selected={locked}
+                onPress={() => setLocked(true)}
+              />
+              <Chip
+                label="Ouvert · entrée libre"
+                selected={!locked}
+                onPress={() => setLocked(false)}
+              />
+            </View>
+            <Text style={[styles.hint, { color: colors.inkFaint }]}>
+              {locked
+                ? 'Les joueurs demandent à rejoindre — tu reçois une notif et tu Approuves / Refuses.'
+                : 'N’importe qui peut rejoindre directement, sans validation.'}
+            </Text>
 
             <Text style={[styles.label, { color: colors.ink }]}>Prochaine session</Text>
             <TextInput
@@ -357,5 +379,6 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   wrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  hint: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18, marginTop: 6 },
   error: { fontFamily: fonts.bodyMedium, marginTop: spacing.md, fontSize: 14 },
 });

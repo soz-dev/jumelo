@@ -195,6 +195,11 @@ export type Team = {
   vibe: string;
   nextSession: string;
   blurb: string;
+  /**
+   * true = entrée sur demande (chef Approuve/Refuse).
+   * false = n’importe qui peut rejoindre directement.
+   */
+  locked: boolean;
 };
 
 export const mockTeams: Team[] = [
@@ -212,6 +217,7 @@ export const mockTeams: Team[] = [
     vibe: 'competitif',
     nextSession: 'Ce soir · 21h',
     blurb: 'Duo/team Valorant ranked, vibe competitive mais fair-play.',
+    locked: true,
   },
   {
     id: 't-foot',
@@ -227,6 +233,7 @@ export const mockTeams: Team[] = [
     vibe: 'fun',
     nextSession: 'Mardi · 20h',
     blurb: 'Foot en salle, ambiance bonne humeur.',
+    locked: true,
   },
   {
     id: 't-revisons',
@@ -242,6 +249,7 @@ export const mockTeams: Team[] = [
     vibe: 'serieux',
     nextSession: 'Demain · 18h',
     blurb: 'Sessions de révision maths / physique.',
+    locked: true,
   },
   {
     id: 't-funk',
@@ -257,6 +265,7 @@ export const mockTeams: Team[] = [
     vibe: 'casual',
     nextSession: 'Jeudi · 19h',
     blurb: 'Jam improvisée, amène ton instrument.',
+    locked: false,
   },
   {
     id: 't-run',
@@ -272,6 +281,7 @@ export const mockTeams: Team[] = [
     vibe: 'fun',
     nextSession: 'Samedi · 10h',
     blurb: '10 km chill autour de la Saône.',
+    locked: false,
   },
 ];
 

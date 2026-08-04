@@ -2,6 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   FlatList,
   Image,
   KeyboardAvoidingView,
@@ -167,6 +168,14 @@ export default function ChatDetailScreen() {
   const send = useCallback(async () => {
     const text = draft.trim();
     if (!text || !id) return;
+
+    const { checkChatMessage } = await import('../../src/lib/profanity');
+    const safety = checkChatMessage(text);
+    if (!safety.ok) {
+      Alert.alert('Message bloqué', safety.error ?? 'Langage interdit.');
+      return;
+    }
+
     setDraft('');
 
     if (isAdminThread && me) {

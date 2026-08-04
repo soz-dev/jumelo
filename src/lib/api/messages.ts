@@ -100,6 +100,8 @@ export async function sendMessage(params: {
 }): Promise<ChatMessage | null> {
   const trimmed = params.body.trim();
   if (!trimmed) return null;
+  const { checkChatMessage } = await import('../profanity');
+  if (!checkChatMessage(trimmed).ok) return null;
 
   if (useLocalStore(params.senderId)) {
     return sendLocalDmMessage({

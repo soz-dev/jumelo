@@ -21,6 +21,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { baseColors } from '../src/constants/theme';
 import { AdminWarningGate } from '../src/components/AdminWarningGate';
+import { PushBootstrap } from '../src/components/PushBootstrap';
 import { AuthProvider } from '../src/context/AuthContext';
 import { TeamsProvider } from '../src/context/TeamsContext';
 import { ThemeProvider } from '../src/context/ThemeContext';
@@ -110,6 +111,7 @@ function AppRootLayout() {
         <TeamsProvider>
           <ThemeProvider>
             <StatusBar style="dark" />
+            <PushBootstrap />
             <AdminWarningGate />
             <Stack
               screenOptions={{

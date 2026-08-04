@@ -18,7 +18,7 @@ import {
   listTeams,
   membershipState,
   rejectJoinRequest,
-  requestJoin,
+  joinTeam,
   type CreateTeamInput,
   type TeamMembershipState,
 } from '../lib/api/teams';
@@ -34,7 +34,12 @@ type TeamsContextValue = {
   create: (
     input: CreateTeamInput,
   ) => Promise<{ ok: true; team: Team } | { ok: false; error: string }>;
-  requestToJoin: (teamId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  requestToJoin: (
+    teamId: string,
+  ) => Promise<
+    | { ok: true; mode: 'joined' | 'requested' }
+    | { ok: false; error: string }
+  >;
   approveRequest: (requestId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   rejectRequest: (requestId: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   removeMember: (
@@ -110,9 +115,16 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
   const requestToJoin = useCallback(
     async (teamId: string) => {
       if (!user) return { ok: false as const, error: 'Connecte-toi pour rejoindre.' };
-      const result = await requestJoin(teamId, user.id);
-      if (result.ok) await refresh();
-      return result.ok ? { ok: true as const } : result;
+      const result = await joinTeam(teamId, user.id, user.name);
+      if (result.ok) {
+        if (result.mode === 'joined') {
+          const team = (await listTeams(user.id)).find((t) => t.id === teamId);
+          if (team) await ensureTeamChat(team);
+        }
+        await refresh();
+        return { ok: true as const, mode: result.mode };
+      }
+      return result;
     },
     [user, refresh],
   );

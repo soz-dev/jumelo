@@ -66,6 +66,15 @@ export default function TeamDetailScreen() {
     setBusy(false);
     if (!result.ok) {
       Alert.alert('Impossible', result.error);
+      return;
+    }
+    if (result.mode === 'joined') {
+      Alert.alert('Bienvenue !', 'Tu as rejoint le groupe. Le chat est disponible.');
+    } else {
+      Alert.alert(
+        'Demande envoyée',
+        'Le chef a été notifié. Tu seras membre après approbation.',
+      );
     }
   };
 
@@ -176,6 +185,8 @@ export default function TeamDetailScreen() {
           <Text style={[styles.blurb, { color: colors.ink }]}>{team.blurb}</Text>
           <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, marginTop: 8 }}>
             {team.city} · {team.membersCount}/{team.capacity} · {team.vibe}
+            {' · '}
+            {team.locked ? 'Sur demande' : 'Entrée libre'}
           </Text>
           {owner ? (
             <View style={styles.chefRow}>
@@ -306,11 +317,13 @@ export default function TeamDetailScreen() {
 
         {membership === 'none' || membership === 'rejected' ? (
           <Button
-            label="Demander à intégrer le groupe"
+            label={
+              team.locked ? 'Demander à intégrer le groupe' : 'Rejoindre le groupe'
+            }
             onPress={onRequestJoin}
             loading={busy}
             style={{ marginTop: spacing.xl }}
-            icon="hand-left-outline"
+            icon={team.locked ? 'hand-left-outline' : 'enter-outline'}
           />
         ) : null}
 

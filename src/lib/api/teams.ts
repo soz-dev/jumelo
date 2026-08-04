@@ -68,6 +68,7 @@ function hydrateTeam(raw: Team): Team {
     ...raw,
     ownerId,
     memberIds: withOwner,
+    locked: raw.locked ?? seed?.locked ?? true,
   });
 }
 
@@ -132,6 +133,7 @@ function mapDbTeam(
     vibe: row.vibe,
     nextSession: row.next_session ?? '',
     blurb: row.blurb,
+    locked: true,
   });
 }
 
@@ -216,9 +218,96 @@ export function membershipState(
   return 'none';
 }
 
+export type JoinTeamResult =
+  | { ok: true; mode: 'joined' }
+  | { ok: true; mode: 'requested'; request: TeamJoinRequest }
+  | { ok: false; error: string };
+
+/**
+ * Rejoint une équipe ouverte, ou crée une demande si l’équipe est verrouillée.
+ */
+export async function joinTeam(
+  teamId: string,
+  userId: string,
+  userName?: string,
+): Promise<JoinTeamResult> {
+  if (useLocalStore(userId)) {
+    const state = await loadLocal();
+    const team = state.teams.find((t) => t.id === teamId);
+    if (!team) return { ok: false, error: 'Équipe introuvable.' };
+    if (team.ownerId === userId || team.memberIds.includes(userId)) {
+      return { ok: false, error: 'Tu es déjà membre de cette équipe.' };
+    }
+    if (team.memberIds.length >= team.capacity) {
+      return { ok: false, error: 'Cette équipe est complète.' };
+    }
+
+    // Groupe ouvert → entrée directe
+    if (!team.locked) {
+      team.memberIds = [...team.memberIds, userId];
+      Object.assign(team, syncMemberCount(team));
+      state.joinRequests = state.joinRequests.filter(
+        (r) => !(r.teamId === teamId && r.userId === userId),
+      );
+      await saveLocal(state);
+      return { ok: true, mode: 'joined' };
+    }
+
+    return requestJoinLocked(state, team, userId, userName);
+  }
+
+  // Cloud : pour l’instant demande (colonne locked absente) — même flux request
+  const req = await requestJoin(teamId, userId, userName);
+  if (!req.ok) return req;
+  return { ok: true, mode: 'requested', request: req.request };
+}
+
+async function requestJoinLocked(
+  state: TeamsState,
+  team: Team,
+  userId: string,
+  userName?: string,
+): Promise<JoinTeamResult> {
+  const existing = state.joinRequests.find(
+    (r) => r.teamId === team.id && r.userId === userId && r.status === 'pending',
+  );
+  if (existing) {
+    return { ok: true, mode: 'requested', request: existing };
+  }
+
+  const request: TeamJoinRequest = {
+    id: `jr-${Date.now()}`,
+    teamId: team.id,
+    userId,
+    status: 'pending',
+    createdAt: new Date().toISOString(),
+  };
+  state.joinRequests = [
+    ...state.joinRequests.filter((r) => !(r.teamId === team.id && r.userId === userId)),
+    request,
+  ];
+  await saveLocal(state);
+
+  try {
+    const { notifyUser } = await import('../notifications');
+    await notifyUser({
+      userId: team.ownerId,
+      title: 'Demande d’adhésion',
+      body: `${userName?.trim() || 'Quelqu’un'} veut rejoindre « ${team.name} »`,
+      data: { type: 'team_join_request', teamId: team.id, requestId: request.id },
+    });
+  } catch {
+    // best-effort
+  }
+
+  return { ok: true, mode: 'requested', request };
+}
+
+/** @deprecated préférer joinTeam — conserve l’API demande pour équipes verrouillées / cloud */
 export async function requestJoin(
   teamId: string,
   userId: string,
+  userName?: string,
 ): Promise<{ ok: true; request: TeamJoinRequest } | { ok: false; error: string }> {
   if (useLocalStore(userId)) {
     const state = await loadLocal();
@@ -230,27 +319,15 @@ export async function requestJoin(
     if (team.memberIds.length >= team.capacity) {
       return { ok: false, error: 'Cette équipe est complète.' };
     }
-    const existing = state.joinRequests.find(
-      (r) => r.teamId === teamId && r.userId === userId && r.status === 'pending',
-    );
-    if (existing) {
-      return { ok: true, request: existing };
+    const result = await requestJoinLocked(state, team, userId, userName);
+    if (!result.ok) return result;
+    if (result.mode === 'joined') {
+      return {
+        ok: false,
+        error: 'Équipe ouverte — utilise joinTeam.',
+      };
     }
-
-    const request: TeamJoinRequest = {
-      id: `jr-${Date.now()}`,
-      teamId,
-      userId,
-      status: 'pending',
-      createdAt: new Date().toISOString(),
-    };
-    // Remplace une éventuelle demande rejetée
-    state.joinRequests = [
-      ...state.joinRequests.filter((r) => !(r.teamId === teamId && r.userId === userId)),
-      request,
-    ];
-    await saveLocal(state);
-    return { ok: true, request };
+    return { ok: true, request: result.request };
   }
 
   const supabase = getSupabase();
@@ -439,6 +516,8 @@ export type CreateTeamInput = {
   nextSession: string;
   blurb: string;
   capacity: number;
+  /** true = demandes ; false = entrée libre */
+  locked?: boolean;
 };
 
 export async function createTeam(
@@ -476,6 +555,7 @@ export async function createTeam(
       vibe,
       nextSession,
       blurb,
+      locked: input.locked !== false,
     });
     state.teams = [team, ...state.teams];
     await saveLocal(state);
