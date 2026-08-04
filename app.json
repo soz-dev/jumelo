@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "Jumelo",
+    "slug": "jumelo",
+    "owner": "sofyan",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "jumelo",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#0F8F8A"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "app.jumelo",
+      "usesAppleSignIn": true,
+      "googleServicesFile": "./GoogleService-Info.plist"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F8F8A",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "package": "app.jumelo",
+      "googleServicesFile": "./google-services.json",
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png",
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-font",
+      "expo-splash-screen",
+      "expo-web-browser",
+      "expo-apple-authentication",
+      "expo-dev-client"
+    ]
+  }
+}
