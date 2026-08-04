@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { Button } from '../../src/components/ui';
 import { fonts, radii, spacing } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
@@ -24,7 +25,10 @@ export default function LegalAcceptScreen() {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
       <ScrollView contentContainerStyle={styles.content}>
-        <Text style={[styles.brand, { color: colors.primary }]}>Jumelo</Text>
+        <View style={styles.brandRow}>
+          <BrandLogo size={44} />
+          <Text style={[styles.brand, { color: colors.primary }]}>Jumelo</Text>
+        </View>
         <Text style={[styles.title, { color: colors.ink }]}>Avant de continuer</Text>
         <Text style={[styles.lead, { color: colors.inkMuted }]}>
           Merci de prendre connaissance de nos documents et d’accepter les conditions pour
@@ -84,6 +88,11 @@ function LinkRow({ label, href }: { label: string; href: Href }) {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
   brand: { fontFamily: fonts.display, fontSize: 28 },
   title: {
     fontFamily: fonts.displaySemi,

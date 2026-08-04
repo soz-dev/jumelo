@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import {
   EmptyState,
@@ -140,7 +141,12 @@ export default function ChatListScreen() {
         <HeaderRow
           title="Messages"
           subtitle="DMs, groupes & notices"
-          right={<ThemeSwitcherButton />}
+          right={
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+              <BrandLogo size={34} />
+              <ThemeSwitcherButton />
+            </View>
+          }
         />
 
         <View

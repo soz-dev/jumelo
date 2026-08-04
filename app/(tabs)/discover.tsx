@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
-import { JumeloLottie } from '../../src/components/JumeloLottie';
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { getCategory } from '../../src/constants/catalog';
 import { useAuth } from '../../src/context/AuthContext';
@@ -197,7 +197,7 @@ export default function DiscoverScreen() {
           subtitle={`${remaining} profils · vibe joueur`}
           right={
             <View style={styles.headerActions}>
-              <JumeloLottie name="spark" size={36} />
+              <BrandLogo size={34} />
               <ThemeSwitcherButton />
               <Pressable
                 style={[styles.filterBtn, { backgroundColor: colors.white, borderColor: colors.border }]}

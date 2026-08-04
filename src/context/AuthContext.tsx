@@ -94,7 +94,7 @@ function profileFromFirebaseLocal(user: FirebaseUser): UserProfile {
     objectives: [],
     reliability: 80,
     onboardingComplete: false,
-    themeId: 'teal',
+    themeId: 'coral',
   };
 }
 
@@ -481,7 +481,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           objectives: [],
           reliability: 80,
           onboardingComplete: false,
-          themeId: 'teal',
+          themeId: 'coral',
         };
         setUser(next);
         await persistLocal(next);

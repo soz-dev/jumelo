@@ -44,7 +44,7 @@ export function ThemeSwitcherButton({ size = 40 }: { size?: number }) {
               </Pressable>
             </View>
             <Text style={[styles.sheetHint, { color: colors.inkMuted }]}>
-              Choisis parmi 10 couleurs — enregistré dans tes préférences.
+              Charte Jumelo par défaut. Change quand tu veux — enregistré dans tes préférences.
             </Text>
             <View style={styles.grid}>
               {palettes.map((item) => {

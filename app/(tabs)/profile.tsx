@@ -10,6 +10,7 @@ import { CategoryIcon } from '../../src/components/CategoryIcon';
 import { ProfileAvatarEditor } from '../../src/components/ProfileAvatarEditor';
 import { ProfileStatsCard } from '../../src/components/ProfileStatsCard';
 import { TeammateRatingsCard } from '../../src/components/TeammateRatingsCard';
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import {
   Avatar,
@@ -51,6 +52,7 @@ export default function ProfileScreen() {
           subtitle="Ton identité Jumelo"
           right={
             <View style={styles.actions}>
+              <BrandLogo size={34} />
               <ThemeSwitcherButton />
               <Pressable
                 style={[styles.gear, { backgroundColor: colors.white, borderColor: colors.border }]}

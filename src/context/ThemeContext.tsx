@@ -43,11 +43,13 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     (async () => {
       try {
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw && active) {
-          const parsed = raw as ThemeId;
-          if (themePalettes.some((p) => p.id === parsed)) {
-            setThemeIdState(parsed);
-          }
+        if (!active) return;
+        if (raw && themePalettes.some((p) => p.id === raw)) {
+          setThemeIdState(raw as ThemeId);
+        } else {
+          // Première visite / pas de préférence → charte logo Jumelo
+          setThemeIdState(DEFAULT_THEME_ID);
+          await AsyncStorage.setItem(STORAGE_KEY, DEFAULT_THEME_ID);
         }
       } finally {
         if (active) setLoading(false);

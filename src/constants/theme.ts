@@ -55,25 +55,26 @@ export type ThemePalette = {
   accentSoft: string;
 };
 
-/** 10 thèmes persistés dans les préférences utilisateur */
+/** 10 thèmes persistés dans les préférences utilisateur.
+ *  Premier = charte marque (logo Jumelo coral/rouge). */
 export const themePalettes: ThemePalette[] = [
+  {
+    id: 'coral',
+    label: 'Jumelo',
+    primary: '#FF4B2B',
+    primaryDark: '#E03A1C',
+    primarySoft: '#FFE8E4',
+    accent: '#0F8F8A',
+    accentSoft: '#E6F6F5',
+  },
   {
     id: 'teal',
     label: 'Teal',
     primary: '#0F8F8A',
     primaryDark: '#0A6B67',
     primarySoft: '#E6F6F5',
-    accent: '#FF5A45',
+    accent: '#FF4B2B',
     accentSoft: '#FFE8E4',
-  },
-  {
-    id: 'coral',
-    label: 'Coral',
-    primary: '#FF5A45',
-    primaryDark: '#D94432',
-    primarySoft: '#FFE8E4',
-    accent: '#0F8F8A',
-    accentSoft: '#E6F6F5',
   },
   {
     id: 'purple',
@@ -149,7 +150,8 @@ export const themePalettes: ThemePalette[] = [
   },
 ];
 
-export const DEFAULT_THEME_ID: ThemeId = 'teal';
+/** Charte graphique logo Jumelo — modifiable ensuite via préférences. */
+export const DEFAULT_THEME_ID: ThemeId = 'coral';
 
 export const baseColors = {
   /** Charcoal-bleu — pas de noir dur pour titres / corps */
@@ -178,7 +180,7 @@ export const colors = {
   teal: '#0F8F8A',
   tealDark: '#0A6B67',
   tealSoft: '#E6F6F5',
-  coral: '#FF5A45',
+  coral: '#FF4B2B',
   coralSoft: '#FFE8E4',
   ...baseColors,
 };

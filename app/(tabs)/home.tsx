@@ -21,6 +21,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { JumeloLottie } from '../../src/components/JumeloLottie';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { getCategory } from '../../src/constants/catalog';
@@ -193,7 +194,10 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Animated.View entering={FadeInDown.duration(380)} style={styles.topRow}>
             <View style={{ flex: 1, paddingRight: spacing.sm }}>
-              <Text style={[styles.brand, { color: colors.primary }]}>Jumelo</Text>
+              <View style={styles.brandRow}>
+                <BrandLogo size={40} />
+                <Text style={[styles.brand, { color: colors.primary }]}>Jumelo</Text>
+              </View>
               <Text style={[styles.hello, { color: colors.inkMuted }]}>
                 {firstName ? `Salut ${firstName}` : 'Bienvenue'}
               </Text>
@@ -220,7 +224,6 @@ export default function HomeScreen() {
                   </View>
                 ) : null}
               </Pressable>
-              <JumeloLottie name="spark" size={42} />
               <ThemeSwitcherButton />
             </View>
           </Animated.View>
@@ -496,12 +499,18 @@ const styles = StyleSheet.create({
     marginBottom: spacing.md,
   },
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 6,
+  },
   brand: {
     fontFamily: fonts.displaySoft,
     fontSize: 13,
     letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: 6,
+    marginBottom: 0,
   },
   hello: {
     ...typography.caption,

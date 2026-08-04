@@ -22,6 +22,7 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { JumeloLottie, type LottieName } from '../../src/components/JumeloLottie';
 import { Button, fonts, radii, spacing, typography } from '../../src/design-system';
 import { useTheme } from '../../src/context/ThemeContext';
@@ -124,7 +125,10 @@ export default function IntroOnboardingScreen() {
     <Atmosphere variant="intro">
       <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
         <View style={styles.topBar}>
-          <Text style={[styles.brand, { color: colors.primary }]}>Jumelo</Text>
+          <View style={styles.brandRow}>
+            <BrandLogo size={34} />
+            <Text style={[styles.brand, { color: colors.primary }]}>Jumelo</Text>
+          </View>
           {!isLast ? (
             <Pressable
               onPress={() => void finish()}
@@ -258,6 +262,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
     paddingBottom: spacing.xs,
+  },
+  brandRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   brand: {
     ...typography.section,

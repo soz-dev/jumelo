@@ -14,6 +14,7 @@ import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import Svg, { Defs, Line, Pattern, Rect } from 'react-native-svg';
 
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { JumeloLottie } from '../../src/components/JumeloLottie';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { Subtitle, fonts, radii, spacing, typography } from '../../src/design-system';
@@ -125,7 +126,7 @@ export default function WelcomeScreen() {
           <ThemeSwitcherButton />
         </View>
         <Animated.View entering={FadeInDown.duration(420)} style={styles.hero}>
-          <JumeloLottie name="spark" size={72} />
+          <BrandLogo size={72} />
           <Text style={styles.brand}>Jumelo</Text>
           <Text style={styles.headline}>Trouve ton{'\n'}Jumelo.</Text>
           <Subtitle style={styles.lead}>

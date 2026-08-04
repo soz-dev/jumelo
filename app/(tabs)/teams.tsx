@@ -14,6 +14,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { TeamLobbyCard } from '../../src/components/TeamLobbyCard';
 import { UniverseId, categories } from '../../src/constants/catalog';
@@ -99,6 +100,7 @@ export default function TeamsScreen() {
             subtitle="Trouve un squad ou crée le tien"
             right={
               <View style={styles.actions}>
+                <BrandLogo size={34} />
                 <ThemeSwitcherButton />
                 <Pressable
                   style={[
