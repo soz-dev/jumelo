@@ -277,6 +277,8 @@ export async function sendTeamChatMessage(params: {
 }): Promise<ChatMessage | null> {
   const text = params.body.trim();
   if (!text) return null;
+  const { checkChatMessage } = await import('../profanity');
+  if (!checkChatMessage(text).ok) return null;
 
   const state = await loadLocal();
   let chat: TeamChatRecord | undefined = state.chats.find((c) => c.id === params.chatId);
