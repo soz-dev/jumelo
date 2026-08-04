@@ -18,6 +18,11 @@ import { Button } from '../../src/components/ui';
 import { fonts, radii, spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
+import {
+  themeGradientAngles,
+  themeWashColors,
+  withHexAlpha,
+} from '../../src/design-system';
 import type { UserProfile } from '../../src/data/mock';
 import { createLike, dismissIncomingLike, markIncomingLikeRead } from '../../src/lib/api/likes';
 import { getCommonPoints } from '../../src/lib/commonPoints';
@@ -139,12 +144,17 @@ export default function LikedMeScreen() {
             </ImageBackground>
           </View>
 
-          <View style={[styles.banner, { backgroundColor: colors.primarySoft }]}>
+          <LinearGradient
+            colors={[...themeWashColors(colors)]}
+            start={themeGradientAngles.wash.start}
+            end={themeGradientAngles.wash.end}
+            style={[styles.banner, { borderColor: withHexAlpha(colors.primary, 0.28) }]}
+          >
             <Ionicons name="people" size={22} color={colors.primary} />
-            <Text style={[styles.bannerText, { color: colors.primaryDark }]}>
+            <Text style={[styles.bannerText, { color: colors.ink }]}>
               {profile.name} veut jumeler avec toi
             </Text>
-          </View>
+          </LinearGradient>
 
           <Text style={[styles.subcopy, { color: colors.inkMuted }]}>
             Points communs et raisons visibles — pas de romance, juste un coéquipier.
@@ -242,9 +252,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 10,
     borderRadius: radii.pill,
+    borderWidth: 1,
+    overflow: 'hidden',
     paddingHorizontal: 18,
     paddingVertical: 12,
     marginBottom: spacing.md,
+    alignSelf: 'stretch',
   },
   bannerText: {
     fontFamily: fonts.bodyBold,

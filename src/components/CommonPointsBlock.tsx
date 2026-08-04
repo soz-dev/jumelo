@@ -1,7 +1,13 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Chip, ScoreBadge } from './ui';
 import { Icon, type IconName } from '../design-system';
+import {
+  themeGradientAngles,
+  themeWashColors,
+  withHexAlpha,
+} from '../design-system/themeGradients';
 import { fonts, radii, spacing } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import type { CommonPoint } from '../lib/commonPoints';
@@ -30,14 +36,19 @@ export function CommonPointsBlock({ points, score, compact, hidden }: Props) {
 
   if (hidden) return null;
 
+  const wash = themeWashColors(colors);
+  const { start, end } = themeGradientAngles.wash;
+
   return (
-    <View
+    <LinearGradient
+      colors={[...wash]}
+      start={start}
+      end={end}
       style={[
         styles.card,
         compact && styles.cardCompact,
         {
-          backgroundColor: colors.primarySoft,
-          borderColor: colors.primary,
+          borderColor: withHexAlpha(colors.primary, 0.28),
         },
       ]}
     >
@@ -48,7 +59,7 @@ export function CommonPointsBlock({ points, score, compact, hidden }: Props) {
             style={[
               styles.title,
               compact && styles.titleCompact,
-              { color: colors.primaryDark },
+              { color: colors.ink },
             ]}
           >
             Vos points communs
@@ -69,11 +80,12 @@ export function CommonPointsBlock({ points, score, compact, hidden }: Props) {
               label={point.label}
               name={point.icon ?? KIND_ICON[point.kind]}
               selected
+              tone="glass"
             />
           ))}
         </View>
       )}
-    </View>
+    </LinearGradient>
   );
 }
 
@@ -83,6 +95,7 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderRadius: radii.md,
     padding: spacing.md,
+    overflow: 'hidden',
   },
   cardCompact: {
     marginTop: spacing.sm,

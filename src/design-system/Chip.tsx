@@ -2,6 +2,7 @@ import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { useTheme } from '../context/ThemeContext';
+import { withHexAlpha } from '../constants/theme';
 import { Icon, type IconName } from './Icon';
 import { fonts, iconSizes, radii } from './tokens';
 
@@ -17,6 +18,12 @@ type ChipProps = {
   icon?: IconName;
   /** Couleur marque Simple Icons quand disponible. */
   branded?: boolean;
+  /**
+   * `default` — fond soft / blanc.
+   * `glass` — verre translucide (sur carte en dégradé thème).
+   * `outline` — contour teinté primaryLight, fond blanc léger.
+   */
+  tone?: 'default' | 'glass' | 'outline';
 };
 
 export function Chip({
@@ -27,10 +34,40 @@ export function Chip({
   emoji,
   icon,
   branded,
+  tone = 'default',
 }: ChipProps) {
   const { colors } = useTheme();
   const iconName = name ?? icon;
-  const tint = selected ? colors.primaryDark : colors.inkMuted;
+
+  const surface =
+    tone === 'glass'
+      ? {
+          backgroundColor: 'rgba(255,255,255,0.72)',
+          borderColor: 'rgba(255,255,255,0.92)',
+        }
+      : tone === 'outline'
+        ? {
+            backgroundColor: 'rgba(255,255,255,0.55)',
+            borderColor: withHexAlpha(colors.primaryLight, 0.85),
+          }
+        : {
+            backgroundColor: selected ? withHexAlpha(colors.primaryLight, 0.35) : colors.white,
+            borderColor: selected ? withHexAlpha(colors.primary, 0.45) : colors.border,
+          };
+
+  const tint =
+    tone === 'glass' || tone === 'outline'
+      ? colors.ink
+      : selected
+        ? colors.primary
+        : colors.inkMuted;
+
+  const labelColor =
+    tone === 'glass' || tone === 'outline'
+      ? colors.ink
+      : selected
+        ? colors.ink
+        : colors.inkMuted;
 
   return (
     <Pressable
@@ -38,9 +75,8 @@ export function Chip({
       disabled={!onPress}
       style={({ pressed }) => [
         styles.chip,
+        surface,
         {
-          backgroundColor: selected ? colors.primarySoft : colors.white,
-          borderColor: selected ? colors.primary : colors.border,
           opacity: pressed && onPress ? 0.9 : 1,
         },
       ]}
@@ -57,14 +93,7 @@ export function Chip({
       ) : emoji ? (
         <Text style={{ marginRight: 4 }}>{emoji}</Text>
       ) : null}
-      <Text
-        style={[
-          styles.chipText,
-          { color: selected ? colors.primaryDark : colors.ink },
-        ]}
-      >
-        {label}
-      </Text>
+      <Text style={[styles.chipText, { color: labelColor }]}>{label}</Text>
     </Pressable>
   );
 }

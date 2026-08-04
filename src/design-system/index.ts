@@ -30,6 +30,15 @@ export { Icon, resolveCatalogIcon, universeIcon } from './Icon';
 export type { IconName } from './Icon';
 export { BrandIcon } from './BrandIcon';
 export {
+  mixHex,
+  withHexAlpha,
+  resolvePrimaryLight,
+  themeWashColors,
+  themeBrandColors,
+  themeGradientAngles,
+} from './themeGradients';
+export type { ThemeGradientSource } from './themeGradients';
+export {
   BRAND_ICONS,
   BRAND_ICON_GAPS,
   getBrandIcon,

@@ -187,12 +187,52 @@ export function resolveTheme(id: ThemeId): ThemePalette {
   return themePalettes.find((t) => t.id === id) ?? themePalettes[0];
 }
 
+function clampByte(n: number) {
+  return Math.max(0, Math.min(255, Math.round(n)));
+}
+
+function parseHex(hex: string): [number, number, number] {
+  const raw = hex.replace('#', '').trim();
+  const full =
+    raw.length === 3
+      ? raw
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : raw.slice(0, 6);
+  const n = Number.parseInt(full, 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+/** Mélange deux hex (t = 0 → a, t = 1 → b). */
+export function mixHex(a: string, b: string, t: number): string {
+  const [ar, ag, ab] = parseHex(a);
+  const [br, bg, bb] = parseHex(b);
+  const u = Math.max(0, Math.min(1, t));
+  const r = clampByte(ar + (br - ar) * u);
+  const g = clampByte(ag + (bg - ag) * u);
+  const bl = clampByte(ab + (bb - ab) * u);
+  return `#${((1 << 24) | (r << 16) | (g << 8) | bl).toString(16).slice(1)}`;
+}
+
+export function withHexAlpha(hex: string, alpha: number): string {
+  const a = Math.max(0, Math.min(1, alpha));
+  const [r, g, b] = parseHex(hex);
+  return `rgba(${r},${g},${b},${a})`;
+}
+
+/** Stop clair entre soft et primary (dégradés themeWash / themeBrand). */
+export function derivePrimaryLight(palette: ThemePalette): string {
+  return mixHex(palette.primarySoft, palette.primary, 0.32);
+}
+
 export function buildColors(palette: ThemePalette) {
   return {
     ...baseColors,
     primary: palette.primary,
     primaryDark: palette.primaryDark,
     primarySoft: palette.primarySoft,
+    primaryLight: derivePrimaryLight(palette),
     accent: palette.accent,
     accentSoft: palette.accentSoft,
     teal: palette.primary,

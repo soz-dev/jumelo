@@ -29,6 +29,8 @@ import {
   fonts,
   radii,
   spacing,
+  themeBrandColors,
+  themeGradientAngles,
 } from '../../src/design-system';
 import { createLike } from '../../src/lib/api/likes';
 import { listProfiles } from '../../src/lib/api/profiles';
@@ -286,17 +288,19 @@ export default function DiscoverScreen() {
                     ? getCommonPoints(user, current.user).slice(0, 4)
                     : [];
                   if (commons.length > 0) {
+                    const brand = themeBrandColors(colors);
+                    const brandAngle = themeGradientAngles.brand;
                     return (
                       <View style={styles.tags}>
-                        <View
-                          style={[
-                            styles.tag,
-                            { backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', gap: 4 },
-                          ]}
+                        <LinearGradient
+                          colors={[...brand]}
+                          start={brandAngle.start}
+                          end={brandAngle.end}
+                          style={[styles.tag, styles.tagCommon]}
                         >
                           <Icon name="common" size={12} color="#fff" weight="bold" />
                           <Text style={styles.tagText}>En commun</Text>
-                        </View>
+                        </LinearGradient>
                         {commons.map((point) => (
                           <View
                             key={point.key}
@@ -432,6 +436,13 @@ const styles = StyleSheet.create({
     borderRadius: radii.pill,
     paddingHorizontal: 10,
     paddingVertical: 6,
+  },
+  tagCommon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'transparent',
+    overflow: 'hidden',
   },
   tagText: { color: '#fff', fontFamily: fonts.bodyMedium, fontSize: 12 },
   actions: {
