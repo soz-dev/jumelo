@@ -175,13 +175,14 @@ export default function HomeScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Animated.View entering={FadeInDown.duration(380)} style={styles.topRow}>
-            <View style={{ flex: 1 }}>
+            <View style={{ flex: 1, paddingRight: spacing.sm }}>
               <Text style={[styles.brand, { color: colors.primary }]}>Jumelo</Text>
               <Text style={[styles.hello, { color: colors.inkMuted }]}>
                 {firstName ? `Salut ${firstName}` : 'Bienvenue'}
               </Text>
-              <Text style={[styles.headline, { color: colors.ink }]}>
-                Trouve ton{'\n'}Jumelo
+              <Text style={[styles.headline, { color: colors.primaryDark }]}>
+                Trouve ton{'\n'}
+                <Text style={[styles.headlineAccent, { color: colors.primary }]}>Jumelo</Text>
               </Text>
             </View>
             <View style={styles.topActions}>
@@ -235,17 +236,24 @@ export default function HomeScreen() {
           <Animated.View entering={FadeInDown.delay(80).duration(360)}>
             <ScalePressable
               onPress={() => router.push('/maintenant')}
-              style={[styles.nowPress, elevation.glow(colors.accent)]}
+              style={[styles.nowPress, elevation.glow(colors.primary)]}
             >
-              <View style={[styles.nowCard, { backgroundColor: colors.ink }]}>
+              <LinearGradient
+                colors={[colors.primaryDark, colors.primary, colors.primary]}
+                locations={[0, 0.55, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.nowCard}
+              >
                 <LinearGradient
-                  colors={['rgba(15,143,138,0.55)', 'rgba(255,90,69,0.35)', 'transparent']}
+                  colors={['rgba(255,255,255,0.22)', 'transparent', 'rgba(255,255,255,0.08)']}
+                  locations={[0, 0.5, 1]}
                   start={{ x: 0, y: 0 }}
                   end={{ x: 1, y: 1 }}
                   style={StyleSheet.absoluteFill}
                 />
                 <View style={styles.nowLiveRow}>
-                  <View style={[styles.liveDot, { backgroundColor: colors.accent }]} />
+                  <View style={[styles.liveDot, { backgroundColor: '#fff' }]} />
                   <Text style={styles.nowEyebrow}>En direct</Text>
                 </View>
                 <View style={styles.nowBody}>
@@ -261,25 +269,33 @@ export default function HomeScreen() {
                   <Text style={styles.nowCta}>Ouvrir le lobby live</Text>
                   <Icon name="chevronRight" size={16} color="#fff" weight="bold" />
                 </View>
-              </View>
+              </LinearGradient>
             </ScalePressable>
           </Animated.View>
 
           <Animated.View entering={FadeInDown.delay(140).duration(380)}>
             <ScalePressable
               onPress={() => router.push('/(tabs)/discover')}
-              style={styles.dayPress}
+              style={[styles.dayPress, elevation.glow(colors.primary)]}
             >
               <LinearGradient
-                colors={[colors.primary, colors.primaryDark, '#0B3A42']}
+                colors={[colors.primary, colors.primary, colors.primaryDark]}
+                locations={[0, 0.4, 1]}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.dayCard}
               >
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.2)', 'transparent', 'rgba(0,0,0,0.1)']}
+                  locations={[0, 0.45, 1]}
+                  start={{ x: 0.1, y: 0 }}
+                  end={{ x: 0.9, y: 1 }}
+                  style={StyleSheet.absoluteFill}
+                />
                 <View style={styles.dayDecor} pointerEvents="none">
-                  <JumeloLottie name="bolt" size={140} style={{ opacity: 0.28 }} />
+                  <JumeloLottie name="bolt" size={140} style={{ opacity: 0.22 }} />
                 </View>
-                <View style={styles.dayAccentBar} />
+                <View style={[styles.dayAccentBar, { backgroundColor: 'rgba(255,255,255,0.7)' }]} />
                 <Text style={styles.dayEyebrow}>Match du jour</Text>
                 <Text style={styles.dayTitle}>Découvre tes{'\n'}matchs du jour</Text>
                 <Text style={styles.daySub}>Des coéquipiers compatibles t’attendent.</Text>
@@ -454,20 +470,26 @@ const styles = StyleSheet.create({
   topActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   brand: {
     fontFamily: fonts.displaySoft,
-    fontSize: 15,
-    letterSpacing: 1.6,
+    fontSize: 13,
+    letterSpacing: 2,
     textTransform: 'uppercase',
-    marginBottom: 4,
+    marginBottom: 6,
   },
   hello: {
     ...typography.caption,
     fontFamily: fonts.bodyMedium,
+    fontSize: 14,
   },
   headline: {
     ...typography.hero,
-    fontSize: 40,
-    lineHeight: 42,
-    marginTop: 4,
+    fontSize: 48,
+    lineHeight: 50,
+    letterSpacing: -1.8,
+    marginTop: 8,
+  },
+  headlineAccent: {
+    fontFamily: fonts.display,
+    letterSpacing: -2,
   },
   notifBtn: {
     width: 42,

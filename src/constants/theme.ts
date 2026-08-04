@@ -152,8 +152,9 @@ export const themePalettes: ThemePalette[] = [
 export const DEFAULT_THEME_ID: ThemeId = 'teal';
 
 export const baseColors = {
-  ink: '#12212B',
-  inkMuted: '#5B6B75',
+  /** Charcoal-bleu — pas de noir dur pour titres / corps */
+  ink: '#2A3F4C',
+  inkMuted: '#5E7380',
   inkFaint: '#8A99A3',
   cream: '#F7F4EF',
   white: '#FFFFFF',
