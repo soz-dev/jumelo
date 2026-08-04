@@ -31,6 +31,7 @@ import { fonts, radii, spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTeams } from '../../src/context/TeamsContext';
 import { useTheme } from '../../src/context/ThemeContext';
+import { Icon, resolveCatalogIcon } from '../../src/design-system';
 
 const CAPACITY_OPTIONS = [3, 4, 5, 6, 8, 10, 12];
 
@@ -144,14 +145,18 @@ export default function CreateTeamScreen() {
                   styles.icon,
                   {
                     backgroundColor:
-                      path.universeId === 'gaming' ? '#7C5CFC' : colors.primary,
+                      path.universeId === 'gaming' ? '#0F8F8A' : colors.primary,
                   },
                 ]}
               >
-                <Text style={styles.heroEmoji}>
-                  {selectedSub?.emoji ??
-                    (path.universeId === 'gaming' ? '🎮' : '👥')}
-                </Text>
+                <Icon
+                  name={resolveCatalogIcon(
+                    selectedSub?.id ?? path.universeId ?? 'teams',
+                  )}
+                  size={26}
+                  color="#fff"
+                  weight="bold"
+                />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.kicker, { color: colors.primaryDark }]}>
@@ -234,7 +239,7 @@ export default function CreateTeamScreen() {
               {availableVibes.map((item) => (
                 <Chip
                   key={item.id}
-                  icon={(item.icon as keyof typeof Ionicons.glyphMap) ?? 'sparkles-outline'}
+                  name={item.icon}
                   label={item.label}
                   selected={vibe === item.id}
                   onPress={() => setVibe(item.id)}
@@ -337,7 +342,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  heroEmoji: { fontSize: 30 },
   kicker: {
     fontFamily: fonts.bodyBold,
     fontSize: 11,

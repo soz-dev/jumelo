@@ -166,18 +166,8 @@ export default function TeamsScreen() {
             {categories.map((cat) => (
               <Chip
                 key={cat.id}
-                icon={
-                  (
-                    {
-                      gaming: 'game-controller',
-                      sports: 'barbell',
-                      education: 'book',
-                      music: 'musical-notes',
-                      hobbies: 'color-palette',
-                    } as const
-                  )[cat.id]
-                }
-                label={`${cat.emoji} ${cat.shortLabel}`}
+                name={cat.id}
+                label={cat.shortLabel}
                 selected={filter === cat.id}
                 onPress={() => setFilter(cat.id)}
               />

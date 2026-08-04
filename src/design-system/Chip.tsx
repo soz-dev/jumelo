@@ -1,20 +1,27 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { useTheme } from '../context/ThemeContext';
+import { Icon, type IconName } from './Icon';
 import { fonts, iconSizes, radii } from './tokens';
 
 type ChipProps = {
   label: string;
   selected?: boolean;
   onPress?: () => void;
+  /** Icône Phosphor sémantique. */
+  name?: IconName;
+  /** @deprecated Préférer `name`. */
   emoji?: string;
-  icon?: keyof typeof Ionicons.glyphMap;
+  /** Alias de `name` pour migration. */
+  icon?: IconName;
 };
 
-export function Chip({ label, selected, onPress, emoji, icon }: ChipProps) {
+export function Chip({ label, selected, onPress, name, emoji, icon }: ChipProps) {
   const { colors } = useTheme();
+  const iconName = name ?? icon;
+  const tint = selected ? colors.primaryDark : colors.inkMuted;
+
   return (
     <Pressable
       onPress={onPress}
@@ -28,14 +35,16 @@ export function Chip({ label, selected, onPress, emoji, icon }: ChipProps) {
         },
       ]}
     >
-      {emoji ? <Text style={{ marginRight: 4 }}>{emoji}</Text> : null}
-      {icon ? (
-        <Ionicons
-          name={icon}
+      {iconName ? (
+        <Icon
+          name={iconName}
           size={iconSizes.xs}
-          color={selected ? colors.primaryDark : colors.inkMuted}
+          color={tint}
+          weight="bold"
           style={{ marginRight: 6 }}
         />
+      ) : emoji ? (
+        <Text style={{ marginRight: 4 }}>{emoji}</Text>
       ) : null}
       <Text
         style={[

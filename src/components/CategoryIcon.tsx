@@ -1,18 +1,10 @@
-import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 
 import { UniverseId, getCategory } from '../constants/catalog';
+import { Icon, universeIcon } from '../design-system/Icon';
 import { radii } from '../constants/theme';
-
-const iconMap: Record<UniverseId, keyof typeof Ionicons.glyphMap> = {
-  gaming: 'game-controller',
-  sports: 'barbell',
-  education: 'book',
-  music: 'musical-notes',
-  hobbies: 'color-palette',
-};
 
 /** Extrémité sombre du dégradé pour chaque univers */
 const gradientEnds: Record<UniverseId, string> = {
@@ -48,10 +40,11 @@ export function CategoryIcon({
         },
       ]}
     >
-      <Ionicons
-        name={iconMap[universeId]}
+      <Icon
+        name={universeIcon(universeId)}
         size={size * 0.48}
         color="#fff"
+        weight="bold"
       />
     </LinearGradient>
   );
@@ -59,7 +52,6 @@ export function CategoryIcon({
 
 export function CategoryBadge({
   universeId,
-  label,
 }: {
   universeId: UniverseId;
   label?: string;
@@ -75,12 +67,8 @@ export function CategoryBadge({
       end={{ x: 1, y: 1 }}
       style={styles.badge}
     >
-      <Ionicons name={iconMap[universeId]} size={12} color="#fff" />
+      <Icon name={universeIcon(universeId)} size={12} color="#fff" weight="bold" />
       <View style={{ width: 4 }} />
-      <Ionicons name="ellipse" size={0} color="transparent" />
-      <View>
-        {/* label via sibling in caller if needed */}
-      </View>
     </LinearGradient>
   );
 }

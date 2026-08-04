@@ -1,8 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { UniverseId, getCategory } from '../constants/catalog';
+import { Icon, universeIcon } from './Icon';
 import { fonts, radii } from './tokens';
 
 export function CategoryPill({
@@ -13,23 +13,16 @@ export function CategoryPill({
   universeId?: UniverseId;
   label: string;
   color?: string;
+  /** @deprecated Les pastilles utilisent Phosphor via `universeId`. */
   emoji?: string;
 }) {
   const cat = universeId ? getCategory(universeId) : undefined;
   const bg = color ?? cat?.color ?? '#0F8F8A';
-  const iconName = universeId
-    ? ({
-        gaming: 'game-controller',
-        sports: 'barbell',
-        education: 'book',
-        music: 'musical-notes',
-        hobbies: 'color-palette',
-      } as const)[universeId]
-    : 'sparkles';
+  const name = universeId ? universeIcon(universeId) : 'spark';
 
   return (
     <View style={[styles.catPill, { backgroundColor: bg }]}>
-      <Ionicons name={iconName} size={12} color="#fff" />
+      <Icon name={name} size={12} color="#fff" weight="bold" />
       <Text style={styles.catPillText}>{label}</Text>
     </View>
   );

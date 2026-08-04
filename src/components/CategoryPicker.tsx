@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -14,6 +13,7 @@ import {
 } from '../constants/catalog';
 import { fonts, radii, spacing } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
+import { Icon, resolveCatalogIcon, universeIcon } from '../design-system';
 
 export type CategoryPath = {
   universeId: UniverseId | null;
@@ -31,9 +31,9 @@ type Props = {
 function tileAccent(universeId: UniverseId | undefined, index: number): string {
   const palette =
     universeId === 'gaming'
-      ? ['#7C5CFC', '#5B8DEF', '#00C2A8', '#FF6B6B', '#F5A623', '#9B59B6']
+      ? ['#0F8F8A', '#3D7EA6', '#FF5A45', '#F5A623', '#5B8DEF', '#00C2A8']
       : universeId === 'sports'
-        ? ['#2ECC71', '#27AE60', '#16A085', '#F39C12']
+        ? ['#0F8F8A', '#27AE60', '#16A085', '#F39C12']
         : ['#0F8F8A', '#3D7EA6', '#C45C26', '#6B5B95'];
   return palette[index % palette.length];
 }
@@ -71,9 +71,16 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
                   platformId: null,
                 })
               }
+              style={styles.crumbRow}
             >
+              <Icon
+                name={universeIcon(category.id)}
+                size={14}
+                color={colors.primary}
+                weight="bold"
+              />
               <Text style={[styles.crumb, { color: colors.primary }]}>
-                {category.emoji} {category.shortLabel}
+                {category.shortLabel}
               </Text>
             </Pressable>
           </>
@@ -81,10 +88,15 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
         {sub ? (
           <>
             <Text style={{ color: colors.inkFaint }}> › </Text>
-            <Text style={[styles.crumbCurrent, { color: colors.ink }]}>
-              {sub.emoji ? `${sub.emoji} ` : ''}
-              {sub.label}
-            </Text>
+            <View style={styles.crumbRow}>
+              <Icon
+                name={resolveCatalogIcon(sub.id)}
+                size={14}
+                color={colors.ink}
+                weight="bold"
+              />
+              <Text style={[styles.crumbCurrent, { color: colors.ink }]}>{sub.label}</Text>
+            </View>
           </>
         ) : null}
       </View>
@@ -107,7 +119,7 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
               ]}
             >
               <View style={[styles.icon, { backgroundColor: cat.color }]}>
-                <Text style={styles.catEmoji}>{cat.emoji}</Text>
+                <Icon name={universeIcon(cat.id)} size={22} color="#fff" weight="bold" />
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={[styles.cardTitle, { color: colors.ink }]}>{cat.label}</Text>
@@ -115,7 +127,7 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
                   {cat.subCategories.length} choix · {cat.description}
                 </Text>
               </View>
-              <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+              <Icon name="chevronRight" size={18} color={colors.inkFaint} />
             </Pressable>
           ))}
         </View>
@@ -128,7 +140,7 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
           </Text>
           <Text style={[styles.sectionHint, { color: colors.inkMuted }]}>
             {isGamingGrid
-              ? 'Tuiles joueur — icône + nom, pas de logos officiels'
+              ? 'Tuiles joueur — icônes Phosphor, pas de logos officiels'
               : `${category.subCategories.length} options`}
           </Text>
           <View style={isGamingGrid ? styles.gameGrid : styles.activityGrid}>
@@ -158,9 +170,12 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
                       { backgroundColor: `${accent}22` },
                     ]}
                   >
-                    <Text style={isGamingGrid ? styles.gameEmoji : styles.activityEmoji}>
-                      {item.emoji ?? '✨'}
-                    </Text>
+                    <Icon
+                      name={resolveCatalogIcon(item.id)}
+                      size={isGamingGrid ? 26 : 20}
+                      color={accent}
+                      weight="bold"
+                    />
                   </View>
                   <Text
                     style={[styles.gameLabel, { color: colors.ink }]}
@@ -205,7 +220,12 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
                     },
                   ]}
                 >
-                  <Text style={styles.platformEmoji}>{platform.emoji}</Text>
+                  <Icon
+                    name={resolveCatalogIcon(platform.id)}
+                    size={16}
+                    color={selected ? colors.primaryDark : colors.ink}
+                    weight="bold"
+                  />
                   <Text
                     style={[
                       styles.platformLabel,
@@ -221,7 +241,7 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
           {!requirePlatform && !sub.platforms?.length ? (
             <View style={styles.wrapChips}>
               <Chip
-                icon="checkmark-circle-outline"
+                name="check"
                 label="Continuer sans plateforme"
                 selected
                 onPress={() => undefined}
@@ -241,6 +261,11 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     alignItems: 'center',
     marginBottom: spacing.sm,
+  },
+  crumbRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   crumb: {
     fontFamily: fonts.bodyMedium,
@@ -266,7 +291,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  catEmoji: { fontSize: 22 },
   cardTitle: {
     fontFamily: fonts.bodyBold,
     fontSize: 16,
@@ -328,8 +352,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  gameEmoji: { fontSize: 26 },
-  activityEmoji: { fontSize: 20 },
   gameLabel: {
     fontFamily: fonts.bodyBold,
     fontSize: 12,
@@ -350,7 +372,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  platformEmoji: { fontSize: 16 },
   platformLabel: {
     fontFamily: fonts.bodyMedium,
     fontSize: 14,

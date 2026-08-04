@@ -55,19 +55,7 @@ export default function InviteScreen() {
           {gamePlatforms.map((item) => (
             <Chip
               key={item.id}
-              icon={
-                (
-                  {
-                    pc: 'desktop-outline',
-                    psn: 'logo-playstation',
-                    xbox: 'logo-xbox',
-                    switch: 'game-controller-outline',
-                    mobile: 'phone-portrait-outline',
-                    discord: 'chatbubbles-outline',
-                  } as const
-                )[item.id as 'pc' | 'psn' | 'xbox' | 'switch' | 'mobile' | 'discord'] ??
-                'hardware-chip-outline'
-              }
+              name={item.id}
               label={item.label}
               selected={platform === item.id}
               onPress={() => setPlatform(item.id)}

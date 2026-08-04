@@ -26,3 +26,5 @@ export { Chip } from './Chip';
 export { EmptyState } from './EmptyState';
 export { Title, Subtitle } from './Typography';
 export { CategoryPill } from './CategoryPill';
+export { Icon, resolveCatalogIcon, universeIcon } from './Icon';
+export type { IconName } from './Icon';

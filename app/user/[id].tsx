@@ -164,17 +164,7 @@ export default function PublicProfileScreen() {
               return (
                 <Chip
                   key={universeId}
-                  icon={
-                    (
-                      {
-                        gaming: 'game-controller',
-                        sports: 'barbell',
-                        education: 'book',
-                        music: 'musical-notes',
-                        hobbies: 'color-palette',
-                      } as const
-                    )[universeId]
-                  }
+                  name={universeId}
                   label={cat?.shortLabel ?? universeId}
                   selected
                 />
@@ -237,7 +227,7 @@ export default function PublicProfileScreen() {
               <Text style={[styles.section, { color: colors.ink }]}>Langues</Text>
               <View style={styles.wrap}>
                 {profile.languages!.map((lang) => (
-                  <Chip key={lang} icon="language-outline" label={lang} selected />
+                  <Chip key={lang} name="language" label={lang} selected />
                 ))}
               </View>
             </>

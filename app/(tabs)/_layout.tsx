@@ -1,10 +1,13 @@
-import { Ionicons } from '@expo/vector-icons';
 import { Redirect, Tabs } from 'expo-router';
 import { ActivityIndicator, View } from 'react-native';
 
-import { elevation, fonts } from '../../src/design-system';
+import { elevation, fonts, Icon, type IconName } from '../../src/design-system';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
+
+function TabIcon({ name, color, focused }: { name: IconName; color: string; focused: boolean }) {
+  return <Icon name={name} size={24} color={color} weight={focused ? 'fill' : 'regular'} />;
+}
 
 export default function TabsLayout() {
   const { user, loading } = useAuth();
@@ -38,12 +41,12 @@ export default function TabsLayout() {
           letterSpacing: 0.2,
         },
         tabBarStyle: {
-          backgroundColor: colors.white,
+          backgroundColor: 'rgba(247,244,239,0.96)',
           borderTopColor: colors.border,
           height: 90,
           paddingTop: 10,
           ...elevation.soft,
-          shadowOpacity: 0.06,
+          shadowOpacity: 0.05,
         },
       }}
     >
@@ -51,8 +54,8 @@ export default function TabsLayout() {
         name="home"
         options={{
           title: 'Home',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="home" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="home" color={color} focused={focused} />
           ),
         }}
       />
@@ -60,8 +63,8 @@ export default function TabsLayout() {
         name="discover"
         options={{
           title: 'Discover',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="compass" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="discover" color={color} focused={focused} />
           ),
         }}
       />
@@ -69,8 +72,8 @@ export default function TabsLayout() {
         name="teams"
         options={{
           title: 'Équipes',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="people" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="teams" color={color} focused={focused} />
           ),
         }}
       />
@@ -78,8 +81,8 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: 'Messages',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="chatbubbles" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="chat" color={color} focused={focused} />
           ),
         }}
       />
@@ -87,8 +90,8 @@ export default function TabsLayout() {
         name="profile"
         options={{
           title: 'Profil',
-          tabBarIcon: ({ color, size }) => (
-            <Ionicons name="person-circle" size={size} color={color} />
+          tabBarIcon: ({ color, focused }) => (
+            <TabIcon name="profile" color={color} focused={focused} />
           ),
         }}
       />

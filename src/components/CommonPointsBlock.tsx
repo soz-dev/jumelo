@@ -1,18 +1,18 @@
-import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
 import { Chip, ScoreBadge } from './ui';
+import { Icon, type IconName } from '../design-system';
 import { fonts, radii, spacing } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
 import type { CommonPoint } from '../lib/commonPoints';
 
-const KIND_ICON: Record<CommonPoint['kind'], keyof typeof Ionicons.glyphMap> = {
-  universe: 'planet-outline',
-  interest: 'sparkles-outline',
-  platform: 'hardware-chip-outline',
-  vibe: 'happy-outline',
-  city: 'location-outline',
-  availability: 'time-outline',
+const KIND_ICON: Record<CommonPoint['kind'], IconName> = {
+  universe: 'spark',
+  interest: 'interest',
+  platform: 'online',
+  vibe: 'vibe',
+  city: 'city',
+  availability: 'soir',
 };
 
 type Props = {
@@ -43,7 +43,7 @@ export function CommonPointsBlock({ points, score, compact, hidden }: Props) {
     >
       <View style={styles.header}>
         <View style={styles.titleRow}>
-          <Ionicons name="git-compare-outline" size={compact ? 18 : 20} color={colors.primary} />
+          <Icon name="common" size={compact ? 18 : 20} color={colors.primary} weight="bold" />
           <Text
             style={[
               styles.title,
@@ -67,8 +67,7 @@ export function CommonPointsBlock({ points, score, compact, hidden }: Props) {
             <Chip
               key={point.key}
               label={point.label}
-              emoji={point.emoji}
-              icon={point.emoji ? undefined : KIND_ICON[point.kind]}
+              name={point.icon ?? KIND_ICON[point.kind]}
               selected
             />
           ))}

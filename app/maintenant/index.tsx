@@ -83,7 +83,7 @@ export default function MaintenantScreen() {
           {availableVibes.map((item) => (
             <Chip
               key={item.id}
-              icon={(item.icon as keyof typeof Ionicons.glyphMap) ?? 'sparkles-outline'}
+              name={item.icon}
               label={item.label}
               selected={vibe === item.id}
               onPress={() => setVibe(item.id)}

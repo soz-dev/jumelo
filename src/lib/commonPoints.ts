@@ -7,6 +7,8 @@ import {
   type PlatformId,
   type UniverseId,
 } from '../constants/catalog';
+import type { IconName } from '../design-system/Icon';
+import { resolveCatalogIcon } from '../design-system/Icon';
 import type { UserProfile } from '../data/mock';
 
 export type CommonPointKind =
@@ -21,7 +23,8 @@ export type CommonPoint = {
   key: string;
   kind: CommonPointKind;
   label: string;
-  emoji?: string;
+  /** Icône Phosphor sémantique */
+  icon?: IconName;
 };
 
 function overlap<T>(a: readonly T[], b: readonly T[]): T[] {
@@ -53,6 +56,16 @@ function interestLabels(profile: UserProfile): string[] {
   return out;
 }
 
+function interestIcon(label: string): IconName {
+  for (const cat of categories) {
+    const sub = cat.subCategories.find(
+      (s) => s.label.toLowerCase() === label.toLowerCase() || s.id === label.toLowerCase(),
+    );
+    if (sub) return resolveCatalogIcon(sub.id);
+  }
+  return 'interest';
+}
+
 /**
  * Intersection lisible entre deux profils — preuves concrètes de match
  * (univers, hobbies, plateformes, vibes, ville, dispos).
@@ -66,7 +79,7 @@ export function getCommonPoints(me: UserProfile, other: UserProfile): CommonPoin
       key: `universe:${universeId}`,
       kind: 'universe',
       label: cat?.shortLabel ?? universeId,
-      emoji: cat?.emoji,
+      icon: resolveCatalogIcon(universeId),
     });
   }
 
@@ -75,6 +88,7 @@ export function getCommonPoints(me: UserProfile, other: UserProfile): CommonPoin
       key: `interest:${interest.toLowerCase()}`,
       kind: 'interest',
       label: interest,
+      icon: interestIcon(interest),
     });
   }
 
@@ -86,7 +100,7 @@ export function getCommonPoints(me: UserProfile, other: UserProfile): CommonPoin
       key: `platform:${platformId}`,
       kind: 'platform',
       label: plat?.label ?? platformId,
-      emoji: plat?.emoji,
+      icon: resolveCatalogIcon(platformId),
     });
   }
 
@@ -96,6 +110,7 @@ export function getCommonPoints(me: UserProfile, other: UserProfile): CommonPoin
       key: `vibe:${vibeId}`,
       kind: 'vibe',
       label: vibe?.label ?? vibeId,
+      icon: resolveCatalogIcon(vibeId),
     });
   }
 
@@ -107,6 +122,7 @@ export function getCommonPoints(me: UserProfile, other: UserProfile): CommonPoin
       key: `city:${me.city.trim().toLowerCase()}`,
       kind: 'city',
       label: me.city.trim(),
+      icon: 'city',
     });
   }
 
@@ -116,6 +132,7 @@ export function getCommonPoints(me: UserProfile, other: UserProfile): CommonPoin
       key: `availability:${slot}`,
       kind: 'availability',
       label: avail?.label ?? slot,
+      icon: resolveCatalogIcon(slot),
     });
   }
 

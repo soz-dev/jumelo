@@ -45,6 +45,7 @@ export default function DisposScreen() {
         {availabilities.map((item) => (
           <Chip
             key={item.id}
+            name={item.id}
             label={item.label}
             selected={draft.availability.includes(item.id)}
             onPress={() => toggleAvailability(item.id)}

@@ -260,19 +260,19 @@ export type VibeOption = {
   id: Vibe;
   label: string;
   hint: string;
-  /** Nom d’icône Ionicons (pas d’emoji téléphone) */
-  icon: string;
+  /** Nom sémantique Phosphor (`IconName`) */
+  icon: Vibe;
 };
 
 export const vibes: VibeOption[] = [
-  { id: 'competitif', label: 'Compétitif', hint: 'On vise la perf', icon: 'flame-outline' },
-  { id: 'casual', label: 'Casual', hint: 'Sans pression', icon: 'sunny-outline' },
-  { id: 'serieux', label: 'Sérieux', hint: 'Régulier et fiable', icon: 'locate-outline' },
-  { id: 'fun', label: 'Fun', hint: 'Pour le fun', icon: 'happy-outline' },
-  { id: 'mentorat', label: 'Mentorat', hint: 'Apprendre ensemble', icon: 'school-outline' },
-  { id: 'chill', label: 'Chill', hint: 'Sans pression, pour le fun', icon: 'water-outline' },
-  { id: 'social', label: 'Social', hint: 'Rencontres & bonne ambiance', icon: 'people-outline' },
-  { id: 'creatif', label: 'Créatif', hint: 'Explorer et créer ensemble', icon: 'color-wand-outline' },
+  { id: 'competitif', label: 'Compétitif', hint: 'On vise la perf', icon: 'competitif' },
+  { id: 'casual', label: 'Casual', hint: 'Sans pression', icon: 'casual' },
+  { id: 'serieux', label: 'Sérieux', hint: 'Régulier et fiable', icon: 'serieux' },
+  { id: 'fun', label: 'Fun', hint: 'Pour le fun', icon: 'fun' },
+  { id: 'mentorat', label: 'Mentorat', hint: 'Apprendre ensemble', icon: 'mentorat' },
+  { id: 'chill', label: 'Chill', hint: 'Sans pression, pour le fun', icon: 'chill' },
+  { id: 'social', label: 'Social', hint: 'Rencontres & bonne ambiance', icon: 'social' },
+  { id: 'creatif', label: 'Créatif', hint: 'Explorer et créer ensemble', icon: 'creatif' },
 ];
 
 const vibeById = Object.fromEntries(vibes.map((v) => [v.id, v])) as Record<Vibe, VibeOption>;

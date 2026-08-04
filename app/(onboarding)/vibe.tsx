@@ -1,4 +1,3 @@
-import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -8,6 +7,7 @@ import { getVibesForUniverses, type Vibe } from '../../src/constants/catalog';
 import { fonts, radii, spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
+import { Icon } from '../../src/design-system';
 import {
   MAX_PROFILE_VIBES,
   MIN_PROFILE_VIBES,
@@ -77,10 +77,11 @@ export default function VibeScreen() {
                   { backgroundColor: selected ? colors.accent : colors.primarySoft },
                 ]}
               >
-                <Ionicons
-                  name={(vibe.icon as keyof typeof Ionicons.glyphMap) ?? 'sparkles-outline'}
+                <Icon
+                  name={vibe.icon}
                   size={18}
                   color={selected ? '#fff' : colors.primaryDark}
+                  weight="bold"
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -88,7 +89,7 @@ export default function VibeScreen() {
                 <Text style={[styles.hint, { color: colors.inkMuted }]}>{vibe.hint}</Text>
               </View>
               {selected ? (
-                <Ionicons name="checkmark-circle" size={22} color={colors.accent} />
+                <Icon name="check" size={22} color={colors.accent} weight="fill" />
               ) : null}
             </Pressable>
           );

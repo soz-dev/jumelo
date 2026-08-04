@@ -24,6 +24,7 @@ import { mockUsers, type UserProfile } from '../../src/data/mock';
 import {
   CategoryPill,
   HeaderRow,
+  Icon,
   elevation,
   fonts,
   radii,
@@ -293,11 +294,17 @@ export default function DiscoverScreen() {
                             { backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', gap: 4 },
                           ]}
                         >
-                          <Ionicons name="git-compare-outline" size={12} color="#fff" />
+                          <Icon name="common" size={12} color="#fff" weight="bold" />
                           <Text style={styles.tagText}>En commun</Text>
                         </View>
                         {commons.map((point) => (
-                          <View key={point.key} style={styles.tag}>
+                          <View
+                            key={point.key}
+                            style={[styles.tag, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
+                          >
+                            {point.icon ? (
+                              <Icon name={point.icon} size={11} color="#fff" weight="bold" />
+                            ) : null}
                             <Text style={styles.tagText}>{point.label}</Text>
                           </View>
                         ))}
@@ -317,7 +324,7 @@ export default function DiscoverScreen() {
                           { backgroundColor: '#F59E0B', flexDirection: 'row', alignItems: 'center', gap: 4 },
                         ]}
                       >
-                        <Ionicons name="happy-outline" size={12} color="#fff" />
+                        <Icon name="vibe" size={12} color="#fff" weight="bold" />
                         <Text style={styles.tagText}>{current.user.vibes.join(' · ')}</Text>
                       </View>
                     </View>

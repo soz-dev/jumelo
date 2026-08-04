@@ -95,17 +95,7 @@ export default function ProfileScreen() {
             return (
               <Chip
                 key={id}
-                icon={
-                  (
-                    {
-                      gaming: 'game-controller',
-                      sports: 'barbell',
-                      education: 'book',
-                      music: 'musical-notes',
-                      hobbies: 'color-palette',
-                    } as const
-                  )[id]
-                }
+                name={id}
                 label={cat?.shortLabel ?? id}
                 selected
               />
@@ -131,7 +121,7 @@ export default function ProfileScreen() {
         <Text style={[styles.section, { color: colors.ink }]}>Vibe & objectifs</Text>
         <View style={styles.wrap}>
           {user.vibes.map((vibe) => (
-            <Chip key={vibe} icon="happy-outline" label={vibe} selected />
+            <Chip key={vibe} name={vibe} label={vibe} selected />
           ))}
           {user.objectives.map((o) => (
             <Chip key={o} label={o} />
@@ -161,7 +151,7 @@ export default function ProfileScreen() {
         <Text style={[styles.section, { color: colors.ink }]}>Langues</Text>
         <View style={styles.wrap}>
           {(user.languages ?? ['Français']).map((lang) => (
-            <Chip key={lang} icon="language-outline" label={lang} selected />
+            <Chip key={lang} name="language" label={lang} selected />
           ))}
         </View>
 
