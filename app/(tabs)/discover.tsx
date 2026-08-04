@@ -134,9 +134,9 @@ export default function DiscoverScreen() {
 
       showToast(
         likeResult.mutual
-          ? 'C’est un match!'
+          ? 'C’est un jumelage !'
           : isOfficialJumelage(score)
-            ? 'Like envoyé'
+            ? 'Invite envoyée'
             : `Pas encore un jumelage (score ${score}%)`,
       );
     });
@@ -213,7 +213,7 @@ export default function DiscoverScreen() {
           <View style={[styles.empty, { backgroundColor: colors.white }]}>
             <Text style={[styles.emptyTitle, { color: colors.ink }]}>Plus de profils</Text>
             <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, textAlign: 'center' }}>
-              Likés : {liked.length} · Passés : {passed.length}
+              Jumelés : {liked.length} · Passés : {passed.length}
             </Text>
             <Pressable
               style={[styles.resetBtn, { backgroundColor: colors.primary }]}
@@ -251,10 +251,10 @@ export default function DiscoverScreen() {
               style={styles.photo}
             >
               <Animated.View style={[styles.stamp, styles.likeStamp, { opacity: likeOpacity }]}>
-                <Text style={styles.stampText}>LIKE</Text>
+                <Text style={styles.stampText}>JUMELER</Text>
               </Animated.View>
               <Animated.View style={[styles.stamp, styles.nopeStamp, { opacity: nopeOpacity }]}>
-                <Text style={styles.stampText}>NOPE</Text>
+                <Text style={styles.stampText}>PASSER</Text>
               </Animated.View>
 
               <View style={styles.topBadges}>
@@ -352,7 +352,7 @@ export default function DiscoverScreen() {
                 style={[styles.roundBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
                 onPress={() => advance('right')}
               >
-                <Ionicons name="heart" size={24} color="#fff" />
+                <Ionicons name="people" size={24} color="#fff" />
               </Pressable>
             </View>
           </Animated.View>
@@ -360,12 +360,12 @@ export default function DiscoverScreen() {
       </View>
 
       <Text style={[styles.hint, { color: colors.inkFaint }]}>
-        Swipe droite = like · swipe gauche = passer · jumelage dès 80%
+        Swipe droite = jumeler · swipe gauche = passer · jumelage dès 80%
       </Text>
 
       {likeToast ? (
         <View style={[styles.toast, { backgroundColor: colors.ink }]}>
-          <Ionicons name="heart-outline" size={16} color="#fff" />
+          <Ionicons name="people-outline" size={16} color="#fff" />
           <Text style={styles.toastText}>{likeToast}</Text>
         </View>
       ) : null}
@@ -473,7 +473,7 @@ const styles = StyleSheet.create({
   },
   likeStamp: { left: 20, borderColor: '#22C55E', transform: [{ rotate: '-15deg' }] },
   nopeStamp: { right: 20, borderColor: '#EF4444', transform: [{ rotate: '15deg' }] },
-  stampText: { fontFamily: fonts.display, fontSize: 28, color: '#fff' },
+  stampText: { fontFamily: fonts.display, fontSize: 22, color: '#fff' },
   empty: {
     borderRadius: radii.lg,
     padding: spacing.xl,

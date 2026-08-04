@@ -92,51 +92,51 @@ Les profils viennent de `profiles` (+ tables junction). RLS : tout utilisateur a
 
 Le seed crée déjà un DM avec le message : *« Salut Bob ! Prêt pour un duo ce soir ? »*.
 
-## Cas de test : like reçu (mode démo)
+## Cas de test : invite reçue (mode démo)
 
 Sans deux téléphones — login démo `lea@jumelo.app` (`__DEV__`).
 
 1. Onglet **Home**.
-2. Bandeau **Cas de test (__DEV__)** → **Like reçu** (ou laisse le seed auto Maxime au premier lancement).
-3. Badge cœur (en-tête) et ligne **« Maxime a aimé ton profil »** dans **Activité récente**.
-4. Tape la notif / le badge → sheet **« Maxime t’a liké »** (`/liked-me/u-maxime`).
-5. **Liker en retour** → **« C’est un match! »** puis **Discuter** ; **Passer** retire la notif.
+2. Bandeau **DEV · cas de test** → **Invite reçue** (ou laisse le seed auto Maxime au premier lancement).
+3. Badge UsersThree (en-tête) et ligne **« Maxime veut jumeler »** dans **Activité récente**.
+4. Tape la notif / le badge → sheet **« Maxime veut jumeler avec toi »** (`/liked-me/u-maxime`).
+5. **Jumeler aussi** → **« C’est un jumelage ! »** puis **Discuter** ; **Pas pour moi** retire la notif.
 
-## Cas de test : like mutuel (mode démo)
+## Cas de test : jumelage mutuel (mode démo)
 
-1. Home → **Cas de test : Like mutuel** (seed : Maya t’a déjà liké).
-2. Onglet **Discover** → like **Maya** (cœur / swipe droite).
-3. Match immédiat **« C’est un match! »** (like mutuel, même si score &lt; 80).
+1. Home → **Jumelage mutuel** (seed : Maya veut déjà jumeler).
+2. Onglet **Discover** → jumeler **Maya** (bouton people / swipe droite).
+3. Jumelage immédiat **« C’est un jumelage ! »** (invite mutuelle, même si score &lt; 80).
 4. **Discuter** ouvre / crée le DM.
 
-## Cas de test : C’est un match! (score ≥ 80, mode démo)
+## Cas de test : C’est un jumelage ! (score ≥ 80, mode démo)
 
-Sans Supabase (`lea@jumelo.app`), un **jumelage officiel** exige un score de compatibilité **≥ 80** (`MATCH_THRESHOLD` dans `src/lib/matching.ts`) — sauf like mutuel ci-dessus.
+Sans Supabase (`lea@jumelo.app`), un **jumelage officiel** exige un score de jumelage **≥ 80** (`MATCH_THRESHOLD` dans `src/lib/matching.ts`) — sauf invite mutuelle ci-dessus.
 
 ### Reproduire la célébration (score)
 
 1. Lance `npx expo start`, ouvre Expo Go, reste en démo (pas de `.env` Supabase).
 2. Onglet **Discover**.
-3. Like (cœur ou swipe droite) le **premier profil** dont le badge score est **≥ 80**  
+3. Jumeler (people ou swipe droite) le **premier profil** dont le badge score est **≥ 80**  
    (souvent Noah / Maxime selon le ranking — le score est affiché en haut à droite de la carte).
-4. L’écran modal **« C’est un match! »** (`/match-success/[id]`) s’ouvre avec :
+4. L’écran modal **« C’est un jumelage ! »** (`/match-success/[id]`) s’ouvre avec :
    - les deux avatars + confetti Lottie
-   - le score de compatibilité
+   - le score de jumelage
    - boutons **Discuter**, **Voir le profil**, **Continuer Discover**
 
-Variante : liker **Noah** (`u-noah`) ou **Léa** (`u-lea`) avec score ≥ 80 déclenche aussi le match (même après le premier like).
+Variante : jumeler **Noah** (`u-noah`) ou **Léa** (`u-lea`) avec score ≥ 80 déclenche aussi le jumelage (même après la première invite).
 
-### Score &lt; 80 (sans like entrant)
+### Score &lt; 80 (sans invite entrante)
 
-- Le like est enregistré (AsyncStorage `@jumelo/likes`).
+- L’invite est enregistrée (AsyncStorage `@jumelo/likes`).
 - Toast : **« Pas encore un jumelage (score X%) »**.
-- Pas d’écran « C’est un match! ».
+- Pas d’écran « C’est un jumelage ! ».
 
 ### Maintenant / Home
 
 - Les scores restent visibles.
-- Label **Jumelage** / bandeau **Match trouvé** seulement si score ≥ 80.
-- Likes reçus + matches apparaissent dans **Activité récente** (persistance locale).
+- Label **Jumelage** / bandeau **Jumelage trouvé** seulement si score ≥ 80.
+- Invites reçues + jumelages apparaissent dans **Activité récente** (persistance locale).
 
 ## Vérifications rapides
 

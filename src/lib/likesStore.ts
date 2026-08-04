@@ -205,7 +205,7 @@ export async function buildLikeActivity(myId: string): Promise<ActivityItem[]> {
     items.push({
       id: `like-${like.fromUserId}-${like.createdAt}`,
       kind: 'incoming_like',
-      text: `${name} a aimé ton profil`,
+      text: `${name} veut jumeler`,
       time: relativeTime(like.createdAt),
       color: '#FF5A45',
       userId: like.fromUserId,
@@ -222,7 +222,7 @@ export async function buildLikeActivity(myId: string): Promise<ActivityItem[]> {
     items.push({
       id: `match-${peerId}-${match.createdAt}`,
       kind: 'match',
-      text: `Nouveau match${scoreBit} avec ${name}`,
+      text: `Nouveau jumelage${scoreBit} avec ${name}`,
       time: relativeTime(match.createdAt),
       color: '#0F8F8A',
       userId: peerId,

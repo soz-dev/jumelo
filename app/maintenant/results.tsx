@@ -81,7 +81,7 @@ export default function MaintenantResultsScreen() {
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]}>
         <Text style={{ padding: spacing.lg, fontFamily: fonts.body, color: colors.ink }}>
-          Connecte-toi pour voir les matchs.
+          Connecte-toi pour voir les jumelages.
         </Text>
         <Pressable onPress={() => router.replace('/(auth)/login')}>
           <Text
@@ -154,9 +154,9 @@ export default function MaintenantResultsScreen() {
           >
             {jumelage && index === 0 ? (
               <View style={[styles.matchFound, { backgroundColor: colors.primarySoft }]}>
-                <Ionicons name="heart" size={14} color={colors.primaryDark} />
+                <Ionicons name="people" size={14} color={colors.primaryDark} />
                 <Text style={{ color: colors.primaryDark, fontFamily: fonts.bodyBold, fontSize: 12 }}>
-                  Match trouvé · score {match.score}% (≥ {MATCH_THRESHOLD})
+                  Jumelage trouvé · score {match.score}% (≥ {MATCH_THRESHOLD})
                 </Text>
               </View>
             ) : null}

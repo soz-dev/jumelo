@@ -145,10 +145,10 @@ export default function HomeScreen() {
   const onSeedIncoming = async () => {
     const likerId = await seedIncomingLikeFixture(user.id);
     await refreshLikesUi(user.id);
-    setSeedHint('Maxime t’a liké — ouvre la notif ci-dessous');
+    setSeedHint('Maxime veut jumeler — ouvre la notif ci-dessous');
     Alert.alert(
-      'Cas de test : like reçu',
-      'Maxime a liké ton profil. Tape la ligne dans Activité récente (ou le badge cœur) pour ouvrir « Maxime t’a liké ».',
+      'Cas de test : invite reçue',
+      'Maxime veut jumeler. Tape la ligne dans Activité récente (ou le badge) pour ouvrir « Maxime veut jumeler avec toi ».',
       [
         { text: 'Plus tard', style: 'cancel' },
         { text: 'Voir', onPress: () => router.push(`/liked-me/${likerId}`) },
@@ -159,13 +159,13 @@ export default function HomeScreen() {
   const onSeedMutual = async () => {
     const likerId = await seedMutualLikeFixture(user.id);
     await refreshLikesUi(user.id);
-    setSeedHint('Maya t’a déjà liké — like-la en retour ou dans Discover');
+    setSeedHint('Maya veut déjà jumeler — jumelle aussi ou via Discover');
     Alert.alert(
-      'Cas de test : like mutuel',
-      'Maya t’a déjà liké. Like-la en retour (sheet) ou trouve-la dans Discover (cœur / swipe droite) → « C’est un match! ».',
+      'Cas de test : jumelage mutuel',
+      'Maya veut déjà jumeler. Réponds « Jumeler aussi » (sheet) ou trouve-la dans Discover (swipe droite) → « C’est un jumelage ! ».',
       [
         { text: 'Discover', onPress: () => router.push('/(tabs)/discover') },
-        { text: 'Liker Maya', onPress: () => router.push(`/liked-me/${likerId}`) },
+        { text: 'Jumeler Maya', onPress: () => router.push(`/liked-me/${likerId}`) },
       ],
     );
   };
@@ -192,9 +192,9 @@ export default function HomeScreen() {
                   styles.notifBtn,
                   { backgroundColor: 'rgba(255,255,255,0.72)', borderColor: colors.border },
                 ]}
-                accessibilityLabel="Qui t’a liké"
+                accessibilityLabel="Invites reçues"
               >
-                <Icon name="heart" size={20} color={colors.accent} weight="fill" />
+                <Icon name="social" size={20} color={colors.accent} weight="fill" />
                 {unreadLikes > 0 ? (
                   <View style={[styles.notifBadge, { backgroundColor: colors.accent }]}>
                     <Text style={styles.notifBadgeText}>
@@ -217,14 +217,14 @@ export default function HomeScreen() {
                   style={[styles.demoBtn, { borderColor: colors.border }]}
                 >
                   <Icon name="pulse" size={14} color={colors.inkFaint} weight="bold" />
-                  <Text style={[styles.demoBtnText, { color: colors.inkFaint }]}>Like reçu</Text>
+                  <Text style={[styles.demoBtnText, { color: colors.inkFaint }]}>Invite reçue</Text>
                 </Pressable>
                 <Pressable
                   onPress={onSeedMutual}
                   style={[styles.demoBtn, { borderColor: colors.border }]}
                 >
-                  <Icon name="heart" size={14} color={colors.inkFaint} weight="bold" />
-                  <Text style={[styles.demoBtnText, { color: colors.inkFaint }]}>Like mutuel</Text>
+                  <Icon name="social" size={14} color={colors.inkFaint} weight="bold" />
+                  <Text style={[styles.demoBtnText, { color: colors.inkFaint }]}>Jumelage mutuel</Text>
                 </Pressable>
               </View>
               {seedHint ? (
@@ -296,8 +296,8 @@ export default function HomeScreen() {
                   <JumeloLottie name="bolt" size={140} style={{ opacity: 0.22 }} />
                 </View>
                 <View style={[styles.dayAccentBar, { backgroundColor: 'rgba(255,255,255,0.7)' }]} />
-                <Text style={styles.dayEyebrow}>Match du jour</Text>
-                <Text style={styles.dayTitle}>Découvre tes{'\n'}matchs du jour</Text>
+                <Text style={styles.dayEyebrow}>Jumelage du jour</Text>
+                <Text style={styles.dayTitle}>Découvre tes{'\n'}jumelages du jour</Text>
                 <Text style={styles.daySub}>Des coéquipiers compatibles t’attendent.</Text>
                 <View style={styles.dayBtn}>
                   <Text style={[styles.dayBtnText, { color: colors.primaryDark }]}>
@@ -310,7 +310,7 @@ export default function HomeScreen() {
           </Animated.View>
 
           <SectionHeader
-            title={`Top matchs\ndu jour`}
+            title={`Top jumelages\ndu jour`}
             actionLabel="Voir tout"
             onAction={() => router.push('/(tabs)/discover')}
           />

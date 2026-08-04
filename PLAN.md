@@ -14,8 +14,8 @@ Slogan : **« Trouve ton jumelage. »**
 - [x] Tabs Home / Discover / Teams / Chat / Profil
 - [x] Écrans match reveal, chat détail, team détail, profil public
 - [x] Design system + 10 thèmes persistés (AsyncStorage + `profiles.theme_id`)
-- [x] Swipe like/pass sur Discover
-- [x] Écran « C’est un match! » (`match-success/[id]`) — démo, seuil ≥ 80
+- [x] Swipe jumeler/passer sur Discover
+- [x] Écran « C’est un jumelage ! » (`match-success/[id]`) — démo, seuil ≥ 80
 - [x] Catégories → sous-catégories → plateformes
 - [x] Flux Maintenant (recherche live + invitation)
 - [x] UI alignée maquettes Base44

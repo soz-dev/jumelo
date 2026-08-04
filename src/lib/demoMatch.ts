@@ -2,17 +2,17 @@ import { hasIncomingLike } from './api/likes';
 import { isOfficialJumelage } from './matching';
 
 /**
- * Règles de match en mode démo / Expo Go.
+ * Règles de jumelage en mode démo / Expo Go.
  *
  * Un jumelage peut venir de :
- * 1. Like mutuel — la personne m’avait déjà liké → « C’est un match! »
- * 2. Score ≥ MATCH_THRESHOLD (80) sur le premier like Discover, ou sur Léa / Noah
+ * 1. Invite mutuelle — la personne voulait déjà jumeler → « C’est un jumelage ! »
+ * 2. Score ≥ MATCH_THRESHOLD (80) sur le premier swipe Discover, ou sur Léa / Noah
  *
  * Cas de test (voir TEST.md) :
- * - Home → « Cas de test : like reçu » → Maxime dans Activité → sheet Like back / Pass
- * - Home → « Cas de test : like mutuel » → liker Maya dans Discover → match
- * - Premier like Discover avec score ≥ 80 → « C’est un match! »
- * - Score < 80 sans like entrant → toast seulement
+ * - Home → « Invite reçue » → Maxime dans Activité → sheet Jumeler aussi / Pas pour moi
+ * - Home → « Jumelage mutuel » → jumeler Maya dans Discover → jumelage
+ * - Premier swipe Discover avec score ≥ 80 → « C’est un jumelage ! »
+ * - Score < 80 sans invite entrante → toast seulement
  */
 export const DEMO_ALWAYS_MATCH_IDS = ['u-lea', 'u-noah'] as const;
 
@@ -36,8 +36,8 @@ export function isDemoMutualMatch(
 }
 
 /**
- * Décide si un like droit doit ouvrir l’écran « C’est un match! ».
- * Priorité au like mutuel (incoming), puis aux règles score démo.
+ * Décide si un swipe droit doit ouvrir l’écran « C’est un jumelage ! ».
+ * Priorité à l’invite mutuelle (incoming), puis aux règles score démo.
  */
 export async function shouldCelebrateMatch(params: {
   myId: string;

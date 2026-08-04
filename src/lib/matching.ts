@@ -1,6 +1,6 @@
 import type { UserProfile } from '../data/mock';
 
-/** Seuil officiel d’un jumelage : score >= 80 / 100. En dessous = like seul, pas de « C’est un match! ». */
+/** Seuil officiel d’un jumelage : score >= 80 / 100. En dessous = invite seule, pas de « C’est un jumelage ! ». */
 export const MATCH_THRESHOLD = 80;
 
 export function isOfficialJumelage(score: number): boolean {

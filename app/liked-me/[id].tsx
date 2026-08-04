@@ -140,11 +140,15 @@ export default function LikedMeScreen() {
           </View>
 
           <View style={[styles.banner, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="heart" size={22} color={colors.primary} />
+            <Ionicons name="people" size={22} color={colors.primary} />
             <Text style={[styles.bannerText, { color: colors.primaryDark }]}>
-              {profile.name} t’a liké
+              {profile.name} veut jumeler avec toi
             </Text>
           </View>
+
+          <Text style={[styles.subcopy, { color: colors.inkMuted }]}>
+            Points communs et raisons visibles — pas de romance, juste un coéquipier.
+          </Text>
 
           <Text style={[styles.bio, { color: colors.inkMuted }]} numberOfLines={3}>
             {profile.bio}
@@ -155,13 +159,13 @@ export default function LikedMeScreen() {
 
         <View style={styles.actions}>
           <Button
-            label="Liker en retour"
-            icon="heart"
+            label="Jumeler aussi"
+            icon="people"
             loading={busy}
             onPress={onLikeBack}
           />
           <Button
-            label="Passer"
+            label="Pas pour moi"
             icon="close"
             variant="secondary"
             disabled={busy}
@@ -245,6 +249,14 @@ const styles = StyleSheet.create({
   bannerText: {
     fontFamily: fonts.bodyBold,
     fontSize: 16,
+  },
+  subcopy: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
   },
   bio: {
     fontFamily: fonts.body,

@@ -43,8 +43,8 @@ export default function NotificationsSettingsScreen() {
           <>
             <SettingsToggleRow
               icon="heart-outline"
-              label="Nouveaux matchs"
-              hint="Quand quelqu’un matche avec toi"
+              label="Nouveaux jumelages"
+              hint="Quand quelqu’un jumelle avec toi"
               value={prefs.matchAlerts}
               onValueChange={(v) => update({ matchAlerts: v })}
             />

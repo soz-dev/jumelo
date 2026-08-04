@@ -369,7 +369,7 @@ export const mockMessages: Record<string, ChatMessage[]> = {
 };
 
 export const mockActivity = [
-  { id: 'a1', text: 'Léa a aimé ton profil', time: 'il y a 2h', color: '#FF5A45' },
+  { id: 'a1', text: 'Léa veut jumeler', time: 'il y a 2h', color: '#FF5A45' },
   { id: 'a2', text: 'Nouveau match à 92% avec Maxime', time: 'il y a 5h', color: '#0F8F8A' },
   { id: 'a3', text: "Karim t'a invité dans une équipe", time: 'hier', color: '#7C5CFC' },
 ];

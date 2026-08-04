@@ -48,7 +48,7 @@ export default function SettingsHubScreen() {
         <SettingsRow
           icon="notifications-outline"
           label="Notifications"
-          hint="Alertes match, messages, équipes"
+          hint="Alertes jumelage, messages, équipes"
           onPress={() => router.push('/settings/notifications')}
         />
         <SettingsRow

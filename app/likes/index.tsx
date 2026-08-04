@@ -65,7 +65,7 @@ export default function LikesInboxScreen() {
           >
             <Ionicons name="arrow-back" size={20} color={colors.ink} />
           </Pressable>
-          <Text style={[styles.title, { color: colors.ink }]}>Qui t’a liké</Text>
+          <Text style={[styles.title, { color: colors.ink }]}>Invites reçues</Text>
           <View style={{ width: 40 }} />
         </View>
 
@@ -75,10 +75,10 @@ export default function LikesInboxScreen() {
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
             {likes.length === 0 ? (
               <View style={[styles.empty, { backgroundColor: colors.white, borderColor: colors.border }]}>
-                <Ionicons name="heart-outline" size={36} color={colors.inkFaint} />
-                <Text style={[styles.emptyTitle, { color: colors.ink }]}>Aucun like pour l’instant</Text>
+                <Ionicons name="people-outline" size={36} color={colors.inkFaint} />
+                <Text style={[styles.emptyTitle, { color: colors.ink }]}>Aucune invite pour l’instant</Text>
                 <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, textAlign: 'center' }}>
-                  Lance un cas de test depuis Home, ou attends qu’un profil t’aime.
+                  Lance un cas de test depuis Home, ou attends qu’un profil veuille jumeler.
                 </Text>
               </View>
             ) : (
@@ -97,7 +97,7 @@ export default function LikesInboxScreen() {
                     <Image source={{ uri: photo }} style={styles.avatar} />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.rowTitle, { color: colors.ink }]}>
-                        {name} t’a liké
+                        {name} veut jumeler
                       </Text>
                       <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, fontSize: 13 }}>
                         {relativeTime(like.createdAt)}

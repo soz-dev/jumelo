@@ -117,9 +117,9 @@ export default function MatchSuccessScreen() {
 
           <JumeloLottie name="success" size={72} loop={false} style={styles.successIcon} />
 
-          <Text style={[styles.title, { color: colors.ink }]}>C’est un match!</Text>
+          <Text style={[styles.title, { color: colors.ink }]}>C’est un jumelage !</Text>
           <Text style={[styles.subtitle, { color: colors.inkMuted }]}>
-            Toi et {match.user.name} avez mutuellement liké
+            Toi et {match.user.name} voulez jumeler ensemble
           </Text>
 
           <View style={styles.avatarsRow}>
@@ -127,7 +127,7 @@ export default function MatchSuccessScreen() {
               <Image source={{ uri: mePhoto }} style={styles.avatar} />
             </View>
             <View style={[styles.heartBadge, { backgroundColor: colors.primary }]}>
-              <Ionicons name="heart" size={22} color="#fff" />
+              <Ionicons name="people" size={22} color="#fff" />
             </View>
             <View style={[styles.avatarWrap, shadows.soft, { borderColor: colors.accent }]}>
               <Image source={{ uri: peerPhoto }} style={styles.avatar} />
@@ -142,7 +142,7 @@ export default function MatchSuccessScreen() {
           >
             <Text style={styles.scoreValue}>{match.score}</Text>
             <View>
-              <Text style={styles.scoreLabel}>compatibilité</Text>
+              <Text style={styles.scoreLabel}>score de jumelage</Text>
               <Text style={styles.scoreHint}>{scoreLabel(match.score)}</Text>
             </View>
           </LinearGradient>

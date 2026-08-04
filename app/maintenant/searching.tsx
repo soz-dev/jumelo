@@ -87,7 +87,7 @@ export default function SearchingScreen() {
           >
             <Ionicons name="play" size={16} color={colors.primary} />
             <Text style={{ color: colors.primary, fontFamily: fonts.bodyBold }}>
-              Voir un match démo
+              Voir un jumelage démo
             </Text>
           </Pressable>
         </View>
