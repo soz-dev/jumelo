@@ -46,6 +46,7 @@ export default function AdminMemberDetailScreen() {
   const [name, setName] = useState('');
   const [photoUrl, setPhotoUrl] = useState('');
   const [message, setMessage] = useState('');
+  const [warnMessage, setWarnMessage] = useState('');
   const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('');
 
@@ -249,22 +250,72 @@ export default function AdminMemberDetailScreen() {
             }}
           />
         </View>
+        <Text style={[styles.section, { color: colors.ink }]}>Avertissement</Text>
+        <Text style={[styles.hint, { color: colors.inkMuted }]}>
+          Le message s’affiche une fois en pop-in au démarrage de l’app pour ce membre, et reste
+          visible ici dans l’historique admin.
+        </Text>
+        <TextField
+          label="Message d’avertissement"
+          value={warnMessage}
+          onChangeText={setWarnMessage}
+          multiline
+          numberOfLines={3}
+          placeholder="Ex. : Merci de respecter la charte communauté…"
+          style={{ minHeight: 80, textAlignVertical: 'top' }}
+        />
         <Button
-          label="Avertir l’utilisateur"
+          label="Envoyer l’avertissement"
           icon="warning-outline"
-          variant="ghost"
+          variant="secondary"
           loading={busy}
+          disabled={!warnMessage.trim()}
           onPress={async () => {
             setBusy(true);
-            const result = await warnAdminMember(member.id, 'Avertissement MVP');
+            const result = await warnAdminMember(member.id, warnMessage);
             setBusy(false);
-            if (result.ok) {
-              setStatus(`Avertissement #${result.count} enregistré.`);
-              await load();
+            if (!result.ok) {
+              setStatus(result.error);
+              return;
             }
+            setWarnMessage('');
+            setStatus(`Avertissement #${result.count} enregistré — pop-in au prochain démarrage.`);
+            await load();
           }}
           style={{ marginTop: spacing.sm }}
         />
+
+        {(member.warnings?.length ?? 0) > 0 ? (
+          <View style={styles.warnHistory}>
+            <Text style={[styles.historyTitle, { color: colors.ink }]}>
+              Historique ({member.warnings!.length})
+            </Text>
+            {member.warnings!.map((w) => (
+              <View
+                key={w.id}
+                style={[
+                  styles.warnCard,
+                  {
+                    backgroundColor: colors.cream,
+                    borderColor: colors.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.warnMsg, { color: colors.ink }]}>{w.message}</Text>
+                <Text style={[styles.hint, { color: colors.inkFaint, marginTop: 4 }]}>
+                  {new Date(w.createdAt).toLocaleString('fr-FR')}
+                  {w.acknowledgedAt
+                    ? ` · vu le ${new Date(w.acknowledgedAt).toLocaleString('fr-FR')}`
+                    : ' · en attente (pop-in)'}
+                </Text>
+              </View>
+            ))}
+          </View>
+        ) : (
+          <Text style={[styles.hint, { color: colors.inkFaint }]}>
+            Aucun avertissement pour ce membre.
+          </Text>
+        )}
 
         <Text style={[styles.section, { color: colors.ink }]}>Message au membre</Text>
         <TextField
@@ -341,4 +392,12 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   modRow: { gap: spacing.sm },
+  warnHistory: { marginTop: spacing.md, gap: spacing.sm },
+  historyTitle: { ...typography.section, marginBottom: spacing.xs },
+  warnCard: {
+    borderWidth: 1,
+    borderRadius: 14,
+    padding: spacing.md,
+  },
+  warnMsg: { ...typography.body, lineHeight: 21 },
 });

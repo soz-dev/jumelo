@@ -91,7 +91,17 @@ export default function AdminMembersScreen() {
               <ListRow
                 key={m.id}
                 title={`${m.name}${m.isPremium ? ' · ★' : ''}${m.banned ? ' · BAN' : m.suspended ? ' · SUSPENDU' : ''}`}
-                subtitle={`${m.email} · ${m.source}${m.isPremium ? ' · Premium' : ''}${m.warnCount ? ` · ⚠ ${m.warnCount}` : ''}`}
+                subtitle={`${m.email} · ${m.source}${m.isPremium ? ' · Premium' : ''}${
+                  m.warnCount
+                    ? ` · ⚠ ${m.warnCount}${
+                        m.warnings?.[0]?.message
+                          ? ` — ${m.warnings[0].message.slice(0, 36)}${
+                              m.warnings[0].message.length > 36 ? '…' : ''
+                            }`
+                          : ''
+                      }`
+                    : ''
+                }`}
                 left={
                   <Avatar name={m.name} photo={m.photo} color={m.avatarColor} size={44} />
                 }
