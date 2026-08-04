@@ -1,6 +1,7 @@
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { GameArtImage } from './GameArtImage';
 import { Chip } from './ui';
 import {
   Category,
@@ -140,7 +141,7 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
           </Text>
           <Text style={[styles.sectionHint, { color: colors.inkMuted }]}>
             {isGamingGrid
-              ? 'Tuiles joueur — icônes marque si dispo, sinon Phosphor'
+              ? 'Tuiles joueur — jaquettes store si dispo, sinon Phosphor'
               : `${category.subCategories.length} options`}
           </Text>
           <View style={isGamingGrid ? styles.gameGrid : styles.activityGrid}>
@@ -164,13 +165,21 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
                     },
                   ]}
                 >
-                  <Icon
-                    name={resolveCatalogIcon(item.id)}
-                    size={isGamingGrid ? 28 : 22}
-                    color={accent}
-                    weight="bold"
-                    branded={isGamingGrid}
-                  />
+                  {isGamingGrid ? (
+                    <GameArtImage
+                      catalogId={item.id}
+                      size={44}
+                      color={accent}
+                      brandedFallback
+                    />
+                  ) : (
+                    <Icon
+                      name={resolveCatalogIcon(item.id)}
+                      size={22}
+                      color={accent}
+                      weight="bold"
+                    />
+                  )}
                   <Text
                     style={[styles.gameLabel, { color: colors.ink }]}
                     numberOfLines={2}

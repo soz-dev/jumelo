@@ -54,12 +54,13 @@ Les tokens `baseColors` (ink, cream, border…) restent stables ; primary/accent
 
 ## Icônes
 
+- **Artwork store** (`gameArt.ts` + `GameArtImage`) — jaquettes / icônes distantes pour les tuiles gaming (Steam CDN, App Store, etc.). Carré arrondi, pas de pastille couleur. Erreur réseau → fallback.
 - **Phosphor** (`phosphor-react-native`, MIT) — icônes produit par défaut (nav, sport, vibes, fallbacks).
-- **Simple Icons** (`simple-icons` + `react-native-svg`, paths CC0) — glyphes marque pour jeux/plateformes mappés dans `src/constants/gameIcons.ts`.
-- **Locaux** (`assets/icons/games/` + `localGameGlyphs.ts`) — pictogrammes originaux quand SI n’a pas le slug (ex. Switch/Nintendo, Xbox pad, cube Minecraft). Pas de PNG logos officiels téléchargés.
-- Composant unique : `Icon` (`branded` optionnel pour la couleur marque). `BrandIcon` pour le rendu SVG brut.
-- **Jamais d’emoji** dans l’UI produit. Gaps restants (Among Us, Tekken, Stardew…) → Phosphor.
-- Marques : disclaimer dans `LEGAL.md` — CC0 ≠ droit d’usage commercial des trademarks.
+- **Simple Icons** — **plateformes** + logos **jeu dédiés** en fallback seulement (`gameIcons.ts`). Jamais un logo éditeur (miHoYo, Activision…) à la place d’un jeu.
+- **Locaux** (`assets/icons/games/` + `localGameGlyphs.ts`) — Switch/Nintendo, Xbox pad, cube Minecraft.
+- Composant `Icon` (`branded` optionnel). `BrandIcon` pour le SVG brut.
+- **Jamais d’emoji** dans l’UI produit.
+- Marques / CDN : disclaimer dans `LEGAL.md`.
 
 ## Composants
 

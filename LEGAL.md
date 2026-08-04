@@ -50,15 +50,24 @@ Fichiers concernés : `src/legal/*.ts`, notamment `version.ts`, `mentions.ts`, `
 
 Cette fondation vise un MVP « en normes » côté UX et documentation. Elle n’est **pas** une garantie de conformité réglementaire. Toute communication externe doit rester prudente jusqu’à validation juridique.
 
-## Marques & icônes de jeux (Simple Icons)
+## Marques, jaquettes store & icônes
 
-Jumelo affiche des **glyphes SVG** issus du projet open-source [Simple Icons](https://simpleicons.org/) (licence **CC0** sur les chemins SVG) pour certains jeux et plateformes (Valorant, League of Legends, Bungie/Destiny, EA, etc.), plus quelques **pictogrammes locaux originaux** (`assets/icons/games/`) quand Simple Icons n’a pas le slug (Nintendo/Switch, Xbox, Minecraft). Voir `src/constants/gameIcons.ts`.
+### Artwork store (MVP démo)
+
+Les tuiles gaming affichent des **jaquettes / icônes store distantes** mappées dans `src/constants/gameArt.ts` (CDN Steam `library_600x900`, icônes App Store / iTunes, médias Riot / Wikimedia selon le titre).
 
 **Point juridique important :**
 
-- La licence CC0 concerne le **fichier SVG / path**, pas le droit des marques.
-- Les noms, logos et identités visuelles des jeux (Riot, Epic, Valve, Microsoft, Nintendo, etc.) restent des **marques déposées** de leurs titulaires.
-- Expédier ces glyphes dans une app **commerciale** (App Store / Google Play) sans droits ou guidelines d’usage peut être risqué (refus store, mise en demeure).
-- Avant publication store : **vérifier l’usage des marques** auprès d’un conseil, ou **remplacer** par des assets licenciés / press kits officiels / pictogrammes génériques (Phosphor reste le fallback).
+- Ces visuels sont des **marques / œuvres protégées** des éditeurs et des stores (Valve/Steam, Apple, Riot, HoYoverse, Nintendo, etc.).
+- Le **hotlink CDN** sert uniquement à la **démo MVP** — ce n’est **pas** une licence d’usage.
+- Avant production / publication store : **héberger des assets licenciés** (press kits, partenariats, guidelines éditeur) ou des pictogrammes génériques, et **se conformer aux ToS** Steam / App Store / Google Play / éditeurs. Ne pas dépendre du hotlink CDN en prod.
 
-Ce n’est **pas** un avis d’avocat. Simple Icons ≠ autorisation de marque.
+### Glyphes Simple Icons (fallback & plateformes)
+
+Jumelo peut encore afficher des **glyphes SVG** [Simple Icons](https://simpleicons.org/) (licence **CC0** sur les chemins SVG) pour les **plateformes** (Steam, PSN, Discord…) et, en fallback seulement, pour quelques **logos jeu dédiés** (Valorant, LoL, Fortnite, CS, Roblox, FIFA) — jamais un logo **éditeur** (miHoYo, Activision, Rockstar, Battle.net…) à la place d’une jaquette de jeu. Pictogrammes locaux : `assets/icons/games/` (Switch, Xbox, Minecraft). Voir `src/constants/gameIcons.ts`.
+
+- La licence CC0 concerne le **fichier SVG / path**, pas le droit des marques.
+- Expédier glyphes ou jaquettes dans une app **commerciale** sans droits peut être risqué (refus store, mise en demeure).
+- Phosphor reste le fallback produit quand aucune art URL / glyphe dédié n’existe.
+
+Ce n’est **pas** un avis d’avocat. CDN hotlink / Simple Icons ≠ autorisation de marque.

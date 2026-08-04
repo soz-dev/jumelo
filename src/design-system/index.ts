@@ -37,3 +37,5 @@ export {
   readableBrandFill,
 } from '../constants/gameIcons';
 export type { BrandGlyph } from '../constants/gameIcons';
+export { GAME_ART, getGameArt, hasGameArt } from '../constants/gameArt';
+export type { GameArt, GameArtSource } from '../constants/gameArt';

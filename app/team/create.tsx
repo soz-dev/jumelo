@@ -18,6 +18,7 @@ import { safeBack } from '../../src/lib/navigation';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
 import { CategoryPath, CategoryPicker } from '../../src/components/CategoryPicker';
+import { GameArtImage } from '../../src/components/GameArtImage';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { Button, Chip } from '../../src/components/ui';
 import {
@@ -140,15 +141,23 @@ export default function CreateTeamScreen() {
             keyboardShouldPersistTaps="handled"
           >
             <View style={styles.heroRow}>
-              <Icon
-                name={resolveCatalogIcon(
-                  selectedSub?.id ?? path.universeId ?? 'teams',
-                )}
-                size={32}
-                color={colors.primary}
-                weight="bold"
-                branded={path.universeId === 'gaming'}
-              />
+              {path.universeId === 'gaming' && selectedSub?.id ? (
+                <GameArtImage
+                  catalogId={selectedSub.id}
+                  size={40}
+                  color={colors.primary}
+                  brandedFallback
+                />
+              ) : (
+                <Icon
+                  name={resolveCatalogIcon(
+                    selectedSub?.id ?? path.universeId ?? 'teams',
+                  )}
+                  size={32}
+                  color={colors.primary}
+                  weight="bold"
+                />
+              )}
               <View style={{ flex: 1 }}>
                 <Text style={[styles.kicker, { color: colors.primaryDark }]}>
                   LOBBY · CRÉATION

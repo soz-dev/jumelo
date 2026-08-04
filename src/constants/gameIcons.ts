@@ -1,14 +1,16 @@
 /**
  * Mapping catalogue Jumelo → glyphes marque (Simple Icons CC0 + pictogrammes locaux).
  *
- * Les marques restent propriété de leurs titulaires — voir LEGAL.md.
- * Absents de SI / local → fallback Phosphor via `Icon` (jamais d’emoji).
+ * Règle produit : SI éditeur (miHoYo, Activision, Rockstar, Battle.net…) JAMAIS
+ * en stand-in d’un jeu précis. SI / local OK pour :
+ * - plateformes (Steam, PSN, Xbox, Switch, Discord, Mobile…)
+ * - logos JEU dédiés (Valorant, LoL, Fortnite, CS, Roblox, FIFA) en fallback
+ *   quand `gameArt.ts` n’a pas d’URL ou que l’image échoue.
+ *
+ * Voir LEGAL.md. Absents → Phosphor via `Icon`.
  */
 import {
-  siActivision,
   siAndroid,
-  siBattledotnet,
-  siBungie,
   siCounterstrike,
   siDiscord,
   siEa,
@@ -17,12 +19,10 @@ import {
   siFortnite,
   siItchdotio,
   siLeagueoflegends,
-  siMihoyo,
   siOrigin,
   siPlaystation,
   siRiotgames,
   siRoblox,
-  siRockstargames,
   siSteam,
   siTwitch,
   siUbisoft,
@@ -55,12 +55,12 @@ function toGlyph(icon: SimpleIcon): BrandGlyph {
 }
 
 /**
- * Ids catalogue (sous-catégories gaming + plateformes) → glyphe.
- * Approximation éditeur / plateforme uniquement quand le jeu n’a pas de glyphe dédié.
- * Nintendo / Xbox / Minecraft absents de Simple Icons → pictogrammes locaux.
+ * Ids catalogue → glyphe.
+ * Jeux : uniquement logos JEU dédiés (pas d’éditeur).
+ * Plateformes / alias marques : SI + locaux.
  */
 export const BRAND_ICONS: Record<string, BrandGlyph> = {
-  // Jeux — glyphe Simple Icons dédié
+  // Jeux — glyphe Simple Icons dédié (fallback si pas d’artwork)
   valorant: toGlyph(siValorant),
   lol: toGlyph(siLeagueoflegends),
   fortnite: toGlyph(siFortnite),
@@ -68,35 +68,16 @@ export const BRAND_ICONS: Record<string, BrandGlyph> = {
   roblox: toGlyph(siRoblox),
   fifa: toGlyph(siFifa),
 
-  // Jeux — approximation éditeur / plateforme (SI)
-  gta: toGlyph(siRockstargames),
-  cod: toGlyph(siActivision),
-  warzone: toGlyph(siActivision),
-  wow: toGlyph(siBattledotnet),
-  diablo: toGlyph(siBattledotnet),
-  overwatch: toGlyph(siBattledotnet),
-  genshin: toGlyph(siMihoyo),
-  'rocket-league': toGlyph(siEpicgames),
-  destiny: toGlyph(siBungie),
-  apex: toGlyph(siEa),
-  'it-takes-two': toGlyph(siEa),
-  'indie-coop': toGlyph(siItchdotio),
-
-  // Jeux — pictogrammes locaux (absents de SI)
+  // Jeux — pictogramme local (pas un logo éditeur)
   minecraft: LOCAL_MINECRAFT_CUBE,
-  pokemon: LOCAL_NINTENDO_SWITCH,
-  zelda: LOCAL_NINTENDO_SWITCH,
-  smash: LOCAL_NINTENDO_SWITCH,
 
-  // Alias / marques utiles
+  // Alias / marques utiles (pas des tuiles jeu)
   riot: toGlyph(siRiotgames),
   valve: toGlyph(siValve),
   ea: toGlyph(siEa),
   steam: toGlyph(siSteam),
   epicgames: toGlyph(siEpicgames),
   ubisoft: toGlyph(siUbisoft),
-  battledotnet: toGlyph(siBattledotnet),
-  bungie: toGlyph(siBungie),
   origin: toGlyph(siOrigin),
   itch: toGlyph(siItchdotio),
   twitch: toGlyph(siTwitch),
@@ -105,16 +86,28 @@ export const BRAND_ICONS: Record<string, BrandGlyph> = {
   // Plateformes
   psn: toGlyph(siPlaystation),
   discord: toGlyph(siDiscord),
-  /** PC gaming → Steam (pas de glyphe « PC » générique) */
+  /** PC gaming → Steam */
   pc: toGlyph(siSteam),
   xbox: LOCAL_XBOX_PAD,
   switch: LOCAL_NINTENDO_SWITCH,
-  /** Mobile → Android (OS le plus courant côté gaming mobile) */
+  /** Mobile → Android */
   mobile: toGlyph(siAndroid),
 };
 
-/** Jeux / plateformes catalogue sans glyphe marque → Phosphor. */
+/** Jeux catalogue sans glyphe marque dédié → Phosphor (artwork via gameArt si dispo). */
 export const BRAND_ICON_GAPS = [
+  'cod',
+  'warzone',
+  'gta',
+  'wow',
+  'diablo',
+  'overwatch',
+  'genshin',
+  'rocket-league',
+  'destiny',
+  'apex',
+  'it-takes-two',
+  'indie-coop',
   'among-us',
   'street-fighter',
   'tekken',
@@ -122,6 +115,9 @@ export const BRAND_ICON_GAPS = [
   'lethal-company',
   'phasmophobia',
   'stardew',
+  'pokemon',
+  'zelda',
+  'smash',
   'autre-jeu',
   'irl',
   'online',
