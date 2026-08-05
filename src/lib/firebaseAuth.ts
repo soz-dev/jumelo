@@ -435,6 +435,8 @@ export async function bridgeIdTokenToSupabase(
   provider: AuthProviderId,
   idToken: string,
   nonce?: string,
+  fallbackEmail?: string,
+  fallbackUid?: string,
 ): Promise<{ userId: string; email: string } | null> {
   if (!isSupabaseConfigured()) return null;
   const supabase = getSupabase();
@@ -446,15 +448,26 @@ export async function bridgeIdTokenToSupabase(
     nonce,
   });
 
-  if (error || !data.user) {
-    console.warn('[jumelo] Bridge Supabase idToken échoué:', error?.message);
-    return null;
+  if (!error && data.user) {
+    return { userId: data.user.id, email: data.user.email ?? '' };
   }
 
-  return {
-    userId: data.user.id,
-    email: data.user.email ?? '',
-  };
+  console.warn('[jumelo] Bridge Supabase idToken échoué:', error?.message);
+
+  // Fallback : provider OAuth non activé dans Supabase → credentials déterministes.
+  if (fallbackEmail && fallbackUid) {
+    const pwd = `jml-${fallbackUid}`;
+    const signIn = await supabase.auth.signInWithPassword({ email: fallbackEmail, password: pwd });
+    if (signIn.data.session?.user) {
+      return { userId: signIn.data.session.user.id, email: signIn.data.session.user.email ?? fallbackEmail };
+    }
+    const signUp = await supabase.auth.signUp({ email: fallbackEmail, password: pwd });
+    if (signUp.data.session?.user) {
+      return { userId: signUp.data.session.user.id, email: signUp.data.session.user.email ?? fallbackEmail };
+    }
+  }
+
+  return null;
 }
 
 export function displayNameFromFirebase(user: FirebaseUser): string | undefined {
@@ -681,7 +694,7 @@ export async function signInWithGoogleFirebase(): Promise<ProviderSignInResult> 
     const credential = GoogleAuthProvider.credential(idToken);
     const cred = await signInWithCredential(auth, credential);
 
-    const bridged = await bridgeIdTokenToSupabase('google', idToken);
+    const bridged = await bridgeIdTokenToSupabase('google', idToken, undefined, cred.user.email ?? undefined, cred.user.uid);
 
     return {
       ok: true,
@@ -771,7 +784,7 @@ export async function signInWithAppleFirebase(): Promise<ProviderSignInResult> {
       }
     }
 
-    const bridged = await bridgeIdTokenToSupabase('apple', apple.identityToken, rawNonce);
+    const bridged = await bridgeIdTokenToSupabase('apple', apple.identityToken, rawNonce, cred.user.email ?? undefined, cred.user.uid);
 
     return {
       ok: true,
