@@ -23,6 +23,7 @@ import { getDuoScoresByTeamIds, emptyDuoScore, type DuoScore } from '../../src/l
 import { listTeams } from '../../src/lib/api/teams';
 import { mockUsers } from '../../src/data/mock';
 import { getSupabase } from '../../src/lib/supabase';
+import { computeMatch } from '../../src/lib/matching';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -38,13 +39,18 @@ type RankedEntry = {
   position: number;
   trend: number;
   members: MemberSnap[];
+  /** Score de compatibilité 0–100 entre les deux membres. */
+  compatPct?: number;
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-function winPct(score: DuoScore): number {
-  if (score.sessionsEnded === 0) return 0;
-  return Math.round((score.averageRating / 5) * 100);
+const mockUserMap = new Map(mockUsers.map((u) => [u.id, u]));
+
+function compatForMembers(ids: string[]): number | undefined {
+  const [a, b] = ids.map((id) => mockUserMap.get(id));
+  if (!a || !b) return undefined;
+  return computeMatch(a, b).score;
 }
 
 function trendColor(trend: number, up: string): string {
@@ -93,6 +99,7 @@ type RawMock = {
   rating: number;
   sessions: number;
   trend: number;
+  compat: number;
 };
 
 const M: Record<string, MemberSnap> = {
@@ -139,26 +146,26 @@ const M: Record<string, MemberSnap> = {
 };
 
 const RAW_MOCKS: RawMock[] = [
-  { id: 'mk-t1',  name: 'Jumelo Valorant Lyon',     universe: 'gaming',    subCategoryId: 'valorant',      members: [M.lea, M.karim],     points: 1847, rating: 4.6, sessions: 18, trend:  2 },
-  { id: 'mk-t2',  name: 'Révisions Prépa',          universe: 'education', subCategoryId: 'maths',         members: [M.sara, M.noah],     points: 1720, rating: 4.8, sessions: 15, trend:  1 },
-  { id: 'mk-t3',  name: 'Run Saône × Fitness',      universe: 'sports',    subCategoryId: 'running',       members: [M.maya, M.maxime],   points: 1654, rating: 4.2, sessions: 21, trend: -1 },
-  { id: 'mk-t4',  name: 'Duo Piano Lyon',           universe: 'music',     subCategoryId: 'piano',         members: [M.ahmed, M.camille], points: 1589, rating: 4.5, sessions: 12, trend:  3 },
-  { id: 'mk-t5',  name: 'Mid Lane Duo',             universe: 'gaming',    subCategoryId: 'lol',           members: [M.tom, M.ines],      points: 1510, rating: 4.0, sessions: 14, trend:  0 },
-  { id: 'mk-t6',  name: 'Foot Mardi Lyon',          universe: 'sports',    subCategoryId: 'football',      members: [M.jad, M.amara],     points: 1488, rating: 3.9, sessions: 20, trend:  1 },
-  { id: 'mk-t7',  name: 'Code & Build',             universe: 'education', subCategoryId: 'code',          members: [M.lucie, M.romain],  points: 1442, rating: 4.3, sessions: 11, trend: -2 },
-  { id: 'mk-t8',  name: 'Apex Ranked Duo',          universe: 'gaming',    subCategoryId: 'apex',          members: [M.youssef, M.clara], points: 1390, rating: 3.8, sessions: 16, trend:  2 },
-  { id: 'mk-t9',  name: 'Guitare Acoustique',       universe: 'music',     subCategoryId: 'guitare',       members: [M.basile, M.fatou],  points: 1355, rating: 4.4, sessions: 9,  trend:  0 },
-  { id: 'mk-t10', name: 'Atelier Cuisine Créative', universe: 'hobbies',   subCategoryId: 'cuisine',       members: [M.elisa, M.theo],    points: 1312, rating: 4.1, sessions: 10, trend: -1 },
-  { id: 'mk-t11', name: 'Jumelo Muscu × Salle',     universe: 'sports',    subCategoryId: 'muscu',         members: [M.anis, M.jade],     points: 1288, rating: 4.7, sessions: 22, trend:  4 },
-  { id: 'mk-t12', name: 'Fortnite Squad',            universe: 'gaming',    subCategoryId: 'fortnite',      members: [M.clement, M.nora],  points: 1241, rating: 3.5, sessions: 13, trend: -3 },
-  { id: 'mk-t13', name: 'Club Lecture Lyon',         universe: 'hobbies',   subCategoryId: 'lecture',       members: [M.sasha, M.lou],     points: 1208, rating: 4.6, sessions: 8,  trend:  0 },
-  { id: 'mk-t14', name: 'Tennis & Padel Match',      universe: 'sports',    subCategoryId: 'tennis',        members: [M.ibra, M.leonie],   points: 1175, rating: 4.0, sessions: 17, trend:  1 },
-  { id: 'mk-t15', name: 'Anglais Conversation',      universe: 'education', subCategoryId: 'anglais',       members: [M.chloe, M.antoine], points: 1130, rating: 4.2, sessions: 11, trend: -1 },
-  { id: 'mk-t16', name: 'Duo Chant Scène',           universe: 'music',     subCategoryId: 'chant',         members: [M.mia, M.paul],      points: 1098, rating: 4.3, sessions: 7,  trend:  2 },
-  { id: 'mk-t17', name: 'CS2 Ranked Lyon',           universe: 'gaming',    subCategoryId: 'cs2',           members: [M.remi, M.salma],    points: 1050, rating: 3.7, sessions: 15, trend:  0 },
-  { id: 'mk-t18', name: 'Yoga & Bien-être',          universe: 'sports',    subCategoryId: 'yoga',          members: [M.talia, M.hugo],    points: 1020, rating: 4.5, sessions: 6,  trend: -2 },
-  { id: 'mk-t19', name: 'Atelier Dessin × Art',      universe: 'hobbies',   subCategoryId: 'dessin',        members: [M.driss, M.emilie],  points: 985,  rating: 4.0, sessions: 8,  trend:  1 },
-  { id: 'mk-t20', name: 'Rocket League Duo',         universe: 'gaming',    subCategoryId: 'rocket-league', members: [M.kim, M.axel],      points: 950,  rating: 3.6, sessions: 14, trend: -1 },
+  { id: 'mk-t1',  name: 'Jumelo Valorant Lyon',     universe: 'gaming',    subCategoryId: 'valorant',      members: [M.lea, M.karim],     points: 1847, rating: 4.6, sessions: 18, trend:  2, compat: 88 },
+  { id: 'mk-t2',  name: 'Révisions Prépa',          universe: 'education', subCategoryId: 'maths',         members: [M.sara, M.noah],     points: 1720, rating: 4.8, sessions: 15, trend:  1, compat: 72 },
+  { id: 'mk-t3',  name: 'Run Saône × Fitness',      universe: 'sports',    subCategoryId: 'running',       members: [M.maya, M.maxime],   points: 1654, rating: 4.2, sessions: 21, trend: -1, compat: 85 },
+  { id: 'mk-t4',  name: 'Duo Piano Lyon',           universe: 'music',     subCategoryId: 'piano',         members: [M.ahmed, M.camille], points: 1589, rating: 4.5, sessions: 12, trend:  3, compat: 78 },
+  { id: 'mk-t5',  name: 'Mid Lane Duo',             universe: 'gaming',    subCategoryId: 'lol',           members: [M.tom, M.ines],      points: 1510, rating: 4.0, sessions: 14, trend:  0, compat: 82 },
+  { id: 'mk-t6',  name: 'Foot Mardi Lyon',          universe: 'sports',    subCategoryId: 'football',      members: [M.jad, M.amara],     points: 1488, rating: 3.9, sessions: 20, trend:  1, compat: 79 },
+  { id: 'mk-t7',  name: 'Code & Build',             universe: 'education', subCategoryId: 'code',          members: [M.lucie, M.romain],  points: 1442, rating: 4.3, sessions: 11, trend: -2, compat: 76 },
+  { id: 'mk-t8',  name: 'Apex Ranked Duo',          universe: 'gaming',    subCategoryId: 'apex',          members: [M.youssef, M.clara], points: 1390, rating: 3.8, sessions: 16, trend:  2, compat: 84 },
+  { id: 'mk-t9',  name: 'Guitare Acoustique',       universe: 'music',     subCategoryId: 'guitare',       members: [M.basile, M.fatou],  points: 1355, rating: 4.4, sessions: 9,  trend:  0, compat: 74 },
+  { id: 'mk-t10', name: 'Atelier Cuisine Créative', universe: 'hobbies',   subCategoryId: 'cuisine',       members: [M.elisa, M.theo],    points: 1312, rating: 4.1, sessions: 10, trend: -1, compat: 71 },
+  { id: 'mk-t11', name: 'Jumelo Muscu × Salle',     universe: 'sports',    subCategoryId: 'muscu',         members: [M.anis, M.jade],     points: 1288, rating: 4.7, sessions: 22, trend:  4, compat: 86 },
+  { id: 'mk-t12', name: 'Fortnite Squad',            universe: 'gaming',    subCategoryId: 'fortnite',      members: [M.clement, M.nora],  points: 1241, rating: 3.5, sessions: 13, trend: -3, compat: 78 },
+  { id: 'mk-t13', name: 'Club Lecture Lyon',         universe: 'hobbies',   subCategoryId: 'lecture',       members: [M.sasha, M.lou],     points: 1208, rating: 4.6, sessions: 8,  trend:  0, compat: 80 },
+  { id: 'mk-t14', name: 'Tennis & Padel Match',      universe: 'sports',    subCategoryId: 'tennis',        members: [M.ibra, M.leonie],   points: 1175, rating: 4.0, sessions: 17, trend:  1, compat: 75 },
+  { id: 'mk-t15', name: 'Anglais Conversation',      universe: 'education', subCategoryId: 'anglais',       members: [M.chloe, M.antoine], points: 1130, rating: 4.2, sessions: 11, trend: -1, compat: 73 },
+  { id: 'mk-t16', name: 'Duo Chant Scène',           universe: 'music',     subCategoryId: 'chant',         members: [M.mia, M.paul],      points: 1098, rating: 4.3, sessions: 7,  trend:  2, compat: 82 },
+  { id: 'mk-t17', name: 'CS2 Ranked Lyon',           universe: 'gaming',    subCategoryId: 'cs2',           members: [M.remi, M.salma],    points: 1050, rating: 3.7, sessions: 15, trend:  0, compat: 77 },
+  { id: 'mk-t18', name: 'Yoga & Bien-être',          universe: 'sports',    subCategoryId: 'yoga',          members: [M.talia, M.hugo],    points: 1020, rating: 4.5, sessions: 6,  trend: -2, compat: 70 },
+  { id: 'mk-t19', name: 'Atelier Dessin × Art',      universe: 'hobbies',   subCategoryId: 'dessin',        members: [M.driss, M.emilie],  points: 985,  rating: 4.0, sessions: 8,  trend:  1, compat: 68 },
+  { id: 'mk-t20', name: 'Rocket League Duo',         universe: 'gaming',    subCategoryId: 'rocket-league', members: [M.kim, M.axel],      points: 950,  rating: 3.6, sessions: 14, trend: -1, compat: 81 },
 ];
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -193,6 +200,7 @@ export default function ClassementScreen() {
           },
           trend: r.trend,
           members: r.members,
+          compatPct: r.compat,
         }));
 
         // Real teams from DB
@@ -213,8 +221,8 @@ export default function ClassementScreen() {
             subCategoryId: t.subCategoryId,
             memberIds: t.memberIds,
             score: scoresMap.get(t.id) ?? emptyDuoScore(),
-            // deterministic pseudo-trend from points
             trend: Math.round((scoresMap.get(t.id)?.points ?? 0) % 7) - 3,
+            compatPct: compatForMembers(t.memberIds),
             members: t.memberIds.map(
               (id) => snapMap.get(id) ?? { id, name: '?', color: '#7C5CFC' },
             ),
@@ -354,8 +362,10 @@ export default function ClassementScreen() {
                         <Text style={styles.statKey}>POINTS</Text>
                       </View>
                       <View style={[styles.statBox, styles.statBorder]}>
-                        <Text style={styles.statValue}>{winPct(champion.score)}%</Text>
-                        <Text style={styles.statKey}>PERF</Text>
+                        <Text style={styles.statValue}>
+                          {champion.compatPct != null ? `${champion.compatPct}%` : '—'}
+                        </Text>
+                        <Text style={styles.statKey}>MATCH</Text>
                       </View>
                       <View style={styles.statBox}>
                         <Text style={styles.statValue}>🔥 {champion.score.sessionsEnded}</Text>
@@ -417,7 +427,7 @@ export default function ClassementScreen() {
               <View style={[styles.tableHead, { borderBottomColor: withHexAlpha(colors.border, 0.7) }]}>
                 <Text style={[styles.thPos,    { color: colors.inkMuted }]}>#</Text>
                 <Text style={[styles.thJumelo, { color: colors.inkMuted }]}>JUMELO</Text>
-                <Text style={[styles.thNum,    { color: colors.inkMuted }]}>PERF</Text>
+                <Text style={[styles.thNum,    { color: colors.inkMuted }]}>MATCH</Text>
                 <Text style={[styles.thNum,    { color: colors.inkMuted }]}>SÉRIE</Text>
                 <Text style={[styles.thPts,    { color: colors.inkMuted }]}>PTS</Text>
               </View>
@@ -430,7 +440,7 @@ export default function ClassementScreen() {
                 const isMe = entry.memberIds.includes(user?.id ?? '');
                 const c    = getCategory(entry.universe);
                 const sub  = getSubCategory(entry.universe, entry.subCategoryId ?? '');
-                const vPct = winPct(entry.score);
+                const compat = entry.compatPct;
                 const serie = entry.score.sessionsEnded;
                 return (
                   <Animated.View key={entry.id} entering={FadeInDown.delay(Math.min(i, 15) * 20).duration(240)}>
@@ -476,12 +486,16 @@ export default function ClassementScreen() {
                         </View>
                       </View>
 
-                      {/* V% */}
+                      {/* Match % */}
                       <View style={styles.numCell}>
-                        <Text style={[styles.numVal, { color: colors.ink }]}>{vPct}</Text>
-                        <View style={[styles.pctBar, { backgroundColor: withHexAlpha(colors.primary, 0.1) }]}>
-                          <View style={[styles.pctFill, { width: `${Math.max(vPct, 2)}%` as `${number}%`, backgroundColor: colors.primary }]} />
-                        </View>
+                        <Text style={[styles.numVal, { color: compat != null && compat >= 80 ? colors.primary : colors.ink }]}>
+                          {compat != null ? `${compat}%` : '—'}
+                        </Text>
+                        {compat != null ? (
+                          <View style={[styles.pctBar, { backgroundColor: withHexAlpha(colors.primary, 0.1) }]}>
+                            <View style={[styles.pctFill, { width: `${compat}%` as `${number}%`, backgroundColor: colors.primary }]} />
+                          </View>
+                        ) : null}
                       </View>
 
                       {/* Série */}
