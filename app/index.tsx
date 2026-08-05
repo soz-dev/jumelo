@@ -92,6 +92,17 @@ export default function Index() {
     user.bio?.trim().length > 0 ||
     user.city?.trim().length > 0 ||
     isExistingAccount;
+  console.log('[LOG] 🪵 index routing', {
+    id: user.id,
+    email: user.email,
+    onboardingComplete: user.onboardingComplete,
+    universes: user.universes,
+    city: user.city,
+    bio: user.bio,
+    createdAt: user.createdAt,
+    isExistingAccount,
+    profileHasData,
+  });
   if (!user.onboardingComplete && !profileHasData) {
     return <Redirect href="/(onboarding)/univers" />;
   }

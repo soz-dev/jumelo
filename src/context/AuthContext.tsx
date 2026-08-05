@@ -221,6 +221,17 @@ async function resolveProfileAfterFirebase(params: {
         name,
       });
 
+      console.log('[LOG] 🪵 resolveProfile Supabase remote', {
+        id: remote.id,
+        email: remote.email,
+        onboardingComplete: remote.onboardingComplete,
+        universes: remote.universes,
+        city: remote.city,
+        bio: remote.bio,
+        createdAt: remote.createdAt,
+        cachedOnboardingComplete: cachedProfile?.onboardingComplete ?? null,
+      });
+
       // Si Supabase est incomplet mais le cache local est complet, fusionner.
       if (!remote.onboardingComplete && cachedProfile?.onboardingComplete) {
         const merged: UserProfile = {
@@ -229,7 +240,6 @@ async function resolveProfileAfterFirebase(params: {
           email: remote.email || cachedProfile.email,
           photo: firebaseUser.photoURL ?? remote.photo ?? cachedProfile.photo,
         };
-        // Remettre Supabase à jour en arrière-plan pour éviter la prochaine régression.
         saveProfile(merged).catch(() => undefined);
         return merged;
       }
@@ -242,8 +252,8 @@ async function resolveProfileAfterFirebase(params: {
         );
       }
       return remote;
-    } catch {
-      // fallback local ci-dessous
+    } catch (e) {
+      console.warn('[LOG] 🪵 resolveProfile Supabase error', e);
     }
   }
 
@@ -252,12 +262,12 @@ async function resolveProfileAfterFirebase(params: {
     return {
       ...cachedProfile,
       email: email || cachedProfile.email,
-      // Préférer le pseudo local (édité via updateProfile) ; Firebase en secours.
       name: cachedProfile.name?.trim() || name || cachedProfile.name,
       photo: firebaseUser.photoURL ?? cachedProfile.photo,
     };
   }
 
+  console.log('[LOG] 🪵 resolveProfile fallback to profileFromFirebaseLocal');
   return profileFromFirebaseLocal(firebaseUser);
 }
 
