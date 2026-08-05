@@ -15,14 +15,12 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
-import { BrandLogo } from '../../src/components/BrandLogo';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { TeamLobbyCard } from '../../src/components/TeamLobbyCard';
 import { UniverseId, categories } from '../../src/constants/catalog';
 import { useTheme } from '../../src/context/ThemeContext';
 import { useTeams } from '../../src/context/TeamsContext';
 import {
-  Chip,
   EmptyState,
   HeaderRow,
   Icon,
@@ -46,6 +44,7 @@ export default function TeamsScreen() {
   const { colors } = useTheme();
   const { teams, loading, refresh, getMembership, requestToJoin } = useTeams();
   const [query, setQuery] = useState('');
+  const [formatFilter, setFormatFilter] = useState<'all' | 'duo' | 'groupe'>('all');
   const [filter, setFilter] = useState<UniverseId | 'all'>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [duoScores, setDuoScores] = useState<Map<string, DuoScore>>(new Map());
@@ -57,8 +56,12 @@ export default function TeamsScreen() {
   );
 
   const jumelos = useMemo(
-    () => teams.filter((t) => isDuoCapacity(t.capacity)),
-    [teams],
+    () => teams.filter((t) => {
+      if (formatFilter === 'duo') return isDuoCapacity(t.capacity);
+      if (formatFilter === 'groupe') return !isDuoCapacity(t.capacity);
+      return true;
+    }),
+    [teams, formatFilter],
   );
 
   useEffect(() => {
@@ -156,7 +159,6 @@ export default function TeamsScreen() {
             subtitle="Trouve un partenaire ou lance le tien"
             right={
               <View style={styles.actions}>
-                <BrandLogo size={34} />
                 <ThemeSwitcherButton />
                 <Pressable
                   style={[styles.fab, elevation.glow(colors.primary)]}
@@ -226,20 +228,51 @@ export default function TeamsScreen() {
             />
           </View>
 
+          <View style={[styles.segment, { backgroundColor: withHexAlpha(colors.ink, 0.07) }]}>
+            {(['all', 'duo', 'groupe'] as const).map((f) => {
+              const active = formatFilter === f;
+              return (
+                <Pressable
+                  key={f}
+                  onPress={() => setFormatFilter(f)}
+                  style={[
+                    styles.segItem,
+                    active && { backgroundColor: colors.white, ...shadowSm },
+                  ]}
+                >
+                  <Text style={[styles.segLabel, { color: active ? colors.ink : colors.inkMuted }]}>
+                    {f === 'all' ? 'Tout' : f === 'duo' ? 'Duo' : 'Groupes'}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.filters}
           >
-            {categories.map((cat) => (
-              <Chip
-                key={cat.id}
-                name={cat.id}
-                label={cat.shortLabel}
-                selected={filter === cat.id}
-                onPress={() => setFilter(filter === cat.id ? 'all' : cat.id)}
-              />
-            ))}
+            {categories.map((cat) => {
+              const sel = filter === cat.id;
+              return (
+                <Pressable
+                  key={cat.id}
+                  onPress={() => setFilter(filter === cat.id ? 'all' : cat.id)}
+                  style={[
+                    styles.catChip,
+                    sel
+                      ? { backgroundColor: cat.color, borderColor: cat.color }
+                      : { backgroundColor: colors.white, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={styles.catEmoji}>{cat.emoji}</Text>
+                  <Text style={[styles.catLabel, { color: sel ? '#fff' : colors.inkMuted }]}>
+                    {cat.shortLabel}
+                  </Text>
+                </Pressable>
+              );
+            })}
           </ScrollView>
 
           {loading && jumelos.length === 0 ? (
@@ -279,6 +312,14 @@ export default function TeamsScreen() {
     </Atmosphere>
   );
 }
+
+const shadowSm = {
+  shadowColor: '#000',
+  shadowOffset: { width: 0, height: 1 },
+  shadowOpacity: 0.08,
+  shadowRadius: 3,
+  elevation: 2,
+};
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
@@ -352,5 +393,37 @@ const styles = StyleSheet.create({
     gap: 8,
     paddingVertical: spacing.md,
     paddingRight: spacing.sm,
+  },
+  segment: {
+    flexDirection: 'row',
+    borderRadius: radii.lg,
+    padding: 3,
+    marginTop: spacing.lg,
+  },
+  segItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 9,
+    borderRadius: radii.md,
+  },
+  segLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+  },
+  catChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 13,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  catEmoji: {
+    fontSize: 15,
+  },
+  catLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
   },
 });
