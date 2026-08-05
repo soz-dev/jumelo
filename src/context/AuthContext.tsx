@@ -194,47 +194,68 @@ async function resolveProfileAfterFirebase(params: {
   const email = supabaseEmail || firebaseUser.email || '';
   const localFbId = localProfileIdFromFirebase(firebaseUser.uid);
 
+  // Lire le cache local en avance pour merger si Supabase est incomplet.
+  let cachedProfile: UserProfile | null = null;
+  try {
+    const raw = await AsyncStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = coerceUserProfile(JSON.parse(raw));
+      if (
+        parsed &&
+        (parsed.id === localFbId ||
+          (supabaseUserId && parsed.id === supabaseUserId) ||
+          (email && parsed.email === email))
+      ) {
+        cachedProfile = parsed;
+      }
+    }
+  } catch {
+    // ignore corrupt cache
+  }
+
   if (supabaseUserId && isSupabaseConfigured()) {
     try {
-      const profile = await ensureProfileRow({
+      const remote = await ensureProfileRow({
         id: supabaseUserId,
         email,
         name,
       });
-      // Même compte : migrer l’état « Du jour » fb-* → UUID.
+
+      // Si Supabase est incomplet mais le cache local est complet, fusionner.
+      if (!remote.onboardingComplete && cachedProfile?.onboardingComplete) {
+        const merged: UserProfile = {
+          ...cachedProfile,
+          id: remote.id,
+          email: remote.email || cachedProfile.email,
+          photo: firebaseUser.photoURL ?? remote.photo ?? cachedProfile.photo,
+        };
+        // Remettre Supabase à jour en arrière-plan pour éviter la prochaine régression.
+        saveProfile(merged).catch(() => undefined);
+        return merged;
+      }
+
+      // Même compte : migrer l'état « Du jour » fb-* → UUID.
       if (localFbId !== supabaseUserId) {
         const { linkDailyJumeloIdentity } = await import('../lib/dailyJumelo');
         await linkDailyJumeloIdentity(localFbId, supabaseUserId).catch(
           () => undefined,
         );
       }
-      return profile;
+      return remote;
     } catch {
       // fallback local ci-dessous
     }
   }
 
   // Option B : session Firebase + profil AsyncStorage (Teams/Messages Supabase limités).
-  const cached = await AsyncStorage.getItem(STORAGE_KEY);
-  if (cached) {
-    try {
-      const parsed = coerceUserProfile(JSON.parse(cached));
-      if (
-        parsed &&
-        (parsed.id === localFbId ||
-          (supabaseUserId && parsed.id === supabaseUserId))
-      ) {
-        return {
-          ...parsed,
-          email: email || parsed.email,
-          // Préférer le pseudo local (édité via updateProfile) ; Firebase en secours.
-          name: parsed.name?.trim() || name || parsed.name,
-          photo: firebaseUser.photoURL ?? parsed.photo,
-        };
-      }
-    } catch {
-      // ignore corrupt cache
-    }
+  if (cachedProfile) {
+    return {
+      ...cachedProfile,
+      email: email || cachedProfile.email,
+      // Préférer le pseudo local (édité via updateProfile) ; Firebase en secours.
+      name: cachedProfile.name?.trim() || name || cachedProfile.name,
+      photo: firebaseUser.photoURL ?? cachedProfile.photo,
+    };
   }
 
   return profileFromFirebaseLocal(firebaseUser);
@@ -340,13 +361,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const { data } = await supabase.auth.getSession();
           const session = data.session;
           if (session?.user && active) {
-            const profile = repairOnboardingFlag(
+            const remote = repairOnboardingFlag(
               await ensureProfileRow({
                 id: session.user.id,
                 email: session.user.email ?? '',
                 name: displayNameFromSupabaseUser(session.user),
               }),
             );
+            // Si Supabase est incomplet, tenter fusion avec cache local.
+            let profile = remote;
+            if (!remote.onboardingComplete) {
+              try {
+                const raw = await AsyncStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                  const cached = coerceUserProfile(JSON.parse(raw));
+                  if (
+                    cached?.onboardingComplete &&
+                    (cached.id === session.user.id || cached.email === session.user.email)
+                  ) {
+                    profile = { ...cached, id: remote.id, email: remote.email || cached.email };
+                    saveProfile(profile).catch(() => undefined);
+                  }
+                }
+              } catch {
+                // ignore corrupt cache
+              }
+            }
             setUser(profile);
             await persistLocal(profile);
           }
