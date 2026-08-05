@@ -141,11 +141,7 @@ function UniversePoster({
           </Text>
         </View>
 
-        {selected ? (
-          <View style={[styles.check, { backgroundColor: cat.color }]}>
-            <Icon name="check" size={14} color="#fff" weight="bold" />
-          </View>
-        ) : null}
+
       </View>
     </ScalePressable>
   );
@@ -264,16 +260,6 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 12,
     lineHeight: 16,
-  },
-  check: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   hint: {
     fontFamily: fonts.body,

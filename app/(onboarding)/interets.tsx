@@ -200,21 +200,7 @@ export default function InteretsScreen() {
                             style={styles.coverFade}
                             pointerEvents="none"
                           />
-                          {selected ? (
-                            <View
-                              style={[
-                                styles.checkBadge,
-                                { backgroundColor: accent },
-                              ]}
-                            >
-                              <Icon
-                                name="check"
-                                size={14}
-                                color="#fff"
-                                weight="bold"
-                              />
-                            </View>
-                          ) : null}
+
                         </View>
                         <Text
                           style={[
@@ -298,15 +284,5 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 16,
     letterSpacing: -0.2,
-  },
-  checkBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });
