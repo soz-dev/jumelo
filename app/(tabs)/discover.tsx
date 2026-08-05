@@ -476,16 +476,14 @@ export default function DiscoverScreen() {
                             {entry.score.sessionsEnded > 0 ? ` 🔥${entry.score.sessionsEnded}` : ''}
                           </Text>
                         </View>
-                        <View style={styles.restRight}>
-                          <View style={[styles.trendPill, { backgroundColor: trendPillBg(entry.trend) }]}>
-                            <Text style={[styles.trendPillText, { color: trendTextColor(entry.trend) }]}>
-                              {trendLabel(entry.trend)}
-                            </Text>
-                          </View>
-                          <Text style={[styles.restPts, { color: colors.primary }]}>
-                            {entry.score.points}
+                        <View style={[styles.trendPill, { backgroundColor: trendPillBg(entry.trend) }]}>
+                          <Text style={[styles.trendPillText, { color: trendTextColor(entry.trend) }]}>
+                            {trendLabel(entry.trend)}
                           </Text>
                         </View>
+                        <Text style={[styles.restPts, { color: colors.primary }]}>
+                          {entry.score.points}
+                        </Text>
                       </Pressable>
                     </Animated.View>
                   );
