@@ -243,7 +243,8 @@ export default function DiscoverScreen() {
 
   const champion   = entries[0] ?? null;
   const podiumRest = entries.slice(1, 4);
-  const restList   = entries.slice(4, 20);
+  // Pas de cap : les vraies équipes (même à 0 pts) sont toujours visibles
+  const restList   = entries.slice(4);
 
   const champCat    = champion ? getCategory(champion.universe) : null;
   const champSubCat = champion ? getSubCategory(champion.universe, champion.subCategoryId ?? '') : null;
