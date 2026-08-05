@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -195,6 +196,15 @@ const RAW_MOCKS: RawMock[] = [
 const MEDAL: Record<number, string>       = { 2: '🥈', 3: '🥉' };
 const MEDAL_COLOR: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32', 4: '#94A3B8' };
 
+/** Ne navigue pas sur les entrées de démo (IDs préfixés `mk-`). */
+function navigateToJumelo(id: string) {
+  if (id.startsWith('mk-')) {
+    Alert.alert('Données de démo', 'Ce jumelo est fictif — inscris-toi pour voir de vrais duos ici.');
+    return;
+  }
+  router.push(`/jumelo/${id}`);
+}
+
 function trendColor(trend: number, up: string): string {
   if (trend > 0) return up;
   if (trend < 0) return '#EF4444';
@@ -332,7 +342,7 @@ export default function DiscoverScreen() {
             {/* ─── #1 Champion card ─── */}
             {champion ? (
               <Animated.View entering={FadeInDown.duration(360)}>
-                <Pressable onPress={() => router.push(`/jumelo/${champion.id}`)}>
+                <Pressable onPress={() => navigateToJumelo(champion.id)}>
                   <LinearGradient
                     colors={['#0F1F3D', '#1A3366', '#0F1F3D']}
                     style={styles.champCard}
@@ -418,7 +428,7 @@ export default function DiscoverScreen() {
                   return (
                     <Pressable
                       key={entry.id}
-                      onPress={() => router.push(`/jumelo/${entry.id}`)}
+                      onPress={() => navigateToJumelo(entry.id)}
                       style={[
                         styles.podiumCard,
                         { backgroundColor: colors.white, borderColor: withHexAlpha(colors.border, 0.7) },
@@ -474,7 +484,7 @@ export default function DiscoverScreen() {
                   return (
                     <Animated.View key={entry.id} entering={FadeInDown.delay(Math.min(i, 10) * 18).duration(220)}>
                       <Pressable
-                        onPress={() => router.push(`/jumelo/${entry.id}`)}
+                        onPress={() => navigateToJumelo(entry.id)}
                         style={[
                           styles.restRow,
                           !isLast && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: withHexAlpha(colors.border, 0.5) },
