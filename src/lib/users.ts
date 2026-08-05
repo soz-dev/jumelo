@@ -28,7 +28,7 @@ function coerceAuthProfile(raw: unknown): UserProfile | null {
     avatarColor:
       typeof parsed.avatarColor === 'string' && parsed.avatarColor
         ? parsed.avatarColor
-        : '#0F8F8A',
+        : '#0186F0',
     universes: Array.isArray(parsed.universes) ? parsed.universes : [],
     interests: Array.isArray(parsed.interests) ? parsed.interests : [],
     level: parsed.level ?? 'intermediaire',
@@ -52,7 +52,7 @@ export function stubProfileFromId(id: string): UserProfile {
     name: label,
     city: '',
     bio: '',
-    avatarColor: '#0F8F8A',
+    avatarColor: '#0186F0',
     universes: [],
     interests: [],
     level: 'intermediaire',
