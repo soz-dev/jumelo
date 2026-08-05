@@ -235,7 +235,7 @@ export default function AdminDashboardScreen() {
                 id: 'clear_warnings',
                 icon: 'alert-circle-outline' as const,
                 label: 'Effacer tous les avertissements',
-                hint: 'Supprime l'historique des warnings locaux',
+                hint: "Supprime l'historique des warnings locaux",
                 action: async () => { await clearAllWarnings(); await load(); },
                 confirm: 'Effacer tous les avertissements ?',
                 danger: true,
