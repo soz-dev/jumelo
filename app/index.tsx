@@ -83,9 +83,12 @@ export default function Index() {
     return <Redirect href="/settings/accept" />;
   }
 
-  // Considérer l'onboarding terminé si le flag est true OU si le profil a déjà
-  // des univers sélectionnés (protection contre un flag non persisté en DB).
-  const profileHasData = user.universes && user.universes.length > 0;
+  // Profil existant : univers, intérêts, bio ou ville indiquent un compte déjà utilisé.
+  const profileHasData =
+    (user.universes?.length ?? 0) > 0 ||
+    (user.interests?.length ?? 0) > 0 ||
+    user.bio?.trim().length > 0 ||
+    user.city?.trim().length > 0;
   if (!user.onboardingComplete && !profileHasData) {
     return <Redirect href="/(onboarding)/univers" />;
   }

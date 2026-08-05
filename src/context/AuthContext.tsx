@@ -267,9 +267,15 @@ async function resolveProfileAfterFirebase(params: {
  * Tente aussi de corriger la DB Supabase en arrière-plan.
  */
 function repairOnboardingFlag(profile: UserProfile): UserProfile {
-  if (profile.onboardingComplete || !profile.universes?.length) return profile;
+  if (profile.onboardingComplete) return profile;
+  const hasData =
+    (profile.universes?.length ?? 0) > 0 ||
+    (profile.interests?.length ?? 0) > 0 ||
+    profile.bio?.trim().length > 0 ||
+    profile.city?.trim().length > 0;
+  if (!hasData) return profile;
   const fixed: UserProfile = { ...profile, onboardingComplete: true };
-  // Tenter de corriger en DB Supabase en arrière-plan (sans bloquer)
+  // Corriger le flag en DB Supabase en arrière-plan
   if (isSupabaseConfigured() && canWriteSupabaseUserId(fixed.id)) {
     saveProfile(fixed).catch(() => undefined);
   }
