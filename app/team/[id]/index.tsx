@@ -559,7 +559,7 @@ export default function TeamDetailScreen() {
           >
             <Ionicons name="time-outline" size={20} color={colors.primary} />
             <Text style={{ color: colors.ink, fontFamily: fonts.bodyMedium, flex: 1 }}>
-              En attente d’approbation du chef
+              Demande envoyée — en attente de réponse
             </Text>
           </View>
         ) : null}

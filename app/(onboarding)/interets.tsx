@@ -88,6 +88,25 @@ export default function InteretsScreen() {
       .filter((c): c is NonNullable<typeof c> => Boolean(c));
   }, [draft.universes]);
 
+  const incompleteSections = useMemo(
+    () =>
+      sections.filter(
+        (cat) =>
+          !cat.subCategories.some((item) =>
+            draft.interests.includes(item.label),
+          ),
+      ),
+    [sections, draft.interests],
+  );
+
+  const nextDisabled = incompleteSections.length > 0;
+  const missingLabels = incompleteSections.map((cat) => cat.shortLabel);
+  const validationError = nextDisabled
+    ? missingLabels.length > 0
+      ? `Choisis au moins un élément dans chaque catégorie : ${missingLabels.join(', ')}`
+      : 'Choisis au moins un élément dans chaque catégorie'
+    : null;
+
   const toggle = (label: string) => {
     setDraft({
       interests: draft.interests.includes(label)
@@ -102,7 +121,7 @@ export default function InteretsScreen() {
       title="Tes intérêts"
       subtitle="Choisis tes jeux et activités — gros blocs, comme en boutique."
       onNext={() => router.push('/(onboarding)/vibe')}
-      nextDisabled={draft.interests.length === 0}
+      nextDisabled={nextDisabled}
     >
       <ScrollView
         showsVerticalScrollIndicator={false}
@@ -111,11 +130,19 @@ export default function InteretsScreen() {
         {sections.map((cat) => {
           const isGaming = cat.id === 'gaming';
           const accent = cat.color ?? colors.primary;
+          const sectionIncomplete = incompleteSections.some(
+            (s) => s.id === cat.id,
+          );
           return (
             <View key={cat.id} style={styles.section}>
               <Text style={[styles.sectionTitle, { color: colors.inkMuted }]}>
                 {cat.shortLabel.toUpperCase()}
               </Text>
+              {sectionIncomplete ? (
+                <Text style={[styles.sectionError, { color: colors.accent }]}>
+                  Choisis au moins un élément
+                </Text>
+              ) : null}
               <View style={isGaming ? styles.gameGrid : styles.activityGrid}>
                 {cat.subCategories.map((item, index) => {
                   const selected = draft.interests.includes(item.label);
@@ -262,6 +289,11 @@ export default function InteretsScreen() {
           );
         })}
       </ScrollView>
+      {validationError ? (
+        <Text style={[styles.footerError, { color: colors.accent }]}>
+          {validationError}
+        </Text>
+      ) : null}
     </OnboardingShell>
   );
 }
@@ -279,6 +311,18 @@ const styles = StyleSheet.create({
     letterSpacing: 1.1,
     marginBottom: spacing.sm,
     fontSize: 12,
+  },
+  sectionError: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    marginTop: -spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  footerError: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    textAlign: 'center',
+    marginBottom: spacing.sm,
   },
   gameGrid: {
     flexDirection: 'row',

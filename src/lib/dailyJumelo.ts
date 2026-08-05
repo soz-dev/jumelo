@@ -40,9 +40,17 @@ export type DailyTrial = {
   outcome: 'open' | 'formed' | 'rejected';
 };
 
+export type DailyDecision = 'accepted' | 'refused';
+
 export type UserDailyState = {
   proposal?: DailyProposal;
+  /** @deprecated Prefer lockUntil — kept in sync on refuse for compat. */
   cooldownUntil?: string;
+  /** Verrou 24h après accept ou refus (prochaine proposition après expiration). */
+  lockUntil?: string;
+  /** Décision utilisateur sur la carte du jour (persiste pendant le lock). */
+  decision?: DailyDecision;
+  decisionAt?: string;
   trial?: DailyTrial;
   /** Peers refusés récemment (exclus du pick). */
   refusedPeerIds?: string[];
@@ -72,8 +80,12 @@ export type DailyViewModel = {
   peer: UserProfile | null;
   score: number;
   cooldownUntil: string | null;
+  lockUntil: string | null;
+  decision: DailyDecision | null;
+  decisionAt: string | null;
   trial: DailyTrial | null;
   msUntilCooldownEnd: number;
+  msUntilLockEnd: number;
   msUntilTrialEnd: number;
   iConfirmedFormation: boolean;
   peerConfirmedFormation: boolean;
@@ -128,17 +140,14 @@ function setUserState(
   root.byUserId[userId] = next;
 }
 
+/** Accept A→B déjà enregistré (tous periodId — survit au rollover 24h). */
 function hasAccept(
   root: DailyRootState,
   fromUserId: string,
   toUserId: string,
-  periodId: number,
 ): boolean {
   return root.accepts.some(
-    (a) =>
-      a.fromUserId === fromUserId &&
-      a.toUserId === toUserId &&
-      a.periodId === periodId,
+    (a) => a.fromUserId === fromUserId && a.toUserId === toUserId,
   );
 }
 
@@ -148,7 +157,7 @@ function recordAccept(
   toUserId: string,
   periodId: number,
 ): void {
-  if (hasAccept(root, fromUserId, toUserId, periodId)) return;
+  if (hasAccept(root, fromUserId, toUserId)) return;
   root.accepts.push({
     fromUserId,
     toUserId,
@@ -157,18 +166,78 @@ function recordAccept(
   });
 }
 
-function incomingAccepter(
+/**
+ * Accepts entrants non répondus : survivent au-delà du periodId courant.
+ * Exclut mutuel, refusés, et jumelos déjà formés.
+ * Plus ancien d’abord (anti-starvation) : la file priorise l’attente la plus longue.
+ */
+function pendingIncomingAccepts(
   root: DailyRootState,
   myId: string,
+): Array<{ fromUserId: string; periodId: number; at: string }> {
+  const mine = userState(root, myId);
+  const refused = new Set(mine.refusedPeerIds ?? []);
+  const formed = new Set(mine.formedWith ?? []);
+  const seen = new Set<string>();
+  const sorted = root.accepts
+    .filter(
+      (a) =>
+        a.toUserId === myId &&
+        !hasAccept(root, myId, a.fromUserId) &&
+        !refused.has(a.fromUserId) &&
+        !formed.has(a.fromUserId),
+    )
+    .sort((a, b) => a.at.localeCompare(b.at));
+
+  const out: Array<{ fromUserId: string; periodId: number; at: string }> = [];
+  for (const a of sorted) {
+    if (seen.has(a.fromUserId)) continue;
+    seen.add(a.fromUserId);
+    out.push({ fromUserId: a.fromUserId, periodId: a.periodId, at: a.at });
+  }
+  return out;
+}
+
+function incomingAccepter(root: DailyRootState, myId: string): string | null {
+  return pendingIncomingAccepts(root, myId)[0]?.fromUserId ?? null;
+}
+
+/** Force la carte du jour de `targetUserId` vers `fromUserId` (accept entrant). */
+function forceIncomingProposal(
+  root: DailyRootState,
+  targetUserId: string,
+  fromUserId: string,
+  pool: UserProfile[],
   periodId: number,
-): string | null {
-  const hit = root.accepts.find(
-    (a) =>
-      a.toUserId === myId &&
-      a.periodId === periodId &&
-      !hasAccept(root, myId, a.fromUserId, periodId),
-  );
-  return hit?.fromUserId ?? null;
+  now: number,
+  fallbackScore: number,
+): void {
+  let target = { ...userState(root, targetUserId) };
+  if (lockEndMs(target) > now) return;
+  if (target.trial?.outcome === 'open') return;
+  if (target.proposal?.status === 'waiting_peer' || target.proposal?.status === 'matched') {
+    return;
+  }
+  const meProfile = pool.find((u) => u.id === targetUserId);
+  const fromProfile = pool.find((u) => u.id === fromUserId);
+  if (!meProfile || !fromProfile) {
+    target.proposal = {
+      periodId,
+      peerId: fromUserId,
+      score: fallbackScore,
+      status: 'pending',
+    };
+    setUserState(root, targetUserId, target);
+    return;
+  }
+  const picked = pickPeer(meProfile, pool, excludeIds(target), fromUserId);
+  target.proposal = {
+    periodId,
+    peerId: fromUserId,
+    score: picked?.score ?? fallbackScore,
+    status: 'pending',
+  };
+  setUserState(root, targetUserId, target);
 }
 
 function expireStaleTrial(trial: DailyTrial | undefined, now: number): DailyTrial | undefined {
@@ -186,6 +255,49 @@ function excludeIds(me: UserDailyState): Set<string> {
   if (me.trial?.outcome === 'open') out.add(me.trial.peerId);
   if (me.trial?.outcome === 'formed') out.add(me.trial.peerId);
   return out;
+}
+
+/** Fin effective du verrou 24h (lockUntil prioritaire, sinon cooldownUntil). */
+function lockEndMs(me: UserDailyState): number {
+  const lock = me.lockUntil ? new Date(me.lockUntil).getTime() : 0;
+  const cool = me.cooldownUntil ? new Date(me.cooldownUntil).getTime() : 0;
+  return Math.max(lock, cool);
+}
+
+function applyDecisionLock(
+  me: UserDailyState,
+  decision: DailyDecision,
+  now: number,
+): UserDailyState {
+  const until = new Date(now + DAILY_WINDOW_MS).toISOString();
+  const next: UserDailyState = {
+    ...me,
+    decision,
+    decisionAt: new Date(now).toISOString(),
+    lockUntil: until,
+  };
+  if (decision === 'refused') {
+    next.cooldownUntil = until;
+  }
+  return next;
+}
+
+function clearExpiredLock(me: UserDailyState, now: number): UserDailyState {
+  const end = lockEndMs(me);
+  if (end > now) return me;
+  const dropLock = Boolean(me.lockUntil);
+  const dropCool =
+    Boolean(me.cooldownUntil) && new Date(me.cooldownUntil!).getTime() <= now;
+  const dropDecision = Boolean(me.decision);
+  if (!dropLock && !dropCool && !dropDecision) return me;
+  const next = { ...me };
+  if (dropLock) delete next.lockUntil;
+  if (dropCool) delete next.cooldownUntil;
+  if (dropDecision) {
+    delete next.decision;
+    delete next.decisionAt;
+  }
+  return next;
 }
 
 function pickPeer(
@@ -216,42 +328,49 @@ async function ensureProposal(
   me: UserProfile,
   pool: UserProfile[],
   now: number,
-): Promise<UserDailyState> {
+): Promise<{ mine: UserDailyState; dirty: boolean }> {
   const periodId = periodIdAt(now);
-  let mine = { ...userState(root, me.id) };
-  mine.trial = expireStaleTrial(mine.trial, now);
+  const prev = userState(root, me.id);
+  let mine = { ...prev };
+  const expiredTrial = expireStaleTrial(mine.trial, now);
+  let dirty = expiredTrial !== mine.trial;
+  mine.trial = expiredTrial;
 
-  const cooldownMs = mine.cooldownUntil
-    ? new Date(mine.cooldownUntil).getTime() - now
-    : 0;
-  if (cooldownMs > 0) {
-    setUserState(root, me.id, mine);
-    return mine;
+  const lockMs = lockEndMs(mine) - now;
+  if (lockMs > 0) {
+    if (dirty) setUserState(root, me.id, mine);
+    return { mine, dirty };
   }
 
+  // Lock expiré : nettoyer décision / proposition consommée (sauf trial ouvert)
+  const cleared = clearExpiredLock(mine, now);
+  if (cleared !== mine) {
+    dirty = true;
+    mine = cleared;
+  }
   if (mine.trial?.outcome === 'open') {
-    setUserState(root, me.id, mine);
-    return mine;
+    if (dirty) setUserState(root, me.id, mine);
+    return { mine, dirty };
   }
 
-  const incoming = incomingAccepter(root, me.id, periodId);
+  const spentStatus = mine.proposal?.status;
+  if (
+    spentStatus === 'refused' ||
+    spentStatus === 'waiting_peer' ||
+    spentStatus === 'accepted' ||
+    spentStatus === 'expired'
+  ) {
+    // Après le verrou 24h, on ne recycle pas la carte décidée
+    delete mine.proposal;
+    dirty = true;
+  }
+
+  const incoming = incomingAccepter(root, me.id);
   const prop = mine.proposal;
 
-  const reusable =
-    prop &&
-    prop.periodId === periodId &&
-    (prop.status === 'pending' ||
-      prop.status === 'accepted' ||
-      prop.status === 'waiting_peer' ||
-      prop.status === 'matched');
-
-  if (reusable && prop) {
-    // Priorité accept entrant si on n’a pas encore accepté
-    if (
-      incoming &&
-      prop.status === 'pending' &&
-      prop.peerId !== incoming
-    ) {
+  // Priorité absolue : accept entrant non répondu (même hors periodId courant)
+  if (incoming && (!prop || prop.status === 'pending')) {
+    if (!prop || prop.peerId !== incoming || prop.periodId !== periodId) {
       const picked = pickPeer(me, pool, excludeIds(mine), incoming);
       if (picked) {
         mine.proposal = {
@@ -260,20 +379,31 @@ async function ensureProposal(
           score: picked.score,
           status: 'pending',
         };
+        setUserState(root, me.id, mine);
+        return { mine, dirty: true };
       }
-    } else if (prop.status === 'accepted') {
-      mine.proposal = { ...prop, status: 'waiting_peer' };
     }
-    setUserState(root, me.id, mine);
-    return mine;
   }
 
-  // Nouvelle proposition pour la fenêtre
+  const reusable =
+    prop &&
+    prop.periodId === periodId &&
+    (prop.status === 'pending' || prop.status === 'matched');
+
+  if (reusable && prop) {
+    if (dirty) setUserState(root, me.id, mine);
+    return { mine, dirty };
+  }
+
+  // Nouvelle proposition pour la fenêtre (incoming forcé si présent)
   const picked = pickPeer(me, pool, excludeIds(mine), incoming);
   if (!picked) {
-    mine.proposal = undefined;
-    setUserState(root, me.id, mine);
-    return mine;
+    if (mine.proposal !== undefined) {
+      mine.proposal = undefined;
+      dirty = true;
+    }
+    if (dirty) setUserState(root, me.id, mine);
+    return { mine, dirty };
   }
 
   mine.proposal = {
@@ -282,12 +412,10 @@ async function ensureProposal(
     score: picked.score,
     status: 'pending',
   };
-  // Clear old cooldown once a new card is issued
-  if (mine.cooldownUntil && new Date(mine.cooldownUntil).getTime() <= now) {
-    delete mine.cooldownUntil;
-  }
+  // Clear expired lock fields once a new card is issued
+  mine = clearExpiredLock(mine, now);
   setUserState(root, me.id, mine);
-  return mine;
+  return { mine, dirty: true };
 }
 
 async function startTrial(
@@ -319,7 +447,7 @@ async function startTrial(
       acceptedAt: u.proposal?.acceptedAt ?? startedAt,
     };
     u.trial = { ...trial };
-    delete u.cooldownUntil;
+    // Garder lockUntil / decision si déjà posés (verrou 24h post-accept)
     setUserState(root, uid, u);
   };
 
@@ -331,6 +459,32 @@ async function startTrial(
 /**
  * Charge / rafraîchit la vue « Jumelo du jour » pour l’utilisateur.
  */
+function baseViewFields(
+  mine: UserDailyState,
+  now: number,
+): Pick<
+  DailyViewModel,
+  | 'cooldownUntil'
+  | 'lockUntil'
+  | 'decision'
+  | 'decisionAt'
+  | 'msUntilCooldownEnd'
+  | 'msUntilLockEnd'
+> {
+  const lockEnd = lockEndMs(mine);
+  const msUntilLockEnd = Math.max(0, lockEnd - now);
+  const cooldownUntil = mine.cooldownUntil ?? mine.lockUntil ?? null;
+  const lockUntil = mine.lockUntil ?? mine.cooldownUntil ?? null;
+  return {
+    cooldownUntil,
+    lockUntil,
+    decision: mine.decision ?? null,
+    decisionAt: mine.decisionAt ?? null,
+    msUntilCooldownEnd: msUntilLockEnd,
+    msUntilLockEnd,
+  };
+}
+
 export async function getDailyJumeloView(
   me: UserProfile,
   pool: UserProfile[],
@@ -338,14 +492,11 @@ export async function getDailyJumeloView(
   const now = Date.now();
   const periodId = periodIdAt(now);
   const root = await loadRoot();
-  const mine = await ensureProposal(root, me, pool, now);
-  await saveRoot(root);
+  const { mine, dirty } = await ensureProposal(root, me, pool, now);
+  // AsyncStorage web = localStorage sync : éviter write à chaque focus/refresh.
+  if (dirty) await saveRoot(root);
 
-  const cooldownUntil = mine.cooldownUntil ?? null;
-  const msUntilCooldownEnd = cooldownUntil
-    ? Math.max(0, new Date(cooldownUntil).getTime() - now)
-    : 0;
-
+  const lock = baseViewFields(mine, now);
   const trial = mine.trial ?? null;
   const msUntilTrialEnd = trial
     ? Math.max(0, new Date(trial.endsAt).getTime() - now)
@@ -361,113 +512,70 @@ export async function getDailyJumeloView(
     trial && peerId && trial.confirmedBy.includes(peerId),
   );
 
-  if (msUntilCooldownEnd > 0 && trial?.outcome !== 'open') {
-    return {
-      mode: 'cooldown',
-      periodId,
-      proposal: mine.proposal ?? null,
-      peer,
-      score: mine.proposal?.score ?? 0,
-      cooldownUntil,
-      trial,
-      msUntilCooldownEnd,
-      msUntilTrialEnd,
-      iConfirmedFormation,
-      peerConfirmedFormation,
-    };
+  const common = {
+    periodId,
+    proposal: mine.proposal ?? null,
+    peer,
+    score: mine.proposal?.score ?? 0,
+    trial,
+    msUntilTrialEnd,
+    iConfirmedFormation,
+    peerConfirmedFormation,
+    ...lock,
+  };
+
+  // Refus verrouillé 24h → carte grisée (même pendant un ancien trial non ouvert)
+  if (
+    lock.msUntilLockEnd > 0 &&
+    (mine.decision === 'refused' ||
+      mine.proposal?.status === 'refused' ||
+      (!mine.decision && Boolean(mine.cooldownUntil))) &&
+    trial?.outcome !== 'open'
+  ) {
+    return { ...common, mode: 'cooldown' };
   }
 
   if (trial?.outcome === 'formed') {
     return {
+      ...common,
       mode: 'formed',
-      periodId,
-      proposal: mine.proposal ?? null,
-      peer,
-      score: mine.proposal?.score ?? 0,
-      cooldownUntil,
-      trial,
-      msUntilCooldownEnd,
-      msUntilTrialEnd,
       iConfirmedFormation: true,
       peerConfirmedFormation: true,
     };
   }
 
   if (trial?.outcome === 'rejected') {
-    return {
-      mode: 'rejected',
-      periodId,
-      proposal: mine.proposal ?? null,
-      peer,
-      score: mine.proposal?.score ?? 0,
-      cooldownUntil,
-      trial,
-      msUntilCooldownEnd,
-      msUntilTrialEnd,
-      iConfirmedFormation,
-      peerConfirmedFormation,
-    };
+    return { ...common, mode: 'rejected' };
   }
 
   if (trial?.outcome === 'open') {
-    return {
-      mode: 'trial',
-      periodId,
-      proposal: mine.proposal ?? null,
-      peer,
-      score: mine.proposal?.score ?? 0,
-      cooldownUntil,
-      trial,
-      msUntilCooldownEnd,
-      msUntilTrialEnd,
-      iConfirmedFormation,
-      peerConfirmedFormation,
-    };
+    return { ...common, mode: 'trial' };
   }
 
   const status = mine.proposal?.status;
-  if (status === 'waiting_peer' || status === 'accepted') {
-    return {
-      mode: 'waiting_peer',
-      periodId,
-      proposal: mine.proposal ?? null,
-      peer,
-      score: mine.proposal?.score ?? 0,
-      cooldownUntil,
-      trial,
-      msUntilCooldownEnd,
-      msUntilTrialEnd,
-      iConfirmedFormation,
-      peerConfirmedFormation,
-    };
+  if (
+    status === 'waiting_peer' ||
+    status === 'accepted' ||
+    (lock.msUntilLockEnd > 0 && mine.decision === 'accepted')
+  ) {
+    return { ...common, mode: 'waiting_peer' };
   }
 
   if (mine.proposal && status === 'pending') {
     return {
+      ...common,
       mode: 'card',
-      periodId,
       proposal: mine.proposal,
-      peer,
       score: mine.proposal.score,
-      cooldownUntil,
-      trial,
-      msUntilCooldownEnd,
-      msUntilTrialEnd,
-      iConfirmedFormation,
-      peerConfirmedFormation,
     };
   }
 
   return {
+    ...common,
     mode: 'empty',
-    periodId,
     proposal: null,
     peer: null,
     score: 0,
-    cooldownUntil,
-    trial,
-    msUntilCooldownEnd,
-    msUntilTrialEnd,
     iConfirmedFormation: false,
     peerConfirmedFormation: false,
   };
@@ -476,7 +584,7 @@ export async function getDailyJumeloView(
 export async function refuseDailyJumelo(myId: string): Promise<DailyViewModel | null> {
   const now = Date.now();
   const root = await loadRoot();
-  const mine = { ...userState(root, myId) };
+  let mine = { ...userState(root, myId) };
   if (!mine.proposal || mine.proposal.status !== 'pending') {
     return null;
   }
@@ -486,7 +594,7 @@ export async function refuseDailyJumelo(myId: string): Promise<DailyViewModel | 
     status: 'refused',
     refusedAt: new Date(now).toISOString(),
   };
-  mine.cooldownUntil = new Date(now + DAILY_WINDOW_MS).toISOString();
+  mine = applyDecisionLock(mine, 'refused', now);
   mine.refusedPeerIds = [...new Set([...(mine.refusedPeerIds ?? []), peerId])].slice(
     -40,
   );
@@ -513,10 +621,11 @@ export async function acceptDailyJumelo(
   const now = Date.now();
   const periodId = periodIdAt(now);
   const root = await loadRoot();
-  await ensureProposal(root, me, pool, now);
-  let mine = { ...userState(root, me.id) };
+  const ensured = await ensureProposal(root, me, pool, now);
+  let mine = { ...ensured.mine };
   const prop = mine.proposal;
   if (!prop || prop.status !== 'pending') {
+    if (ensured.dirty) await saveRoot(root);
     return { mutual: false };
   }
 
@@ -524,26 +633,34 @@ export async function acceptDailyJumelo(
   recordAccept(root, me.id, peerId, periodId);
   await createLike(me.id, peerId, prop.score);
 
-  // Démo : les personas mock acceptent en miroir pour tester le flux mutuel.
-  if (isLocalUserId(peerId) && peerId.startsWith('u-')) {
-    recordAccept(root, peerId, me.id, periodId);
-  }
-
-  const mutual = hasAccept(root, peerId, me.id, periodId);
+  // Pas d’auto-accept mock : accepter seul = attente (pas de trial / chat).
+  // Mutuel cross-période : l’accept entrant peut dater d’une fenêtre 24h précédente.
+  const mutual = hasAccept(root, peerId, me.id);
 
   if (mutual) {
     const trial = await startTrial(root, me.id, peerId, prop.score, now);
+    mine = applyDecisionLock({ ...userState(root, me.id) }, 'accepted', now);
+    setUserState(root, me.id, mine);
+    // Sync lock sur le peer mutuel
+    const peerState = applyDecisionLock(
+      { ...userState(root, peerId) },
+      'accepted',
+      now,
+    );
+    setUserState(root, peerId, peerState);
     await saveRoot(root);
     return { mutual: true, conversationId: trial.conversationId, trial };
   }
 
-  mine = { ...userState(root, me.id) };
+  mine = applyDecisionLock({ ...userState(root, me.id) }, 'accepted', now);
   mine.proposal = {
     ...prop,
     status: 'waiting_peer',
     acceptedAt: new Date(now).toISOString(),
   };
   setUserState(root, me.id, mine);
+  // Priorité pour l’autre : sa prochaine carte Du jour = moi
+  forceIncomingProposal(root, peerId, me.id, pool, periodId, now, prop.score);
   await saveRoot(root);
   return { mutual: false };
 }
@@ -724,16 +841,23 @@ export async function confirmDailyFormation(params: {
 /** Après un rejet / formed, permet de passer à la prochaine carte (nouvelle fenêtre). */
 export async function dismissDailyOutcome(myId: string): Promise<void> {
   const root = await loadRoot();
-  const mine = { ...userState(root, myId) };
-  if (mine.trial?.outcome === 'rejected' || mine.trial?.outcome === 'formed') {
+  let mine = { ...userState(root, myId) };
+  const outcome = mine.trial?.outcome;
+  if (outcome === 'rejected' || outcome === 'formed') {
+    const trialPeerId = mine.trial?.peerId;
     // Garder formedWith ; clear trial pour ne plus bloquer l’UI
-    if (mine.trial.outcome === 'rejected') {
-      mine.cooldownUntil = new Date(Date.now() + DAILY_WINDOW_MS).toISOString();
-      if (mine.trial.peerId) {
+    if (outcome === 'rejected') {
+      mine = applyDecisionLock(mine, 'refused', Date.now());
+      if (trialPeerId) {
         mine.refusedPeerIds = [
-          ...new Set([...(mine.refusedPeerIds ?? []), mine.trial.peerId]),
+          ...new Set([...(mine.refusedPeerIds ?? []), trialPeerId]),
         ].slice(-40);
       }
+    } else {
+      delete mine.lockUntil;
+      delete mine.cooldownUntil;
+      delete mine.decision;
+      delete mine.decisionAt;
     }
     delete mine.trial;
     delete mine.proposal;
@@ -752,21 +876,12 @@ export type IncomingDailyAccept = {
   at: string;
 };
 
-/** Accepts daily entrants (quelqu’un t’a accepté — en attente de ta réponse). */
+/** Accepts daily entrants non répondus (tous periodId — prioritaire Du jour). */
 export async function listIncomingDailyAccepts(
   myId: string,
 ): Promise<IncomingDailyAccept[]> {
-  const now = Date.now();
-  const periodId = periodIdAt(now);
   const root = await loadRoot();
-  return root.accepts
-    .filter(
-      (a) =>
-        a.toUserId === myId &&
-        a.periodId === periodId &&
-        !hasAccept(root, myId, a.fromUserId, periodId),
-    )
-    .sort((a, b) => b.at.localeCompare(a.at));
+  return pendingIncomingAccepts(root, myId);
 }
 
 /**
@@ -780,9 +895,12 @@ export async function seedIncomingDailyAccept(
   const now = Date.now();
   const periodId = periodIdAt(now);
   const root = await loadRoot();
-  // Reset cooldown / trial pour pouvoir répondre
+  // Reset lock / trial pour pouvoir répondre
   const mine = { ...userState(root, myId) };
   delete mine.cooldownUntil;
+  delete mine.lockUntil;
+  delete mine.decision;
+  delete mine.decisionAt;
   if (mine.trial?.outcome !== 'open') {
     delete mine.trial;
   }

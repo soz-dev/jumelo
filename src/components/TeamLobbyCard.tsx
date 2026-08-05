@@ -16,7 +16,6 @@ import {
   Icon,
   elevation,
   fonts,
-  mixHex,
   spacing,
   themeBrandColors,
   themeGradientAngles,
@@ -125,23 +124,21 @@ export function TeamLobbyCard({
   const progress = Math.min(1, team.membersCount / team.capacity);
   const slotsLeft = Math.max(0, team.capacity - team.membersCount);
   const label = joinLabel(state, team.locked, team.capacity);
-  const joinDisabled = state === 'pending' || busy;
+  const isPending = state === 'pending';
+  const joinDisabled = isPending || busy;
 
   /**
-   * Panneau harmonisé charte bleue :
-   * primaryDark approfondi → lift soft (dégradé, pas de plaque plate).
+   * Panneau ardoise / encre — contraste lisible pour le texte clair,
+   * sans lavage bleu saturé (la marque reste sur le CTA / accents).
    */
-  const sheet = mixHex(colors.primaryDark, '#061428', 0.42);
-  const sheetMid = mixHex(sheet, colors.primary, 0.22);
-  const sheetLift = mixHex(sheet, colors.primarySoft, 0.18);
+  const sheet = '#1E232B';
+  const sheetMid = '#252B34';
+  const sheetLift = '#2E3540';
   const onSheet = colors.cream;
-  const onSheetMuted = withHexAlpha(colors.cream, 0.68);
-  const onSheetFaint = withHexAlpha(colors.cream, 0.42);
+  const onSheetMuted = withHexAlpha(colors.cream, 0.72);
+  const onSheetFaint = withHexAlpha(colors.cream, 0.48);
   const brand = themeBrandColors(colors);
   const brandAngle = themeGradientAngles.brand;
-
-  const primaryPending = state === 'pending';
-  const primaryFg = primaryPending ? onSheetMuted : '#fff';
 
   return (
     <View style={[styles.shell, elevation.soft]}>
@@ -276,24 +273,43 @@ export function TeamLobbyCard({
             </View>
           </View>
 
-          {state === 'pending' ? (
-            <Text style={[styles.pending, { color: colors.primaryLight }]}>
-              Demande envoyée — en attente du chef
-            </Text>
-          ) : null}
-
-          <View style={styles.actions}>
-            <Pressable
-              style={[
-                styles.primaryBtn,
-                primaryPending
-                  ? { backgroundColor: withHexAlpha(colors.cream, 0.14) }
-                  : { backgroundColor: 'transparent', overflow: 'hidden' },
-              ]}
-              disabled={joinDisabled && state === 'pending'}
-              onPress={onJoin}
-            >
-              {!primaryPending ? (
+          {isPending ? (
+            <View style={styles.actions}>
+              <View
+                style={[
+                  styles.pendingBanner,
+                  {
+                    backgroundColor: withHexAlpha(colors.cream, 0.1),
+                    borderColor: withHexAlpha(accent, 0.35),
+                  },
+                ]}
+              >
+                <Icon name="pulse" size={15} color={colors.primaryLight} weight="bold" />
+                <Text style={[styles.pending, { color: onSheet }]}>
+                  Demande envoyée — en attente de réponse
+                </Text>
+              </View>
+              <Pressable
+                style={[
+                  styles.ghostBtn,
+                  {
+                    borderColor: withHexAlpha(onSheet, 0.2),
+                    backgroundColor: sheetLift,
+                  },
+                ]}
+                onPress={onDetails}
+                accessibilityLabel="Détails"
+              >
+                <Icon name="chevronRight" size={18} color={onSheet} weight="bold" />
+              </Pressable>
+            </View>
+          ) : (
+            <View style={styles.actions}>
+              <Pressable
+                style={[styles.primaryBtn, { backgroundColor: 'transparent', overflow: 'hidden' }]}
+                disabled={joinDisabled}
+                onPress={onJoin}
+              >
                 <LinearGradient
                   colors={[...brand]}
                   start={brandAngle.start}
@@ -301,29 +317,29 @@ export function TeamLobbyCard({
                   style={StyleSheet.absoluteFill}
                   pointerEvents="none"
                 />
-              ) : null}
-              {busy ? (
-                <ActivityIndicator color={primaryFg} />
-              ) : (
-                <Text style={[styles.primaryBtnText, { color: primaryFg }]}>
-                  {label}
-                </Text>
-              )}
-            </Pressable>
-            <Pressable
-              style={[
-                styles.ghostBtn,
-                {
-                  borderColor: withHexAlpha(onSheet, 0.2),
-                  backgroundColor: sheetLift,
-                },
-              ]}
-              onPress={onDetails}
-              accessibilityLabel="Détails"
-            >
-              <Icon name="chevronRight" size={18} color={onSheet} weight="bold" />
-            </Pressable>
-          </View>
+                {busy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={[styles.primaryBtnText, { color: '#fff' }]}>
+                    {label}
+                  </Text>
+                )}
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.ghostBtn,
+                  {
+                    borderColor: withHexAlpha(onSheet, 0.2),
+                    backgroundColor: sheetLift,
+                  },
+                ]}
+                onPress={onDetails}
+                accessibilityLabel="Détails"
+              >
+                <Icon name="chevronRight" size={18} color={onSheet} weight="bold" />
+              </Pressable>
+            </View>
+          )}
         </View>
       </View>
     </View>
@@ -393,7 +409,8 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     paddingHorizontal: 16,
-    paddingBottom: 12 + SHEET_OVERLAP * 0.35,
+    // Un peu plus haut dans le header média
+    paddingBottom: 18 + SHEET_OVERLAP * 0.35,
   },
   sheet: {
     marginTop: -SHEET_OVERLAP,
@@ -497,10 +514,21 @@ const styles = StyleSheet.create({
     height: '100%',
     borderRadius: 2,
   },
+  pendingBanner: {
+    flex: 1,
+    minHeight: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingHorizontal: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   pending: {
+    flex: 1,
     fontFamily: fonts.bodyMedium,
     fontSize: 12,
-    paddingLeft: 6,
+    lineHeight: 16,
   },
   actions: {
     flexDirection: 'row',

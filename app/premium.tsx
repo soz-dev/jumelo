@@ -12,8 +12,8 @@ import { safeBack } from '../src/lib/navigation';
 const BENEFITS = [
   {
     icon: 'heart-outline' as const,
-    title: 'Voir qui veut jumeler',
-    hint: 'Invites reçues et activité « veut jumeler »',
+    title: 'Propositions reçues',
+    hint: 'Voir qui t’a accepté en Jumelo du jour',
   },
   {
     icon: 'person-outline' as const,

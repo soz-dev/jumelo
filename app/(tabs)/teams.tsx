@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -119,7 +120,25 @@ export default function TeamsScreen() {
     const result = await requestToJoin(teamId);
     setBusyId(null);
     if (!result.ok) {
-      router.push(`/team/${teamId}`);
+      Alert.alert('Impossible', result.error);
+      return;
+    }
+    if (result.mode === 'requested') {
+      Alert.alert(
+        'Demande envoyée',
+        'En attente de réponse du chef. Tu pourras rejoindre après approbation.',
+      );
+      return;
+    }
+    const team = teams.find((t) => t.id === teamId);
+    if (team) {
+      setBusyId(teamId);
+      try {
+        const chat = await ensureTeamChat(team);
+        router.push(`/chat/${chat.id}`);
+      } finally {
+        setBusyId(null);
+      }
       return;
     }
     router.push(`/team/${teamId}`);

@@ -35,10 +35,9 @@ import {
   isExpoGoRuntime,
 } from '../../src/lib/firebaseAuth';
 
-const isWeb = Platform.OS === 'web';
-/** iPhone → Apple ; Android → Google ; web → Google. */
+/** iOS → Apple (+ Google) ; Android / web → Google. Google via AuthSession (Expo Go OK). */
 const showAppleCta = Platform.OS === 'ios';
-const showGoogleCta = Platform.OS === 'android' || isWeb;
+const showGoogleCta = true;
 
 export default function WelcomeScreen() {
   const { colors } = useTheme();
@@ -131,9 +130,11 @@ export default function WelcomeScreen() {
         >
           <Text style={[styles.panelTitle, { color: colors.ink }]}>Commencer</Text>
           <Text style={[styles.panelHint, { color: colors.inkMuted }]}>
-            {showAppleCta
-              ? 'Connexion rapide avec Apple sur iPhone.'
-              : 'Connexion rapide avec Google.'}
+            {showAppleCta && isExpoGoRuntime()
+              ? 'Sous Expo Go : utilise Google (Apple nécessite un build natif).'
+              : showAppleCta
+                ? 'Connexion rapide avec Apple ou Google.'
+                : 'Connexion rapide avec Google.'}
           </Text>
 
           <Pressable
@@ -204,6 +205,7 @@ export default function WelcomeScreen() {
               style={[
                 styles.socialBtn,
                 styles.googleBtn,
+                showAppleCta ? { marginTop: spacing.sm } : null,
                 {
                   borderColor: colors.border,
                   backgroundColor: colors.white,

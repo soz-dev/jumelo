@@ -396,7 +396,7 @@ export const mockMessages: Record<string, ChatMessage[]> = {
 };
 
 export const mockActivity = [
-  { id: 'a1', text: 'Léa veut jumeler', time: 'il y a 2h', color: '#FF5A45' },
-  { id: 'a2', text: 'Nouveau jumelage à 84% avec Maxime', time: 'il y a 5h', color: '#0F8F8A' },
+  { id: 'a1', text: 'Léa t’a proposé en Jumelo du jour', time: 'il y a 2h', color: '#2F6BFF' },
+  { id: 'a2', text: 'Jumelo formé avec Maxime', time: 'il y a 5h', color: '#0F8F8A' },
   { id: 'a3', text: "Karim t'a invité dans une équipe", time: 'hier', color: '#7C5CFC' },
 ];

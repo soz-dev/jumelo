@@ -8,11 +8,7 @@ import { isOfficialJumelage } from './matching';
  * en cas d’invite mutuelle. En dessous : invite seule / toast, pas de célébration.
  *
  * Cas de test (Home · DEV) :
- * - « Invite reçue » → Maxime (≥80%) → Jumeler aussi
- * - « Jumelage mutuel » → Maya (≥80%) dans Discover → jumelage
- * - « Match aléatoire » → participant random ≥80% → écran match-success
- * - Premier swipe Discover avec score ≥ 80 → « C’est un jumelage ! »
- * - Score < 80 → toast seulement (pas de jumelage)
+ * - « Proposition reçue » → Maxime accepte en Jumelo du jour → répondre dans l’onglet Jumelo
  */
 export const DEMO_ALWAYS_MATCH_IDS = ['u-lea', 'u-noah'] as const;
 

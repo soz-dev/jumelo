@@ -30,9 +30,9 @@ import {
 } from '../../src/lib/firebaseAuth';
 
 const isWeb = Platform.OS === 'web';
-/** iPhone → Apple ; Android / web → Google. */
+/** iOS → Apple (+ Google) ; Android / web → Google. Google via AuthSession (Expo Go OK). */
 const showAppleButton = Platform.OS === 'ios';
-const showGoogleButton = Platform.OS === 'android' || isWeb;
+const showGoogleButton = true;
 
 export default function RegisterScreen() {
   const { register, loginWithProvider } = useAuth();
@@ -115,9 +115,11 @@ export default function RegisterScreen() {
         </View>
         <Title>Créer ton compte</Title>
         <Subtitle style={{ marginTop: spacing.sm }}>
-          {showAppleButton
-            ? 'Le plus simple : Continuer avec Apple. Puis on calibre ton jumelage.'
-            : 'Le plus simple : Continuer avec Google. Puis on calibre ton jumelage.'}
+          {showAppleButton && isExpoGoRuntime()
+            ? 'Sous Expo Go : utilise Google (Apple nécessite un build natif). Puis on calibre ton jumelage.'
+            : showAppleButton
+              ? 'Le plus simple : Apple ou Google. Puis on calibre ton jumelage.'
+              : 'Le plus simple : Continuer avec Google. Puis on calibre ton jumelage.'}
         </Subtitle>
 
         <View style={styles.checkRow}>

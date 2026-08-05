@@ -224,6 +224,13 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
             }
           }
         } else if (result.mode === 'requested') {
+          // Optimistic : la carte lobby passe tout de suite en « en attente ».
+          setJoinRequests((prev) => {
+            const without = prev.filter(
+              (r) => !(r.teamId === teamId && r.userId === user.id),
+            );
+            return [...without, result.request];
+          });
           const team = teams.find((t) => t.id === teamId);
           try {
             const { notifyUser } = await import('../lib/notifications');

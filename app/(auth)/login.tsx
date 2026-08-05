@@ -27,9 +27,9 @@ import {
 } from '../../src/lib/firebaseAuth';
 
 const isWeb = Platform.OS === 'web';
-/** iPhone → Apple ; Android / web → Google. */
+/** iOS → Apple (+ Google) ; Android / web → Google. Google via AuthSession (Expo Go OK). */
 const showAppleButton = Platform.OS === 'ios';
-const showGoogleButton = Platform.OS === 'android' || isWeb;
+const showGoogleButton = true;
 const showDemo = typeof __DEV__ !== 'undefined' && __DEV__;
 
 export default function LoginScreen() {
@@ -118,7 +118,11 @@ export default function LoginScreen() {
 
           {showGoogleButton ? (
             <Pressable
-              style={[styles.socialBtn, { borderColor: colors.border }]}
+              style={[
+                styles.socialBtn,
+                { borderColor: colors.border },
+                showAppleButton ? { marginTop: spacing.sm } : null,
+              ]}
               onPress={() => onOAuth('google')}
               disabled={Boolean(oauthLoading) || loading}
             >

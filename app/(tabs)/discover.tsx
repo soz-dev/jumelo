@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
@@ -11,6 +11,16 @@ import {
   Text,
   View,
 } from 'react-native';
+import Animated, {
+  cancelAnimation,
+  Easing,
+  interpolate,
+  useAnimatedStyle,
+  useSharedValue,
+  withDelay,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
@@ -23,6 +33,7 @@ import {
   CategoryPill,
   elevation,
   fonts,
+  motion,
   radii,
   spacing,
   withHexAlpha,
@@ -40,6 +51,9 @@ import {
 import { openChatWithUser } from '../../src/lib/users';
 
 const { height: SCREEN_H } = Dimensions.get('window');
+const WASH_TRAVEL = Math.max(80, SCREEN_H * 0.22);
+
+type CardTone = 'idle' | 'refused' | 'accepted';
 
 export default function DiscoverScreen() {
   const { user, usingSupabase } = useAuth();
@@ -49,86 +63,125 @@ export default function DiscoverScreen() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [tick, setTick] = useState(0);
-  /** Peer figé juste après refus (pour le stamp avant reload). */
-  const [refusedFlash, setRefusedFlash] = useState<UserProfile | null>(null);
+  /** Peer figé pendant l’anim de décision. */
+  const [flashPeer, setFlashPeer] = useState<UserProfile | null>(null);
+  /** Joue l’intro animée (refus / accept) avant l’état persisté. */
+  const [playIntro, setPlayIntro] = useState(false);
+  const [localTone, setLocalTone] = useState<CardTone | null>(null);
+
+  /** Évite que chaque nouvelle identité `user` relance useFocusEffect → refresh → setState en boucle. */
+  const userRef = useRef(user);
+  userRef.current = user;
+  const userId = user?.id ?? null;
+  const refreshSeq = useRef(0);
+  const hasLoadedRef = useRef(false);
 
   const loadPool = useCallback(async () => {
-    if (!usingSupabase || !user || user.id.startsWith('u-') || user.id.startsWith('fb-')) {
-      setPool(mockUsers);
+    const current = userRef.current;
+    if (
+      !usingSupabase ||
+      !current ||
+      current.id.startsWith('u-') ||
+      current.id.startsWith('fb-')
+    ) {
+      setPool((prev) => (prev === mockUsers ? prev : mockUsers));
       return mockUsers;
     }
-    const remote = await listProfiles(user.id);
+    const remote = await listProfiles(current.id);
     const next = remote.length ? remote : mockUsers;
     setPool(next);
     return next;
-  }, [usingSupabase, user]);
+  }, [usingSupabase]);
 
   const refresh = useCallback(async () => {
-    if (!user) {
+    const current = userRef.current;
+    const seq = ++refreshSeq.current;
+    if (!current) {
+      hasLoadedRef.current = false;
       setView(null);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    // Soft refresh : ne pas démonter PeerCard (évite storm Reanimated sur le web).
+    if (!hasLoadedRef.current) setLoading(true);
     try {
       const p = await loadPool();
-      const v = await getDailyJumeloView(user, p);
+      if (seq !== refreshSeq.current) return;
+      const v = await getDailyJumeloView(current, p);
+      if (seq !== refreshSeq.current) return;
       setView(v);
+      hasLoadedRef.current = true;
       if (v.mode === 'card' || v.mode === 'empty') {
-        setRefusedFlash(null);
+        setFlashPeer(null);
+        setLocalTone(null);
+        setPlayIntro(false);
       }
     } finally {
-      setLoading(false);
+      if (seq === refreshSeq.current) setLoading(false);
     }
-  }, [user, loadPool]);
+  }, [loadPool]);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
       (async () => {
-        await refresh();
         if (!active) return;
+        await refresh();
       })();
       return () => {
         active = false;
+        refreshSeq.current += 1;
       };
-    }, [refresh]),
+    }, [refresh, userId]),
   );
 
   useEffect(() => {
     if (!view) return;
-    if (view.mode !== 'cooldown' && view.mode !== 'trial') return;
+    const needsTick =
+      view.mode === 'cooldown' ||
+      view.mode === 'trial' ||
+      view.mode === 'waiting_peer' ||
+      Boolean(view.lockUntil || view.cooldownUntil);
+    if (!needsTick) return;
     const id = setInterval(() => setTick((n) => n + 1), 30_000);
     return () => clearInterval(id);
-  }, [view?.mode]);
+  }, [view?.mode, view?.lockUntil, view?.cooldownUntil]);
 
   void tick;
 
   const onRefuse = async () => {
     if (!user || busy || !view?.peer) return;
     setBusy(true);
-    const peerSnapshot = view.peer;
-    setRefusedFlash(peerSnapshot);
+    setFlashPeer(view.peer);
+    setLocalTone('refused');
+    setPlayIntro(true);
     try {
       await refuseDailyJumelo(user.id);
+      // Laisse l’anim jouer (~520ms) avant le refresh d’état
+      await new Promise((r) => setTimeout(r, 560));
       await refresh();
+      setPlayIntro(false);
     } finally {
       setBusy(false);
     }
   };
 
   const onAccept = async () => {
-    if (!user || busy) return;
+    if (!user || busy || !view?.peer) return;
     setBusy(true);
-    setRefusedFlash(null);
+    setFlashPeer(view.peer);
+    setLocalTone('accepted');
+    setPlayIntro(true);
     try {
       const p = pool.length ? pool : await loadPool();
       const result = await acceptDailyJumelo(user, p);
-      if (result.mutual && result.conversationId) {
-        router.push(`/chat/${result.conversationId}`);
-        return;
-      }
+      await new Promise((r) => setTimeout(r, 560));
       await refresh();
+      setPlayIntro(false);
+      // Mutuel : rester sur la carte verte + CTA chat (pas de « formé » solo)
+      if (result.mutual && result.conversationId) {
+        // Optionnel : ne pas auto-ouvrir — l’utilisateur choisit « Ouvrir le chat »
+      }
     } finally {
       setBusy(false);
     }
@@ -154,28 +207,71 @@ export default function DiscoverScreen() {
     setBusy(true);
     try {
       await dismissDailyOutcome(user.id);
-      setRefusedFlash(null);
+      setFlashPeer(null);
+      setLocalTone(null);
+      setPlayIntro(false);
       await refresh();
     } finally {
       setBusy(false);
     }
   };
 
-  const peer = refusedFlash ?? view?.peer ?? null;
-  const common = user && peer && view?.mode === 'card' ? getCommonPoints(user, peer).slice(0, 4) : [];
-  const cooldownLabel = formatRemaining(
-    view?.cooldownUntil
-      ? Math.max(0, new Date(view.cooldownUntil).getTime() - Date.now())
-      : view?.msUntilCooldownEnd ?? 0,
-  );
+  const peer = flashPeer ?? view?.peer ?? null;
+  const common =
+    user && peer && view?.mode === 'card' && !localTone
+      ? getCommonPoints(user, peer).slice(0, 4)
+      : [];
+  const lockMs = view?.lockUntil
+    ? Math.max(0, new Date(view.lockUntil).getTime() - Date.now())
+    : view?.msUntilLockEnd ?? view?.msUntilCooldownEnd ?? 0;
+  const lockLabel = formatRemaining(lockMs);
   const trialLabel = formatRemaining(
     view?.trial
       ? Math.max(0, new Date(view.trial.endsAt).getTime() - Date.now())
       : view?.msUntilTrialEnd ?? 0,
   );
 
-  const showRefused =
-    view?.mode === 'cooldown' || Boolean(refusedFlash && view?.mode !== 'card');
+  const locked = lockMs > 0;
+  const persistedRefused =
+    view?.mode === 'cooldown' || (view?.decision === 'refused' && locked);
+  const persistedAccepted =
+    !persistedRefused &&
+    view?.decision === 'accepted' &&
+    (locked || view?.mode === 'waiting_peer' || view?.mode === 'trial');
+
+  const mode = view?.mode;
+  const tone: CardTone =
+    localTone ??
+    (persistedRefused || (flashPeer && mode === 'cooldown')
+      ? 'refused'
+      : persistedAccepted
+        ? 'accepted'
+        : 'idle');
+
+  const stampLabel =
+    tone === 'refused' ? 'NON RETENU' : mode === 'trial' ? 'VALIDÉ' : 'RETENU';
+
+  const choiceLocked = tone !== 'idle' || mode !== 'card' || Boolean(flashPeer);
+  const showWaitingFooter =
+    mode === 'waiting_peer' || (localTone === 'accepted' && mode !== 'trial');
+
+  const subtitle = (() => {
+    if (!mode) return 'Une proposition · 24 h · accepte ou refuse';
+    if (tone === 'refused' || mode === 'cooldown') {
+      return `Prochaine proposition dans ${lockLabel}`;
+    }
+    if (mode === 'trial') {
+      return locked
+        ? `Match mutuel · chat ouvert · prochaine prop. dans ${lockLabel}`
+        : `${trialLabel} pour former l’équipe`;
+    }
+    if (mode === 'waiting_peer' || tone === 'accepted') {
+      return locked
+        ? `Retenu — en attente de sa réponse · ${lockLabel}`
+        : 'Retenu — en attente de sa réponse';
+    }
+    return 'Une proposition · 24 h · accepte ou refuse';
+  })();
 
   return (
     <Atmosphere variant="bold">
@@ -183,15 +279,7 @@ export default function DiscoverScreen() {
         <View style={styles.topBar}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.title, { color: colors.ink }]}>Aujourd’hui</Text>
-            <Text style={[styles.subtitle, { color: colors.inkMuted }]}>
-              {view?.mode === 'cooldown'
-                ? `Prochaine proposition dans ${cooldownLabel}`
-                : view?.mode === 'trial'
-                  ? `${trialLabel} pour former l’équipe`
-                  : view?.mode === 'waiting_peer'
-                    ? 'En attente de sa réponse'
-                    : 'Une proposition · 24 h · accepte ou refuse'}
-            </Text>
+            <Text style={[styles.subtitle, { color: colors.inkMuted }]}>{subtitle}</Text>
           </View>
           <ThemeSwitcherButton />
         </View>
@@ -246,15 +334,17 @@ export default function DiscoverScreen() {
               score={view.score}
               colors={colors}
               common={common}
-              refused={showRefused || view.mode === 'cooldown'}
+              tone={tone}
+              stampLabel={stampLabel}
+              playIntro={playIntro}
               onOpenProfile={
-                view.mode === 'card'
+                mode === 'card' && !choiceLocked
                   ? () => router.push(`/user/${peer.id}`)
                   : undefined
               }
             />
 
-            {view.mode === 'card' && !showRefused ? (
+            {mode === 'card' && !choiceLocked ? (
               <View style={styles.actions}>
                 <Pressable
                   onPress={onRefuse}
@@ -267,7 +357,11 @@ export default function DiscoverScreen() {
                 <Pressable
                   onPress={onAccept}
                   disabled={busy}
-                  style={[styles.roundBtn, styles.acceptBtn, { backgroundColor: colors.primary }]}
+                  style={[
+                    styles.roundBtn,
+                    styles.acceptBtn,
+                    { backgroundColor: colors.primary },
+                  ]}
                   accessibilityLabel="Accepter"
                 >
                   {busy ? (
@@ -279,13 +373,16 @@ export default function DiscoverScreen() {
               </View>
             ) : null}
 
-            {view.mode === 'waiting_peer' ? (
+            {showWaitingFooter ? (
               <Text style={[styles.footerHint, { color: colors.inkMuted }]}>
+                Tu as retenu {peer.name.split(' ')[0]} — ce n’est pas encore un jumelo.
+                {'\n'}
                 {peer.name.split(' ')[0]} doit aussi accepter pour ouvrir le chat.
+                {locked ? `\nProchaine proposition dans ${lockLabel}.` : ''}
               </Text>
             ) : null}
 
-            {view.mode === 'trial' ? (
+            {mode === 'trial' ? (
               <Pressable
                 onPress={onOpenChat}
                 disabled={busy}
@@ -295,9 +392,9 @@ export default function DiscoverScreen() {
               </Pressable>
             ) : null}
 
-            {view.mode === 'cooldown' ? (
+            {tone === 'refused' || mode === 'cooldown' ? (
               <Text style={[styles.footerHint, { color: colors.inkMuted }]}>
-                Non retenu — prochaine proposition dans {cooldownLabel}.
+                Non retenu — prochaine proposition dans {lockLabel}.
               </Text>
             ) : null}
           </View>
@@ -307,7 +404,7 @@ export default function DiscoverScreen() {
               colors={colors}
               icon="time-outline"
               title="Prochaine proposition"
-              body={`Reviens dans ${cooldownLabel}.`}
+              body={`Reviens dans ${lockLabel}.`}
             />
           </View>
         )}
@@ -350,7 +447,9 @@ function PeerCard({
   score,
   colors,
   common,
-  refused,
+  tone,
+  stampLabel,
+  playIntro,
   onOpenProfile,
 }: {
   peer: UserProfile;
@@ -363,81 +462,215 @@ function PeerCard({
     white: string;
   };
   common: ReturnType<typeof getCommonPoints>;
-  refused?: boolean;
+  tone: CardTone;
+  stampLabel: string;
+  playIntro: boolean;
   onOpenProfile?: () => void;
 }) {
+  const washProgress = useSharedValue(tone === 'idle' ? 0 : 1);
+  const washRise = useSharedValue(tone === 'idle' || playIntro ? 1 : 0);
+  const photoDim = useSharedValue(1);
+  const stampScale = useSharedValue(tone === 'idle' ? 0.4 : 1);
+  const stampOpacity = useSharedValue(tone === 'idle' ? 0 : 1);
+  const stampRotate = useSharedValue(tone === 'refused' ? -18 : -8);
+  const cardScale = useSharedValue(1);
+  const springCfg = motion.spring;
+
+  useEffect(() => {
+    const values = [
+      washProgress,
+      washRise,
+      photoDim,
+      stampScale,
+      stampOpacity,
+      stampRotate,
+      cardScale,
+    ];
+    values.forEach((v) => cancelAnimation(v));
+
+    if (tone === 'idle') {
+      washProgress.value = withTiming(0, { duration: 200 });
+      washRise.value = 1;
+      photoDim.value = withTiming(1, { duration: 200 });
+      stampOpacity.value = withTiming(0, { duration: 160 });
+      stampScale.value = 0.4;
+      cardScale.value = withSpring(1, springCfg);
+      return () => values.forEach((v) => cancelAnimation(v));
+    }
+
+    const isRefuse = tone === 'refused';
+    const targetDim = isRefuse ? 0.42 : 0.7;
+    const targetRotate = isRefuse ? -12 : -10;
+
+    if (playIntro) {
+      washRise.value = 1;
+      washProgress.value = 0;
+      stampOpacity.value = 0;
+      stampScale.value = isRefuse ? 1.45 : 0.35;
+      stampRotate.value = isRefuse ? -22 : 8;
+      cardScale.value = 1;
+
+      washRise.value = withTiming(0, {
+        duration: isRefuse ? 480 : 420,
+        easing: Easing.out(Easing.cubic),
+      });
+      washProgress.value = withTiming(1, {
+        duration: isRefuse ? 480 : 420,
+        easing: Easing.out(Easing.cubic),
+      });
+      photoDim.value = withTiming(targetDim, {
+        duration: 420,
+        easing: Easing.out(Easing.quad),
+      });
+      cardScale.value = withTiming(isRefuse ? 0.965 : 1.03, { duration: 150 }, (finished) => {
+        if (finished) {
+          cardScale.value = withSpring(1, springCfg);
+        }
+      });
+
+      stampOpacity.value = withDelay(
+        140,
+        withTiming(1, { duration: 200, easing: Easing.out(Easing.quad) }),
+      );
+      stampScale.value = withDelay(
+        120,
+        withSpring(1, { damping: isRefuse ? 14 : 11, stiffness: isRefuse ? 200 : 240 }),
+      );
+      stampRotate.value = withDelay(
+        120,
+        withSpring(targetRotate, { damping: 16, stiffness: 180 }),
+      );
+    } else {
+      // État persisté (reload) : valeurs finales sans enchaîner des springs (web-safe).
+      washRise.value = 0;
+      washProgress.value = 1;
+      photoDim.value = targetDim;
+      stampOpacity.value = 1;
+      stampScale.value = 1;
+      stampRotate.value = targetRotate;
+      cardScale.value = 1;
+    }
+
+    return () => values.forEach((v) => cancelAnimation(v));
+  }, [tone, playIntro]);
+
+  const washStyle = useAnimatedStyle(() => ({
+    opacity: washProgress.value,
+    transform: [
+      {
+        translateY: interpolate(washRise.value, [0, 1], [0, WASH_TRAVEL]),
+      },
+    ],
+  }));
+
+  const photoStyle = useAnimatedStyle(() => ({
+    opacity: photoDim.value,
+  }));
+
+  const stampStyle = useAnimatedStyle(() => ({
+    opacity: stampOpacity.value,
+    transform: [
+      { scale: stampScale.value },
+      { rotate: `${stampRotate.value}deg` },
+    ],
+  }));
+
+  const cardAnimStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: cardScale.value }],
+  }));
+
+  const washColor =
+    tone === 'refused' ? 'rgba(40,45,55,0.62)' : 'rgba(16, 120, 72, 0.48)';
+  const stampBorder = tone === 'refused' ? '#EF4444' : '#22C55E';
+  const stampText = tone === 'refused' ? '#EF4444' : '#22C55E';
+  const lockedLook = tone !== 'idle';
+
   return (
-    <Pressable
-      onPress={onOpenProfile}
-      disabled={!onOpenProfile}
-      style={[styles.card, elevation.lift, refused ? styles.cardRefused : null]}
-    >
-      <ImageBackground
-        source={{
-          uri:
-            peer.photo ??
-            `https://ui-avatars.com/api/?name=${encodeURIComponent(peer.name)}&background=2F6BFF&color=fff&size=800`,
-        }}
-        style={styles.photo}
-        imageStyle={refused ? { opacity: 0.45 } : undefined}
+    <Animated.View style={[styles.card, elevation.lift, cardAnimStyle]}>
+      <Pressable
+        onPress={onOpenProfile}
+        disabled={!onOpenProfile}
+        style={styles.cardPress}
       >
-        {refused ? <View style={styles.greyWash} pointerEvents="none" /> : null}
+        <Animated.View style={[styles.photoWrap, photoStyle]}>
+          <ImageBackground
+            source={{
+              uri:
+                peer.photo ??
+                `https://ui-avatars.com/api/?name=${encodeURIComponent(peer.name)}&background=2F6BFF&color=fff&size=800`,
+            }}
+            style={styles.photo}
+          >
+            {/* Toujours monté : évite mount/unmount Animated ↔ worklets en boucle sur le web. */}
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.toneWash, { backgroundColor: washColor }, washStyle]}
+            />
 
-        {refused ? (
-          <View style={styles.nopeStamp}>
-            <Text style={styles.nopeStampText}>NON RETENU</Text>
-          </View>
-        ) : null}
+            <Animated.View
+              pointerEvents="none"
+              style={[styles.stamp, { borderColor: stampBorder }, stampStyle]}
+            >
+              <Text style={[styles.stampText, { color: stampText }]}>{stampLabel}</Text>
+            </Animated.View>
 
-        {!refused ? (
-          <View style={[styles.scorePill, { backgroundColor: colors.primary }]}>
-            <Text style={styles.scoreText}>{Math.round(score)}%</Text>
-          </View>
-        ) : null}
+            {!lockedLook ? (
+              <View style={[styles.scorePill, { backgroundColor: colors.primary }]}>
+                <Text style={styles.scoreText}>{Math.round(score)}%</Text>
+              </View>
+            ) : null}
 
-        <LinearGradient
-          colors={['transparent', 'rgba(10,20,40,0.92)']}
-          locations={[0.35, 1]}
-          style={styles.photoGrad}
-        >
-          <Text style={[styles.photoName, refused ? styles.photoNameMuted : null]}>
-            {peer.name}
-            {peer.age ? `, ${peer.age}` : ''}
-          </Text>
-          <Text style={styles.photoMeta}>
-            {[peer.city, peer.level].filter(Boolean).join(' · ')}
-          </Text>
+            <LinearGradient
+              colors={['transparent', 'rgba(10,20,40,0.92)']}
+              locations={[0.35, 1]}
+              style={styles.photoGrad}
+            >
+              <Text
+                style={[
+                  styles.photoName,
+                  tone === 'refused' ? styles.photoNameMuted : null,
+                  tone === 'accepted' ? styles.photoNameAccepted : null,
+                ]}
+              >
+                {peer.name}
+                {peer.age ? `, ${peer.age}` : ''}
+              </Text>
+              <Text style={styles.photoMeta}>
+                {[peer.city, peer.level].filter(Boolean).join(' · ')}
+              </Text>
 
-          {peer.bio && !refused ? (
-            <Text style={styles.bioOnPhoto} numberOfLines={2}>
-              {peer.bio}
-            </Text>
-          ) : null}
+              {peer.bio && !lockedLook ? (
+                <Text style={styles.bioOnPhoto} numberOfLines={2}>
+                  {peer.bio}
+                </Text>
+              ) : null}
 
-          {!refused && peer.universes?.length ? (
-            <View style={styles.pills}>
-              {peer.universes.slice(0, 3).map((u) => {
-                const cat = getCategory(u);
-                return (
-                  <CategoryPill
-                    key={u}
-                    universeId={u}
-                    label={cat?.shortLabel ?? u}
-                    color={cat?.color ?? colors.primary}
-                  />
-                );
-              })}
-            </View>
-          ) : null}
+              {!lockedLook && peer.universes?.length ? (
+                <View style={styles.pills}>
+                  {peer.universes.slice(0, 3).map((u) => {
+                    const cat = getCategory(u);
+                    return (
+                      <CategoryPill
+                        key={u}
+                        universeId={u}
+                        label={cat?.shortLabel ?? u}
+                        color={cat?.color ?? colors.primary}
+                      />
+                    );
+                  })}
+                </View>
+              ) : null}
 
-          {!refused && common.length ? (
-            <Text style={styles.commonLine} numberOfLines={1}>
-              En commun · {common.map((c) => c.label).join(' · ')}
-            </Text>
-          ) : null}
-        </LinearGradient>
-      </ImageBackground>
-    </Pressable>
+              {!lockedLook && common.length ? (
+                <Text style={styles.commonLine} numberOfLines={1}>
+                  En commun · {common.map((c) => c.label).join(' · ')}
+                </Text>
+              ) : null}
+            </LinearGradient>
+          </ImageBackground>
+        </Animated.View>
+      </Pressable>
+    </Animated.View>
   );
 }
 
@@ -481,44 +714,41 @@ const styles = StyleSheet.create({
     backgroundColor: '#12151A',
     minHeight: Math.min(SCREEN_H * 0.62, 560),
   },
-  cardRefused: {
-    opacity: 0.95,
-  },
+  cardPress: { flex: 1 },
+  photoWrap: { flex: 1 },
   photo: {
     flex: 1,
     justifyContent: 'flex-end',
     backgroundColor: '#1B2A4A',
   },
-  greyWash: {
+  toneWash: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(40,45,55,0.55)',
+    zIndex: 3,
   },
-  nopeStamp: {
+  stamp: {
     position: 'absolute',
-    top: '38%',
+    top: '36%',
     alignSelf: 'center',
     left: 28,
     right: 28,
-    zIndex: 5,
+    zIndex: 6,
     borderWidth: 4,
-    borderColor: '#EF4444',
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    transform: [{ rotate: '-12deg' }],
-    backgroundColor: 'rgba(0,0,0,0.25)',
+    backgroundColor: 'rgba(0,0,0,0.28)',
     alignItems: 'center',
   },
-  nopeStampText: {
+  stampText: {
     fontFamily: fonts.display,
     fontSize: 28,
     letterSpacing: 1.2,
-    color: '#EF4444',
   },
   photoGrad: {
     padding: spacing.lg,
     paddingTop: 100,
     gap: 6,
+    zIndex: 4,
   },
   photoName: {
     color: '#fff',
@@ -528,6 +758,9 @@ const styles = StyleSheet.create({
   },
   photoNameMuted: {
     color: 'rgba(255,255,255,0.7)',
+  },
+  photoNameAccepted: {
+    color: 'rgba(220,255,230,0.95)',
   },
   photoMeta: {
     color: 'rgba(255,255,255,0.85)',
