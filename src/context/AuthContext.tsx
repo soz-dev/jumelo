@@ -469,11 +469,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (usingFirebase) {
         const result = await signInEmailFirebase(normalized, password);
         if (!result.ok) return result;
+        // Bridge : tenter une session Supabase pour activer le sync cross-device.
+        let sbUserId = result.supabaseUserId;
+        let sbEmail = result.supabaseEmail;
+        if (!sbUserId && usingSupabase) {
+          try {
+            const supabase = getSupabase();
+            const sbResult = await supabase!.auth.signInWithPassword({ email: normalized, password });
+            if (sbResult.data.session?.user) {
+              sbUserId = sbResult.data.session.user.id;
+              sbEmail = sbResult.data.session.user.email ?? undefined;
+            }
+          } catch {
+            // pas de compte Supabase — retombée sur cache local
+          }
+        }
         const profile = repairOnboardingFlag(
           await resolveProfileAfterFirebase({
             firebaseUser: result.firebaseUser,
-            supabaseUserId: result.supabaseUserId,
-            supabaseEmail: result.supabaseEmail,
+            supabaseUserId: sbUserId,
+            supabaseEmail: sbEmail,
           }),
         );
         setUser(profile);
@@ -571,10 +586,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (usingFirebase) {
         const result = await registerEmailFirebase(name, normalized, password);
         if (!result.ok) return result;
+        // Bridge : créer aussi un compte Supabase pour le sync cross-device.
+        let sbUserId = result.supabaseUserId;
+        let sbEmail = result.supabaseEmail;
+        if (!sbUserId && usingSupabase) {
+          try {
+            const supabase = getSupabase();
+            const sbResult = await supabase!.auth.signUp({
+              email: normalized,
+              password,
+              options: { data: { name: name.trim() } },
+            });
+            if (sbResult.data.session?.user) {
+              sbUserId = sbResult.data.session.user.id;
+              sbEmail = sbResult.data.session.user.email ?? undefined;
+            }
+          } catch {
+            // inscription Supabase impossible — retombée sur cache local
+          }
+        }
         const profile = await resolveProfileAfterFirebase({
           firebaseUser: result.firebaseUser,
-          supabaseUserId: result.supabaseUserId,
-          supabaseEmail: result.supabaseEmail,
+          supabaseUserId: sbUserId,
+          supabaseEmail: sbEmail,
         });
         setUser(profile);
         await persistLocal(profile);
