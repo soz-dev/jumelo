@@ -30,8 +30,8 @@ import {
 } from '../../src/lib/adminModerators';
 
 const PERM_LABELS: { key: keyof ModeratorPermissions; label: string; hint: string }[] = [
-  { key: 'canRenameTeam',  label: 'Renommer un jumelo',        hint: 'Modifier le nom d'un groupe' },
-  { key: 'canRemovePhoto', label: 'Retirer une photo',         hint: 'Supprimer l'avatar d'un joueur' },
+  { key: 'canRenameTeam',  label: 'Renommer un jumelo',        hint: "Modifier le nom d'un groupe" },
+  { key: 'canRemovePhoto', label: 'Retirer une photo',         hint: "Supprimer l'avatar d'un joueur" },
   { key: 'canSendWarning', label: 'Envoyer un avertissement',  hint: 'Message via Jumelo-Modération' },
 ];
 
