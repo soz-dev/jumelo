@@ -55,7 +55,7 @@ export default function AdminModeratorsScreen() {
     const res = await addModerator(uidInput, adminUid, labelInput);
     setBusy(false);
     if (!res.ok) {
-      Alert.alert('Erreur', res.error ?? 'Impossible d'ajouter.');
+      Alert.alert('Erreur', res.error ?? "Impossible d'ajouter.");
       return;
     }
     setUidInput('');
