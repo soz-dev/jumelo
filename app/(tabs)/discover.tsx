@@ -175,6 +175,18 @@ function trendLabel(trend: number): string {
   return '—';
 }
 
+function trendPillBg(trend: number): string {
+  if (trend > 0) return 'rgba(34,197,94,0.12)';
+  if (trend < 0) return 'rgba(239,68,68,0.12)';
+  return 'rgba(249,115,22,0.12)';
+}
+
+function trendTextColor(trend: number): string {
+  if (trend > 0) return '#16A34A';
+  if (trend < 0) return '#EF4444';
+  return '#F97316';
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
@@ -405,11 +417,13 @@ export default function DiscoverScreen() {
                         )}
                       </View>
                       <View style={styles.podiumBottom}>
+                        <View style={[styles.trendPill, { backgroundColor: trendPillBg(entry.trend) }]}>
+                          <Text style={[styles.trendPillText, { color: trendTextColor(entry.trend) }]}>
+                            {trendLabel(entry.trend)}
+                          </Text>
+                        </View>
                         <Text style={[styles.podiumPts, { color: colors.primary }]}>
-                          {entry.score.points} pts
-                        </Text>
-                        <Text style={[styles.podiumTrend, { color: trendColor(entry.trend, colors.primary) }]}>
-                          {trendLabel(entry.trend)}
+                          {entry.score.points}
                         </Text>
                       </View>
                     </Pressable>
@@ -437,21 +451,39 @@ export default function DiscoverScreen() {
                         <Text style={[styles.restPos, { color: colors.inkFaint }]}>
                           {entry.position}
                         </Text>
-                        <Avatar name={entry.name} color={c?.color ?? colors.primary} size={32} />
+                        {/* Photos membres empilées */}
+                        <View style={styles.restAvatars}>
+                          {entry.members.slice(0, 2).map((m, mi) =>
+                            m.photo ? (
+                              <Image
+                                key={m.id}
+                                source={{ uri: m.photo }}
+                                style={[styles.restMemberPhoto, mi === 1 && styles.restMemberPhotoOverlap]}
+                              />
+                            ) : (
+                              <View key={m.id} style={mi === 1 ? styles.restMemberPhotoOverlap : undefined}>
+                                <Avatar name={m.name} color={m.color} size={32} />
+                              </View>
+                            ),
+                          )}
+                        </View>
                         <View style={{ flex: 1 }}>
                           <Text style={[styles.restName, { color: colors.ink }]} numberOfLines={1}>
                             {entry.name}
                           </Text>
                           <Text style={[styles.restCat, { color: c?.color ?? colors.inkMuted }]}>
                             {c?.emoji} {sub?.label ?? c?.shortLabel ?? entry.universe}
+                            {entry.score.sessionsEnded > 0 ? ` 🔥${entry.score.sessionsEnded}` : ''}
                           </Text>
                         </View>
                         <View style={styles.restRight}>
+                          <View style={[styles.trendPill, { backgroundColor: trendPillBg(entry.trend) }]}>
+                            <Text style={[styles.trendPillText, { color: trendTextColor(entry.trend) }]}>
+                              {trendLabel(entry.trend)}
+                            </Text>
+                          </View>
                           <Text style={[styles.restPts, { color: colors.primary }]}>
-                            {entry.score.points} pts
-                          </Text>
-                          <Text style={[styles.restTrend, { color: trendColor(entry.trend, colors.primary) }]}>
-                            {trendLabel(entry.trend)}
+                            {entry.score.points}
                           </Text>
                         </View>
                       </Pressable>
@@ -524,9 +556,13 @@ const styles = StyleSheet.create({
   restList: { borderRadius: radii.xl, borderWidth: 1, overflow: 'hidden' },
   restRow:  { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.md, paddingVertical: 10, gap: 10 },
   restPos:  { fontFamily: fonts.bodyBold, fontSize: 13, width: 24, textAlign: 'center' },
+  restAvatars:           { flexDirection: 'row', alignItems: 'center' },
+  restMemberPhoto:       { width: 34, height: 34, borderRadius: 17, borderWidth: 2, borderColor: '#fff' },
+  restMemberPhotoOverlap:{ marginLeft: -10 },
   restName: { fontFamily: fonts.bodyBold, fontSize: 13 },
   restCat:  { fontFamily: fonts.body, fontSize: 11, marginTop: 1 },
-  restRight:{ alignItems: 'flex-end', gap: 2 },
-  restPts:  { fontFamily: fonts.bodyBold, fontSize: 12 },
-  restTrend: { fontFamily: fonts.bodyBold, fontSize: 11 },
+  restRight:{ alignItems: 'flex-end', gap: 4 },
+  restPts:  { fontFamily: fonts.displaySemi, fontSize: 16, letterSpacing: -0.3 },
+  trendPill:     { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
+  trendPillText: { fontFamily: fonts.bodyBold, fontSize: 12 },
 });
