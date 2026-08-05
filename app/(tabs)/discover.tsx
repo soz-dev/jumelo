@@ -163,6 +163,18 @@ const RAW_MOCKS: RawMock[] = [
 const MEDAL: Record<number, string>       = { 2: '🥈', 3: '🥉' };
 const MEDAL_COLOR: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32', 4: '#94A3B8' };
 
+function trendColor(trend: number, up: string): string {
+  if (trend > 0) return up;
+  if (trend < 0) return '#EF4444';
+  return '#F97316';
+}
+
+function trendLabel(trend: number): string {
+  if (trend > 0) return `▲${trend}`;
+  if (trend < 0) return `▼${Math.abs(trend)}`;
+  return '—';
+}
+
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function DiscoverScreen() {
@@ -327,7 +339,9 @@ export default function DiscoverScreen() {
                     <View style={styles.champStats}>
                       <View style={styles.statBox}>
                         <Text style={styles.statValue}>{champion.score.points}</Text>
-                        <Text style={styles.statKey}>POINTS</Text>
+                        <Text style={[styles.statKey, { color: trendColor(champion.trend, '#4ADE80') }]}>
+                          {trendLabel(champion.trend)}
+                        </Text>
                       </View>
                       <View style={[styles.statBox, styles.statBorder]}>
                         <Text style={styles.statValue}>
@@ -390,9 +404,14 @@ export default function DiscoverScreen() {
                           ),
                         )}
                       </View>
-                      <Text style={[styles.podiumPts, { color: colors.primary }]}>
-                        {entry.score.points} pts
-                      </Text>
+                      <View style={styles.podiumBottom}>
+                        <Text style={[styles.podiumPts, { color: colors.primary }]}>
+                          {entry.score.points} pts
+                        </Text>
+                        <Text style={[styles.podiumTrend, { color: trendColor(entry.trend, colors.primary) }]}>
+                          {trendLabel(entry.trend)}
+                        </Text>
+                      </View>
                     </Pressable>
                   );
                 })}
@@ -428,14 +447,12 @@ export default function DiscoverScreen() {
                           </Text>
                         </View>
                         <View style={styles.restRight}>
-                          <Text style={[styles.restPts, { color: colors.inkMuted }]}>
+                          <Text style={[styles.restPts, { color: colors.primary }]}>
                             {entry.score.points} pts
                           </Text>
-                          {entry.compatPct != null ? (
-                            <Text style={[styles.restCompat, { color: entry.compatPct >= 80 ? colors.primary : colors.inkFaint }]}>
-                              {entry.compatPct}%
-                            </Text>
-                          ) : null}
+                          <Text style={[styles.restTrend, { color: trendColor(entry.trend, colors.primary) }]}>
+                            {trendLabel(entry.trend)}
+                          </Text>
                         </View>
                       </Pressable>
                     </Animated.View>
@@ -499,7 +516,9 @@ const styles = StyleSheet.create({
   podiumSub:         { fontFamily: fonts.body, fontSize: 11, textAlign: 'center' },
   podiumMembers:     { flexDirection: 'row', gap: 4 },
   podiumMemberPhoto: { width: 22, height: 22, borderRadius: 11 },
+  podiumBottom:      { alignItems: 'center', gap: 2 },
   podiumPts:         { fontFamily: fonts.bodyBold, fontSize: 13 },
+  podiumTrend:       { fontFamily: fonts.bodyBold, fontSize: 10 },
 
   // ── Rest list #5+
   restList: { borderRadius: radii.xl, borderWidth: 1, overflow: 'hidden' },
@@ -509,5 +528,5 @@ const styles = StyleSheet.create({
   restCat:  { fontFamily: fonts.body, fontSize: 11, marginTop: 1 },
   restRight:{ alignItems: 'flex-end', gap: 2 },
   restPts:  { fontFamily: fonts.bodyBold, fontSize: 12 },
-  restCompat:{ fontFamily: fonts.bodyBold, fontSize: 11 },
+  restTrend: { fontFamily: fonts.bodyBold, fontSize: 11 },
 });
