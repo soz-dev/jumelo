@@ -499,30 +499,94 @@ export default function HomeScreen() {
             subtitle="1 proposition · 24 h · match mutuel"
           />
 
-          <ScalePressable
-            onPress={() => {
-              if (!guard()) return;
-              router.push('/(tabs)/discover');
-            }}
-          >
-            <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={[styles.dailyCta, elevation.lift]}
+          {dailyBusy ? (
+            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
+              <ActivityIndicator size="small" color={colors.primary} />
+            </View>
+          ) : dailyView?.mode === 'card' && dailyView.peer ? (
+            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
+              <View style={styles.dailyPeerRow}>
+                {dailyView.peer.photo ? (
+                  <Image source={{ uri: dailyView.peer.photo }} style={styles.dailyPeerPhoto} />
+                ) : (
+                  <Avatar name={dailyView.peer.name} color={dailyView.peer.avatarColor ?? colors.primary} size={48} />
+                )}
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>
+                    {dailyView.peer.name}
+                  </Text>
+                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
+                    {dailyView.score}% de compatibilité
+                  </Text>
+                </View>
+                <View style={styles.dailyActions}>
+                  <Pressable
+                    onPress={() => void handleDailyRefuse()}
+                    style={[styles.dailyActionBtn, { borderColor: '#EF4444', backgroundColor: withHexAlpha('#EF4444', 0.06) }]}
+                  >
+                    <Text style={{ color: '#EF4444', fontSize: 16, fontFamily: fonts.bodyBold }}>✕</Text>
+                  </Pressable>
+                  <Pressable
+                    onPress={() => void handleDailyAccept()}
+                    style={[styles.dailyActionBtn, { borderColor: colors.primary, backgroundColor: withHexAlpha(colors.primary, 0.08) }]}
+                  >
+                    <Text style={{ color: colors.primary, fontSize: 16, fontFamily: fonts.bodyBold }}>✓</Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          ) : dailyView?.mode === 'waiting_peer' ? (
+            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
+              <View style={styles.dailyPeerRow}>
+                <Text style={{ fontSize: 22 }}>⏳</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>En attente de réponse</Text>
+                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
+                    {dailyView.peer?.name ?? 'Ton jumelo potentiel'} n'a pas encore répondu
+                  </Text>
+                </View>
+              </View>
+            </View>
+          ) : dailyView?.mode === 'trial' ? (
+            <Pressable
+              style={[styles.dailyCard, { backgroundColor: withHexAlpha(colors.primary, 0.06), borderColor: withHexAlpha(colors.primary, 0.2) }]}
+              onPress={() => router.push(`/match/${dailyView.proposal?.peerId ?? ''}`)}
             >
-              <View style={{ flex: 1, gap: 4 }}>
-                <Text style={styles.dailyCtaTitle}>Ton binôme du jour</Text>
-                <Text style={styles.dailyCtaBody}>
-                  Accepte ou refuse — si c’est mutuel, vous avez 72 h pour former le jumelo.
+              <View style={styles.dailyPeerRow}>
+                <Text style={{ fontSize: 22 }}>🤝</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>Essai en cours</Text>
+                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
+                    Confirmez la formation avec {dailyView.peer?.name ?? 'ton jumelo'}
+                  </Text>
+                </View>
+                <Icon name="chevronRight" size={16} color={colors.primary} />
+              </View>
+            </Pressable>
+          ) : dailyView?.mode === 'formed' ? (
+            <Pressable
+              style={[styles.dailyCard, { backgroundColor: withHexAlpha('#22C55E', 0.06), borderColor: withHexAlpha('#22C55E', 0.2) }]}
+              onPress={() => router.push('/(tabs)/teams')}
+            >
+              <View style={styles.dailyPeerRow}>
+                <Text style={{ fontSize: 22 }}>🎉</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>Jumelo formé !</Text>
+                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>Retrouve-le dans Lobby</Text>
+                </View>
+                <Icon name="chevronRight" size={16} color="#22C55E" />
+              </View>
+            </Pressable>
+          ) : (
+            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
+              <View style={styles.dailyPeerRow}>
+                <Icon name="jumelo" size={22} color={colors.inkMuted} />
+                <Text style={[styles.dailyPeerMeta, { flex: 1, color: colors.inkMuted }]}>
+                  Aucune proposition pour l'instant — reviens dans 24 h
                 </Text>
               </View>
-              <View style={styles.entryCta}>
-                <Text style={styles.entryCtaText}>Voir</Text>
-                <Icon name="chevronRight" size={14} color="#fff" weight="bold" />
-              </View>
-            </LinearGradient>
-          </ScalePressable>
+            </View>
+          )}
 
           <ScalePressable
             onPress={() => router.push('/categories')}
