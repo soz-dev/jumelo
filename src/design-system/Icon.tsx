@@ -57,6 +57,7 @@ import {
   House,
   Joystick,
   Lightning,
+  LinkSimple,
   LockKey,
   LockKeyOpen,
   MagicWand,
@@ -115,6 +116,7 @@ export type IconName =
   // Navigation / chrome
   | 'home'
   | 'discover'
+  | 'jumelo'
   | 'teams'
   | 'chat'
   | 'profile'
@@ -297,6 +299,7 @@ const ICONS: Record<IconName, PhosphorIcon> = {
   // Nav
   home: House,
   discover: Compass,
+  jumelo: LinkSimple,
   teams: UsersThree,
   chat: ChatCircle,
   profile: UserCircle,
