@@ -10,7 +10,9 @@ import { countMyDmUnread } from '../../src/lib/api/messages';
 import { countTeamChatsUnread } from '../../src/lib/api/teamChats';
 
 function TabIcon({ name, color, focused }: { name: IconName; color: string; focused: boolean }) {
-  return <Icon name={name} size={24} color={color} weight={focused ? 'fill' : 'regular'} />;
+  // LinkSimple (jumelo) produit un fond carré en fill — bold suffit pour l'état actif
+  const weight = focused ? (name === 'jumelo' ? 'bold' : 'fill') : 'regular';
+  return <Icon name={name} size={24} color={color} weight={weight} />;
 }
 
 function formatUnread(n: number): string {
