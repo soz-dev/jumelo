@@ -1,6 +1,14 @@
 import { router } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { Button, Screen, Subtitle, Title, fonts, radii, spacing } from '../design-system';
@@ -13,6 +21,7 @@ export function OnboardingShell({
   title,
   subtitle,
   children,
+  footer,
   onNext,
   nextLabel = 'Continuer',
   nextDisabled,
@@ -22,6 +31,8 @@ export function OnboardingShell({
   title: string;
   subtitle: string;
   children: React.ReactNode;
+  /** Contenu fixe entre le scroll et le CTA (ex. message d’erreur). */
+  footer?: React.ReactNode;
   onNext: () => void;
   nextLabel?: string;
   nextDisabled?: boolean;
@@ -60,8 +71,22 @@ export function OnboardingShell({
           {subtitle}
         </Subtitle>
       </Animated.View>
-      <View style={styles.body}>{children}</View>
-      <Button label={nextLabel} onPress={onNext} disabled={nextDisabled} />
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
+        <ScrollView
+          style={styles.flex}
+          contentContainerStyle={styles.bodyContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          {children}
+        </ScrollView>
+        {footer}
+        <Button label={nextLabel} onPress={onNext} disabled={nextDisabled} />
+      </KeyboardAvoidingView>
     </Screen>
   );
 }
@@ -69,7 +94,12 @@ export function OnboardingShell({
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    padding: spacing.lg,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
+  flex: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -92,7 +122,8 @@ const styles = StyleSheet.create({
   progressFill: {
     height: '100%',
   },
-  body: {
-    flex: 1,
+  bodyContent: {
+    paddingBottom: spacing.lg,
+    flexGrow: 1,
   },
 });

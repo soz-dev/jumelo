@@ -6,6 +6,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -90,100 +91,107 @@ export default function LoginScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.wrap}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
-        <View style={styles.heroLottie}>
-          <JumeloLottie name="spark" size={64} />
-        </View>
-        <View style={[styles.icon, { backgroundColor: colors.primary }]}>
-          <Ionicons name="log-in-outline" size={28} color="#fff" />
-        </View>
-        <Text style={[styles.title, { color: colors.ink }]}>Bon retour</Text>
-        <Text style={[styles.sub, { color: colors.inkMuted }]}>
-          Connecte-toi pour retrouver tes jumelages
-        </Text>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.heroLottie}>
+            <JumeloLottie name="spark" size={64} />
+          </View>
+          <View style={[styles.icon, { backgroundColor: colors.primary }]}>
+            <Ionicons name="log-in-outline" size={28} color="#fff" />
+          </View>
+          <Text style={[styles.title, { color: colors.ink }]}>Bon retour</Text>
+          <Text style={[styles.sub, { color: colors.inkMuted }]}>
+            Connecte-toi pour retrouver tes jumelages
+          </Text>
 
-        <View style={[styles.card, { backgroundColor: colors.white, borderColor: colors.border }]}>
-          {showAppleButton ? (
-            <Pressable
-              style={[styles.socialBtn, { borderColor: colors.border, backgroundColor: '#000' }]}
-              onPress={() => onOAuth('apple')}
-              disabled={Boolean(oauthLoading) || loading}
-            >
-              <Ionicons name="logo-apple" size={20} color="#fff" />
-              <Text style={[styles.socialLabel, { color: '#fff' }]}>
-                {oauthLoading === 'apple' ? 'Connexion…' : 'Continuer avec Apple'}
-              </Text>
-            </Pressable>
-          ) : null}
+          <View style={[styles.card, { backgroundColor: colors.white, borderColor: colors.border }]}>
+            {showAppleButton ? (
+              <Pressable
+                style={[styles.socialBtn, { borderColor: colors.border, backgroundColor: '#000' }]}
+                onPress={() => onOAuth('apple')}
+                disabled={Boolean(oauthLoading) || loading}
+              >
+                <Ionicons name="logo-apple" size={20} color="#fff" />
+                <Text style={[styles.socialLabel, { color: '#fff' }]}>
+                  {oauthLoading === 'apple' ? 'Connexion…' : 'Continuer avec Apple'}
+                </Text>
+              </Pressable>
+            ) : null}
 
-          {showGoogleButton ? (
-            <Pressable
-              style={[
-                styles.socialBtn,
-                { borderColor: colors.border },
-                showAppleButton ? { marginTop: spacing.sm } : null,
-              ]}
-              onPress={() => onOAuth('google')}
-              disabled={Boolean(oauthLoading) || loading}
-            >
-              <Text style={{ fontSize: 18, fontFamily: fonts.bodyBold, color: colors.ink }}>G</Text>
-              <Text style={[styles.socialLabel, { color: colors.ink }]}>
-                {oauthLoading === 'google' ? 'Connexion…' : 'Continuer avec Google'}
-              </Text>
-            </Pressable>
-          ) : null}
+            {showGoogleButton ? (
+              <Pressable
+                style={[
+                  styles.socialBtn,
+                  { borderColor: colors.border },
+                  showAppleButton ? { marginTop: spacing.sm } : null,
+                ]}
+                onPress={() => onOAuth('google')}
+                disabled={Boolean(oauthLoading) || loading}
+              >
+                <Text style={{ fontSize: 18, fontFamily: fonts.bodyBold, color: colors.ink }}>G</Text>
+                <Text style={[styles.socialLabel, { color: colors.ink }]}>
+                  {oauthLoading === 'google' ? 'Connexion…' : 'Continuer avec Google'}
+                </Text>
+              </Pressable>
+            ) : null}
 
-          <View style={styles.orRow}>
-            <View style={[styles.orLine, { backgroundColor: colors.border }]} />
-            <Text style={{ color: colors.inkFaint, fontFamily: fonts.bodyMedium }}>OU</Text>
-            <View style={[styles.orLine, { backgroundColor: colors.border }]} />
+            <View style={styles.orRow}>
+              <View style={[styles.orLine, { backgroundColor: colors.border }]} />
+              <Text style={{ color: colors.inkFaint, fontFamily: fonts.bodyMedium }}>OU</Text>
+              <View style={[styles.orLine, { backgroundColor: colors.border }]} />
+            </View>
+
+            <TextField
+              label="Email"
+              leftIcon="mail-outline"
+              autoCapitalize="none"
+              keyboardType="email-address"
+              value={email}
+              onChangeText={setEmail}
+              placeholder="toi@exemple.com"
+            />
+            <TextField
+              label="Mot de passe"
+              leftIcon="lock-closed-outline"
+              secureToggle
+              value={password}
+              onChangeText={setPassword}
+              placeholder="••••••••"
+            />
+
+            {error ? <Text style={[styles.error, { color: colors.accent }]}>{error}</Text> : null}
+            <Button
+              label="Se connecter"
+              onPress={onSubmit}
+              loading={loading}
+              style={{ marginTop: spacing.md }}
+            />
           </View>
 
-          <TextField
-            label="Email"
-            leftIcon="mail-outline"
-            autoCapitalize="none"
-            keyboardType="email-address"
-            value={email}
-            onChangeText={setEmail}
-            placeholder="toi@exemple.com"
-          />
-          <TextField
-            label="Mot de passe"
-            leftIcon="lock-closed-outline"
-            secureToggle
-            value={password}
-            onChangeText={setPassword}
-            placeholder="••••••••"
-          />
-
-          {error ? <Text style={[styles.error, { color: colors.accent }]}>{error}</Text> : null}
-          <Button
-            label="Se connecter"
-            onPress={onSubmit}
-            loading={loading}
-            style={{ marginTop: spacing.md }}
-          />
-        </View>
-
-        <Pressable onPress={() => router.push('/(auth)/register')} style={styles.footer}>
-          <Text style={{ color: colors.inkMuted, fontFamily: fonts.body }}>
-            Pas encore de compte ?{' '}
-            <Text style={{ color: colors.primary, fontFamily: fonts.bodyBold }}>Créer un compte</Text>
-          </Text>
-        </Pressable>
-        {showDemo ? (
-          <Text
-            style={{
-              textAlign: 'center',
-              color: colors.inkFaint,
-              marginTop: 8,
-              fontFamily: fonts.body,
-            }}
-          >
-            Démo (__DEV__) : {DEMO_EMAIL}
-          </Text>
-        ) : null}
+          <Pressable onPress={() => router.push('/(auth)/register')} style={styles.footer}>
+            <Text style={{ color: colors.inkMuted, fontFamily: fonts.body }}>
+              Pas encore de compte ?{' '}
+              <Text style={{ color: colors.primary, fontFamily: fonts.bodyBold }}>Créer un compte</Text>
+            </Text>
+          </Pressable>
+          {showDemo ? (
+            <Text
+              style={{
+                textAlign: 'center',
+                color: colors.inkFaint,
+                marginTop: 8,
+                fontFamily: fonts.body,
+              }}
+            >
+              Démo (__DEV__) : {DEMO_EMAIL}
+            </Text>
+          ) : null}
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
     </Atmosphere>
@@ -198,7 +206,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.sm,
   },
-  wrap: { flex: 1, padding: spacing.lg },
+  wrap: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
   heroLottie: {
     alignItems: 'center',
     marginBottom: spacing.sm,

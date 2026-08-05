@@ -9,6 +9,7 @@
     "scheme": "jumelo",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
+    "description": "Jumelo — trouve des coéquipiers et binômes pour jeux en coop, sport et activités. Matching social, pas de dating.",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",
@@ -18,7 +19,10 @@
       "supportsTablet": true,
       "bundleIdentifier": "app.jumelo",
       "usesAppleSignIn": true,
-      "googleServicesFile": "./GoogleService-Info.plist"
+      "googleServicesFile": "./GoogleService-Info.plist",
+      "infoPlist": {
+        "CFBundleDisplayName": "Jumelo"
+      }
     },
     "android": {
       "adaptiveIcon": {

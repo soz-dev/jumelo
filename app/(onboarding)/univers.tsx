@@ -16,15 +16,14 @@ import Animated, {
   withSpring,
 } from 'react-native-reanimated';
 
-import { ActivityArtImage } from '../../src/components/ActivityArtImage';
-import { GameArtImage } from '../../src/components/GameArtImage';
+import { LifestyleCoverImage } from '../../src/components/LifestyleCoverImage';
 import { OnboardingShell } from '../../src/components/OnboardingShell';
 import {
   type Category,
   type UniverseId,
   categories,
 } from '../../src/constants/catalog';
-import { mixHex } from '../../src/constants/theme';
+import { getUniverseCoverPhoto } from '../../src/constants/lifestylePhotos';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import {
@@ -44,23 +43,6 @@ const H_PAD = spacing.lg;
 const COL_W = Math.floor((SCREEN_W - H_PAD * 2 - GRID_GAP) / 2);
 const COVER_H = Math.round(COL_W * 1.42);
 const HERO_H = Math.round((SCREEN_W - H_PAD * 2) * 0.52);
-
-const UNIVERSE_DARK: Record<UniverseId, string> = {
-  gaming: '#3D2A9E',
-  sports: '#0A5F5C',
-  education: '#1D4ED8',
-  music: '#B45309',
-  hobbies: '#BE185D',
-};
-
-/** Visuel “cover” par univers (premier item du catalogue). */
-const UNIVERSE_COVER_ID: Record<UniverseId, string> = {
-  gaming: 'valorant',
-  sports: 'football',
-  education: 'code',
-  music: 'guitare',
-  hobbies: 'cinema',
-};
 
 function ScalePressable({
   onPress,
@@ -102,12 +84,9 @@ function UniversePoster({
   hero?: boolean;
   onPress: () => void;
 }) {
-  const dark = UNIVERSE_DARK[cat.id];
-  const soft = mixHex(cat.color, '#FFFFFF', 0.22);
   const width = hero ? SCREEN_W - H_PAD * 2 : COL_W;
   const height = hero ? HERO_H : COVER_H;
-  const coverId = UNIVERSE_COVER_ID[cat.id];
-  const isGaming = cat.id === 'gaming';
+  const photoUri = getUniverseCoverPhoto(cat.id);
 
   return (
     <ScalePressable onPress={onPress} style={{ width }}>
@@ -120,50 +99,22 @@ function UniversePoster({
             height,
             borderColor: selected ? cat.color : withHexAlpha(cat.color, 0.2),
             borderWidth: selected ? 2.5 : 1,
-            shadowColor: dark,
+            shadowColor: cat.color,
           },
         ]}
       >
-        {isGaming ? (
-          <GameArtImage
-            catalogId={coverId}
-            size={width}
-            height={height}
-            color={cat.color}
-            brandedFallback
-            borderRadius={0}
-          />
-        ) : (
-          <>
-            <LinearGradient
-              colors={[soft, cat.color, dark]}
-              locations={[0, 0.45, 1]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={StyleSheet.absoluteFill}
-            />
-            <View style={styles.artFloat} pointerEvents="none">
-              <ActivityArtImage
-                catalogId={coverId}
-                size={hero ? 72 : 56}
-                color="#fff"
-                backgroundColor={withHexAlpha('#fff', 0.12)}
-              />
-            </View>
-            <View style={styles.watermark} pointerEvents="none">
-              <Icon
-                name={universeIcon(cat.id)}
-                size={hero ? 120 : 88}
-                color="rgba(255,255,255,0.12)"
-                weight="fill"
-              />
-            </View>
-          </>
-        )}
+        <LifestyleCoverImage
+          uri={photoUri}
+          width={width}
+          height={height}
+          color={cat.color}
+          iconName={universeIcon(cat.id)}
+          borderRadius={0}
+        />
 
         <LinearGradient
-          colors={['transparent', 'rgba(10,16,28,0.75)']}
-          locations={[0.35, 1]}
+          colors={['transparent', 'rgba(10,16,28,0.78)']}
+          locations={[0.32, 1]}
           style={styles.fade}
           pointerEvents="none"
         />
@@ -185,7 +136,7 @@ function UniversePoster({
           <Text style={[styles.title, hero ? styles.titleHero : null]} numberOfLines={2}>
             {cat.label}
           </Text>
-          <Text style={styles.meta} numberOfLines={hero ? 2 : 2}>
+          <Text style={styles.meta} numberOfLines={2}>
             {cat.description}
           </Text>
         </View>
@@ -276,17 +227,6 @@ const styles = StyleSheet.create({
   },
   fade: {
     ...StyleSheet.absoluteFillObject,
-  },
-  artFloat: {
-    position: 'absolute',
-    top: 16,
-    right: 14,
-  },
-  watermark: {
-    position: 'absolute',
-    right: -10,
-    bottom: 24,
-    opacity: 1,
   },
   copy: {
     position: 'absolute',

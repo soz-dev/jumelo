@@ -6,6 +6,7 @@ import {
   Alert,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -111,151 +112,157 @@ export default function WelcomeScreen() {
         <JumeloLottie name="spark" size={120} style={{ opacity: 0.16 }} />
       </View>
       <SafeAreaView style={styles.safe}>
-        <View style={{ alignItems: 'flex-end' }}>
-          <ThemeSwitcherButton />
-        </View>
-        <Animated.View entering={FadeInDown.duration(420)} style={styles.hero}>
-          <BrandLogo size={72} />
-          <Text style={styles.brand}>Jumelo</Text>
-          <Text style={styles.headline}>Trouve ton{'\n'}jumelo.</Text>
-          <Subtitle style={styles.lead}>
-            Gaming, sport, études, musique. Matching clair,
-            raisons visibles, zéro ghosting.
-          </Subtitle>
-        </Animated.View>
-
-        <Animated.View
-          entering={FadeInUp.delay(120).duration(400)}
-          style={[styles.panel, { backgroundColor: colors.cream }]}
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
-          <Text style={[styles.panelTitle, { color: colors.ink }]}>Commencer</Text>
-          <Text style={[styles.panelHint, { color: colors.inkMuted }]}>
-            {showAppleCta && isExpoGoRuntime()
-              ? 'Sous Expo Go : utilise Google (Apple nécessite un build natif).'
-              : showAppleCta
-                ? 'Connexion rapide avec Apple ou Google.'
-                : 'Connexion rapide avec Google.'}
-          </Text>
-
-          <Pressable
-            onPress={() => setLegalChecked((v) => !v)}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: legalChecked }}
-            style={styles.legalRow}
-            hitSlop={8}
-          >
-            <View
-              style={[
-                styles.legalBox,
-                {
-                  borderColor: legalChecked ? colors.primary : colors.border,
-                  backgroundColor: legalChecked ? colors.primary : 'transparent',
-                },
-              ]}
-            >
-              {legalChecked ? (
-                <Ionicons name="checkmark" size={14} color="#fff" />
-              ) : null}
-            </View>
-            <Text style={[styles.legalText, { color: colors.inkMuted }]}>
-              J’accepte les{' '}
-              <Text
-                style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
-                onPress={() => router.push('/settings/rules' as Href)}
-              >
-                règles Jumelo
-              </Text>
-              {' '}(dont{' '}
-              <Text
-                style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
-                onPress={() => router.push('/settings/cgu' as Href)}
-              >
-                CGU
-              </Text>
-              {' '}et{' '}
-              <Text
-                style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
-                onPress={() => router.push('/settings/privacy' as Href)}
-              >
-                confidentialité
-              </Text>
-              ).
-            </Text>
-          </Pressable>
-
-          {error ? <Text style={[styles.error, { color: colors.accent }]}>{error}</Text> : null}
-
-          {showAppleCta ? (
-            <Pressable
-              style={[styles.socialBtn, styles.appleBtn, { opacity: legalChecked ? 1 : 0.55 }]}
-              onPress={() => onOAuth('apple')}
-              disabled={oauthLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Continuer avec Apple"
-            >
-              <Ionicons name="logo-apple" size={22} color="#fff" />
-              <Text style={styles.appleLabel}>
-                {oauthLoading ? 'Connexion…' : 'Continuer avec Apple'}
-              </Text>
-            </Pressable>
-          ) : null}
-
-          {showGoogleCta ? (
-            <Pressable
-              style={[
-                styles.socialBtn,
-                styles.googleBtn,
-                showAppleCta ? { marginTop: spacing.sm } : null,
-                {
-                  borderColor: colors.border,
-                  backgroundColor: colors.white,
-                  opacity: legalChecked ? 1 : 0.55,
-                },
-              ]}
-              onPress={() => onOAuth('google')}
-              disabled={oauthLoading}
-              accessibilityRole="button"
-              accessibilityLabel="Continuer avec Google"
-            >
-              <Text style={[styles.googleG, { color: colors.ink }]}>G</Text>
-              <Text style={[styles.googleLabel, { color: colors.ink }]}>
-                {oauthLoading ? 'Connexion…' : 'Continuer avec Google'}
-              </Text>
-            </Pressable>
-          ) : null}
-
-          <View style={styles.dividerRow}>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
-            <Text style={[styles.dividerLabel, { color: colors.inkFaint }]}>ou par email</Text>
-            <View style={[styles.divider, { backgroundColor: colors.border }]} />
+          <View style={{ alignItems: 'flex-end' }}>
+            <ThemeSwitcherButton />
           </View>
+          <Animated.View entering={FadeInDown.duration(420)} style={styles.hero}>
+            <BrandLogo size={72} />
+            <Text style={styles.brand}>Jumelo</Text>
+            <Text style={styles.headline}>Trouve ton{'\n'}jumelo.</Text>
+            <Subtitle style={styles.lead}>
+              Gaming, sport, études, musique. Matching clair,
+              raisons visibles, zéro ghosting.
+            </Subtitle>
+          </Animated.View>
 
-          <Pressable
-            onPress={() => router.push('/(auth)/register')}
-            style={styles.secondaryLink}
-            accessibilityRole="button"
+          <Animated.View
+            entering={FadeInUp.delay(120).duration(400)}
+            style={[styles.panel, { backgroundColor: colors.cream }]}
           >
-            <Text style={[styles.secondaryPrimary, { color: colors.primary }]}>
-              Créer un compte
+            <Text style={[styles.panelTitle, { color: colors.ink }]}>Commencer</Text>
+            <Text style={[styles.panelHint, { color: colors.inkMuted }]}>
+              {showAppleCta && isExpoGoRuntime()
+                ? 'Sous Expo Go : utilise Google (Apple nécessite un build natif).'
+                : showAppleCta
+                  ? 'Connexion rapide avec Apple ou Google.'
+                  : 'Connexion rapide avec Google.'}
             </Text>
-          </Pressable>
-          <Pressable
-            onPress={() => router.push('/(auth)/login')}
-            style={styles.secondaryLink}
-            accessibilityRole="button"
-          >
-            <Text style={[styles.secondaryMuted, { color: colors.inkMuted }]}>
-              Déjà un compte ?{' '}
-              <Text style={{ color: colors.ink, fontFamily: fonts.bodyBold }}>Se connecter</Text>
-            </Text>
-          </Pressable>
 
-          {typeof __DEV__ !== 'undefined' && __DEV__ ? (
-            <Text style={[styles.demoHint, { color: colors.inkFaint }]}>
-              Démo (__DEV__) : lea@jumelo.app
-            </Text>
-          ) : null}
-        </Animated.View>
+            <Pressable
+              onPress={() => setLegalChecked((v) => !v)}
+              accessibilityRole="checkbox"
+              accessibilityState={{ checked: legalChecked }}
+              style={styles.legalRow}
+              hitSlop={8}
+            >
+              <View
+                style={[
+                  styles.legalBox,
+                  {
+                    borderColor: legalChecked ? colors.primary : colors.border,
+                    backgroundColor: legalChecked ? colors.primary : 'transparent',
+                  },
+                ]}
+              >
+                {legalChecked ? (
+                  <Ionicons name="checkmark" size={14} color="#fff" />
+                ) : null}
+              </View>
+              <Text style={[styles.legalText, { color: colors.inkMuted }]}>
+                J’accepte les{' '}
+                <Text
+                  style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
+                  onPress={() => router.push('/settings/rules' as Href)}
+                >
+                  règles Jumelo
+                </Text>
+                {' '}(dont{' '}
+                <Text
+                  style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
+                  onPress={() => router.push('/settings/cgu' as Href)}
+                >
+                  CGU
+                </Text>
+                {' '}et{' '}
+                <Text
+                  style={{ color: colors.primary, fontFamily: fonts.bodyBold }}
+                  onPress={() => router.push('/settings/privacy' as Href)}
+                >
+                  confidentialité
+                </Text>
+                ).
+              </Text>
+            </Pressable>
+
+            {error ? <Text style={[styles.error, { color: colors.accent }]}>{error}</Text> : null}
+
+            {showAppleCta ? (
+              <Pressable
+                style={[styles.socialBtn, styles.appleBtn, { opacity: legalChecked ? 1 : 0.55 }]}
+                onPress={() => onOAuth('apple')}
+                disabled={oauthLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Continuer avec Apple"
+              >
+                <Ionicons name="logo-apple" size={22} color="#fff" />
+                <Text style={styles.appleLabel}>
+                  {oauthLoading ? 'Connexion…' : 'Continuer avec Apple'}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            {showGoogleCta ? (
+              <Pressable
+                style={[
+                  styles.socialBtn,
+                  styles.googleBtn,
+                  showAppleCta ? { marginTop: spacing.sm } : null,
+                  {
+                    borderColor: colors.border,
+                    backgroundColor: colors.white,
+                    opacity: legalChecked ? 1 : 0.55,
+                  },
+                ]}
+                onPress={() => onOAuth('google')}
+                disabled={oauthLoading}
+                accessibilityRole="button"
+                accessibilityLabel="Continuer avec Google"
+              >
+                <Text style={[styles.googleG, { color: colors.ink }]}>G</Text>
+                <Text style={[styles.googleLabel, { color: colors.ink }]}>
+                  {oauthLoading ? 'Connexion…' : 'Continuer avec Google'}
+                </Text>
+              </Pressable>
+            ) : null}
+
+            <View style={styles.dividerRow}>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+              <Text style={[styles.dividerLabel, { color: colors.inkFaint }]}>ou par email</Text>
+              <View style={[styles.divider, { backgroundColor: colors.border }]} />
+            </View>
+
+            <Pressable
+              onPress={() => router.push('/(auth)/register')}
+              style={styles.secondaryLink}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.secondaryPrimary, { color: colors.primary }]}>
+                Créer un compte
+              </Text>
+            </Pressable>
+            <Pressable
+              onPress={() => router.push('/(auth)/login')}
+              style={styles.secondaryLink}
+              accessibilityRole="button"
+            >
+              <Text style={[styles.secondaryMuted, { color: colors.inkMuted }]}>
+                Déjà un compte ?{' '}
+                <Text style={{ color: colors.ink, fontFamily: fonts.bodyBold }}>Se connecter</Text>
+              </Text>
+            </Pressable>
+
+            {typeof __DEV__ !== 'undefined' && __DEV__ ? (
+              <Text style={[styles.demoHint, { color: colors.inkFaint }]}>
+                Démo (__DEV__) : lea@jumelo.app
+              </Text>
+            ) : null}
+          </Animated.View>
+        </ScrollView>
       </SafeAreaView>
     </View>
   );
@@ -278,7 +285,13 @@ const styles = StyleSheet.create({
     right: 40,
     top: '48%',
   },
-  safe: { flex: 1, justifyContent: 'space-between', padding: spacing.lg },
+  safe: { flex: 1 },
+  scrollContent: {
+    flexGrow: 1,
+    justifyContent: 'space-between',
+    padding: spacing.lg,
+    paddingBottom: spacing.lg,
+  },
   hero: { marginTop: spacing.md, gap: spacing.sm },
   brand: {
     ...typography.hero,

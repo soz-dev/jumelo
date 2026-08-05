@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { useEffect, useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { OnboardingShell } from '../../src/components/OnboardingShell';
 import { getVibesForUniverses, type Vibe } from '../../src/constants/catalog';
@@ -53,7 +53,7 @@ export default function VibeScreen() {
             ? `${count}/${MAX_PROFILE_VIBES} vibes — maximum atteint`
             : `${count}/${MAX_PROFILE_VIBES} vibes sélectionnées`}
       </Text>
-      <ScrollView contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
+      <View style={styles.list}>
         {availableVibes.map((vibe) => {
           const selected = draft.vibes.includes(vibe.id);
           const locked = atMax && !selected;
@@ -94,7 +94,7 @@ export default function VibeScreen() {
             </Pressable>
           );
         })}
-      </ScrollView>
+      </View>
     </OnboardingShell>
   );
 }
@@ -105,7 +105,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     marginBottom: spacing.sm,
   },
-  list: { gap: spacing.sm, paddingBottom: spacing.lg },
+  list: { gap: spacing.sm },
   card: {
     flexDirection: 'row',
     gap: spacing.md,

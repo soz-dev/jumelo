@@ -101,6 +101,7 @@ export default function RegisterScreen() {
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={styles.wrap}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -286,7 +287,11 @@ export default function RegisterScreen() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   wrap: { flex: 1 },
-  scrollContent: { padding: spacing.lg, paddingBottom: spacing.xxl },
+  scrollContent: {
+    flexGrow: 1,
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl + spacing.lg,
+  },
   heroLottie: {
     alignItems: 'center',
     marginBottom: spacing.sm,
