@@ -296,7 +296,7 @@ export default function DiscoverScreen() {
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.topBar}>
           <View style={{ flex: 1 }}>
-            <Text style={[styles.title, { color: colors.ink }]}>Aujourd’hui</Text>
+            <Text style={[styles.title, { color: colors.primaryDark }]}>Jumelo du jour</Text>
             <Text style={[styles.subtitle, { color: colors.inkMuted }]}>{subtitle}</Text>
           </View>
           <ThemeSwitcherButton />
@@ -308,12 +308,28 @@ export default function DiscoverScreen() {
           </View>
         ) : view.mode === 'empty' ? (
           <View style={styles.centerPad}>
-            <StatusBlock
-              colors={colors}
-              icon="compass-outline"
-              title="Personne pour l’instant"
-              body="Élargis tes intérêts — on te propose quelqu’un dès qu’il y a un bon match."
-            />
+            <Animated.View entering={FadeInDown.duration(380)} style={[styles.waitHero]}>
+              <View style={[styles.waitCircle, { backgroundColor: withHexAlpha(colors.primary, 0.1) }]}>
+                <Ionicons name="search-outline" size={38} color={colors.primary} />
+              </View>
+              <Text style={[styles.waitTitle, { color: colors.ink }]}>Aucun profil pour l'instant</Text>
+              <Text style={[styles.waitBody, { color: colors.inkMuted }]}>
+                Élargis tes intérêts dans ton profil — on te propose quelqu'un dès qu'il y a un bon match.
+              </Text>
+            </Animated.View>
+            <Animated.View
+              entering={FadeInDown.delay(100).duration(360)}
+              style={[styles.waitTips, { backgroundColor: colors.white, borderColor: withHexAlpha(colors.primary, 0.1) }]}
+            >
+              <Pressable onPress={() => router.push('/settings/index')} style={styles.waitTipRow}>
+                <Ionicons name="options-outline" size={20} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.waitTipLabel, { color: colors.ink }]}>Affiner mes intérêts</Text>
+                  <Text style={[styles.waitTipSub, { color: colors.inkMuted }]}>Profil → univers et activités</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.inkMuted} />
+              </Pressable>
+            </Animated.View>
           </View>
         ) : view.mode === 'formed' && peer ? (
           <ScrollView
@@ -379,18 +395,23 @@ export default function DiscoverScreen() {
           </ScrollView>
         ) : view.mode === 'rejected' ? (
           <View style={styles.centerPad}>
-            <StatusBlock
-              colors={colors}
-              icon="close-circle-outline"
-              title="Tentative terminée"
-              body="Les 72 h sont passées sans double validation."
-            />
-            <Pressable
-              onPress={onDismissOutcome}
-              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
-            >
-              <Text style={styles.primaryLabel}>Ok, plus tard</Text>
-            </Pressable>
+            <Animated.View entering={FadeInDown.duration(380)} style={styles.waitHero}>
+              <View style={[styles.waitCircle, { backgroundColor: withHexAlpha(colors.accent, 0.1) }]}>
+                <Ionicons name="close-circle-outline" size={38} color={colors.accent} />
+              </View>
+              <Text style={[styles.waitTitle, { color: colors.ink }]}>Tentative terminée</Text>
+              <Text style={[styles.waitBody, { color: colors.inkMuted }]}>
+                Les 72 h sont passées sans double validation. Une nouvelle proposition arrive bientôt.
+              </Text>
+            </Animated.View>
+            <Animated.View entering={FadeInDown.delay(100).duration(360)}>
+              <Pressable
+                onPress={onDismissOutcome}
+                style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+              >
+                <Text style={styles.primaryLabel}>Continuer</Text>
+              </Pressable>
+            </Animated.View>
           </View>
         ) : peer ? (
           <View style={styles.stage}>
@@ -465,12 +486,50 @@ export default function DiscoverScreen() {
           </View>
         ) : (
           <View style={styles.centerPad}>
-            <StatusBlock
-              colors={colors}
-              icon="time-outline"
-              title="Prochaine proposition"
-              body={`Reviens dans ${lockLabel}.`}
-            />
+            <Animated.View entering={FadeInDown.duration(400)} style={styles.waitHero}>
+              <View style={[styles.waitCircle, { backgroundColor: withHexAlpha(colors.primary, 0.1) }]}>
+                <Ionicons name="hourglass-outline" size={38} color={colors.primary} />
+              </View>
+              <Text style={[styles.waitTitle, { color: colors.ink }]}>Prochain jumelo</Text>
+              {lockMs > 0 ? (
+                <Text style={[styles.waitCountdown, { color: colors.primary }]}>{lockLabel}</Text>
+              ) : null}
+              <Text style={[styles.waitBody, { color: colors.inkMuted }]}>
+                Une seule proposition par 24 h — pour que chaque match compte vraiment.
+              </Text>
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(120).duration(400)}
+              style={[
+                styles.waitTips,
+                { backgroundColor: colors.white, borderColor: withHexAlpha(colors.primary, 0.1) },
+              ]}
+            >
+              <Pressable
+                onPress={() => router.push('/(tabs)/teams')}
+                style={styles.waitTipRow}
+              >
+                <Ionicons name="people-outline" size={20} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.waitTipLabel, { color: colors.ink }]}>Rejoins un jumelo existant</Text>
+                  <Text style={[styles.waitTipSub, { color: colors.inkMuted }]}>Lobby → trouver une équipe</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.inkMuted} />
+              </Pressable>
+              <View style={[styles.waitDivider, { backgroundColor: withHexAlpha(colors.ink, 0.06) }]} />
+              <Pressable
+                onPress={() => router.push('/(tabs)/profile')}
+                style={styles.waitTipRow}
+              >
+                <Ionicons name="person-outline" size={20} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.waitTipLabel, { color: colors.ink }]}>Améliore ton profil</Text>
+                  <Text style={[styles.waitTipSub, { color: colors.inkMuted }]}>Plus de détails = meilleur match</Text>
+                </View>
+                <Ionicons name="chevron-forward" size={16} color={colors.inkMuted} />
+              </Pressable>
+            </Animated.View>
           </View>
         )}
       </SafeAreaView>
@@ -750,9 +809,9 @@ const styles = StyleSheet.create({
     gap: spacing.md,
   },
   title: {
-    fontFamily: fonts.display,
-    fontSize: 28,
-    letterSpacing: -0.6,
+    fontFamily: fonts.displaySemi,
+    fontSize: 30,
+    letterSpacing: -0.8,
   },
   subtitle: {
     fontFamily: fonts.body,
@@ -962,5 +1021,65 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     textAlign: 'center',
+  },
+  waitHero: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: spacing.md,
+  },
+  waitCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xs,
+  },
+  waitTitle: {
+    fontFamily: fonts.displaySemi,
+    fontSize: 24,
+    letterSpacing: -0.4,
+    textAlign: 'center',
+  },
+  waitCountdown: {
+    fontFamily: fonts.displaySemi,
+    fontSize: 42,
+    letterSpacing: -1.5,
+    textAlign: 'center',
+    marginVertical: 2,
+  },
+  waitBody: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 21,
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
+    marginTop: 4,
+  },
+  waitTips: {
+    width: '100%',
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    overflow: 'hidden',
+    marginTop: spacing.md,
+  },
+  waitTipRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: spacing.md,
+  },
+  waitTipLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+  },
+  waitTipSub: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    marginTop: 1,
+  },
+  waitDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: spacing.md,
   },
 });
