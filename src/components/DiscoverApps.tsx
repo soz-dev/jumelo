@@ -1,4 +1,4 @@
-import { Image, Linking, Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Linking, Pressable, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { useTheme } from '../context/ThemeContext';
@@ -30,8 +30,6 @@ export const DISCOVER_APPS = [
 
 export function DiscoverAppsSection() {
   const { colors } = useTheme();
-
-  if (Platform.OS !== 'ios') return null;
 
   return (
     <Animated.View entering={FadeInDown.delay(120).duration(360)} style={styles.wrap}>

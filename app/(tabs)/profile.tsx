@@ -9,10 +9,7 @@ import { AchievementsSection } from '../../src/components/AchievementsSection';
 import { InterestTile } from '../../src/components/InterestTile';
 import { ProfileAvatarEditor } from '../../src/components/ProfileAvatarEditor';
 import { ProfileNameEditor } from '../../src/components/ProfileNameEditor';
-import {
-  ProfileQuickEditor,
-  type ProfileQuickSection,
-} from '../../src/components/ProfileQuickEditor';
+
 import { ProfileDuosSection } from '../../src/components/ProfileDuosSection';
 import { ProfileStatsCard } from '../../src/components/ProfileStatsCard';
 import { TeammateRatingsCard } from '../../src/components/TeammateRatingsCard';
@@ -46,14 +43,10 @@ export default function ProfileScreen() {
   const { myActiveTeams } = useTeams();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [nameOpen, setNameOpen] = useState(false);
-  const [quickOpen, setQuickOpen] = useState(false);
-  const [quickSection, setQuickSection] =
-    useState<ProfileQuickSection>('univers');
   if (!user) return null;
 
-  const openQuick = (section: ProfileQuickSection) => {
-    setQuickSection(section);
-    setQuickOpen(true);
+  const openQuick = () => {
+    router.push('/categories');
   };
   const levelLabel =
     levels.find((l) => l.id === user.level)?.label ?? user.level;
@@ -143,7 +136,7 @@ export default function ProfileScreen() {
             </Text>
             <Pressable
               style={styles.completeBtn}
-              onPress={() => openQuick('univers')}
+              onPress={openQuick}
             >
               <Ionicons name="pencil" size={16} color={colors.primary} />
               <Text style={[styles.completeText, { color: colors.primary }]}>
@@ -172,7 +165,7 @@ export default function ProfileScreen() {
         <ProfileDuosSection userId={user.id} teams={myActiveTeams} />
 
         <Pressable
-          onPress={() => openQuick('univers')}
+          onPress={openQuick}
           accessibilityRole="button"
           accessibilityLabel="modifier les univers"
           style={styles.sectionTap}
@@ -187,7 +180,7 @@ export default function ProfileScreen() {
             <Chip
               label="Ajouter"
               tone="outline"
-              onPress={() => openQuick('univers')}
+              onPress={openQuick}
             />
           ) : (
             user.universes.map((id) => {
@@ -198,7 +191,7 @@ export default function ProfileScreen() {
                   name={id}
                   label={cat?.shortLabel ?? id}
                   selected
-                  onPress={() => openQuick('univers')}
+                  onPress={openQuick}
                 />
               );
             })
@@ -206,7 +199,7 @@ export default function ProfileScreen() {
         </View>
 
         <Pressable
-          onPress={() => openQuick('interests')}
+          onPress={() => router.push('/categories/interets')}
           accessibilityRole="button"
           accessibilityLabel="Modifier intérêts et niveau"
           style={styles.sectionTap}
@@ -221,10 +214,10 @@ export default function ProfileScreen() {
             title="Aucun intérêt"
             subtitle="Ajoute tes jeux et activités"
             left={<Icon name="interest" size={20} color={colors.inkMuted} />}
-            onPress={() => openQuick('interests')}
+            onPress={() => router.push('/categories/interets')}
           />
         ) : (
-          <Pressable onPress={() => openQuick('interests')}>
+          <Pressable onPress={() => router.push('/categories/interets')}>
             {user.interests.map((interest) => (
               <InterestTile
                 key={interest}
@@ -238,12 +231,12 @@ export default function ProfileScreen() {
           <Chip
             label={levelLabel}
             selected
-            onPress={() => openQuick('level')}
+            onPress={() => router.push('/categories/interets')}
           />
         </View>
 
         <Pressable
-          onPress={() => openQuick('vibes')}
+          onPress={() => router.push('/categories/vibe')}
           accessibilityRole="button"
           accessibilityLabel="Modifier vibes et objectifs"
           style={styles.sectionTap}
@@ -262,7 +255,7 @@ export default function ProfileScreen() {
                 name={vibe}
                 label={vibeOpt?.label ?? vibe}
                 selected
-                onPress={() => openQuick('vibes')}
+                onPress={() => router.push('/categories/vibe')}
               />
             );
           })}
@@ -271,14 +264,14 @@ export default function ProfileScreen() {
               key={o}
               label={o}
               tone="outline"
-              onPress={() => openQuick('objectives')}
+              onPress={() => router.push('/categories/vibe')}
             />
           ))}
           {user.vibes.length === 0 && user.objectives.length === 0 ? (
             <Chip
               label="Ajouter"
               tone="outline"
-              onPress={() => openQuick('vibes')}
+              onPress={() => router.push('/categories/vibe')}
             />
           ) : null}
         </View>
@@ -333,12 +326,6 @@ export default function ProfileScreen() {
 
         <View style={{ marginTop: spacing.lg }}>
           <ListRow
-            title="Édition rapide du profil"
-            subtitle="Univers, intérêts, niveau, vibes, objectifs"
-            left={<Ionicons name="layers-outline" size={20} color={colors.ink} />}
-            onPress={() => openQuick('univers')}
-          />
-          <ListRow
             title="Mes catégories"
             subtitle="Choisir tes univers préférés"
             left={<Ionicons name="grid-outline" size={20} color={colors.ink} />}
@@ -364,11 +351,6 @@ export default function ProfileScreen() {
 
       <ProfileAvatarEditor visible={avatarOpen} onClose={() => setAvatarOpen(false)} />
       <ProfileNameEditor visible={nameOpen} onClose={() => setNameOpen(false)} />
-      <ProfileQuickEditor
-        visible={quickOpen}
-        onClose={() => setQuickOpen(false)}
-        initialSection={quickSection}
-      />
     </Screen>
   );
 }

@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,7 +17,6 @@ import { HeaderRow } from '../../src/components/ui';
 import {
   type UniverseId,
   categories,
-  findInterestInCatalog,
   getVibesForUniverses,
   interestCatalog,
 } from '../../src/constants/catalog';
@@ -36,9 +34,8 @@ function goBackSafe() {
 
 export default function CategoriesScreen() {
   const { colors } = useTheme();
-  const { user, updateProfile } = useAuth();
+  const { user, setDraft } = useAuth();
   const [selected, setSelected] = useState<UniverseId[]>([]);
-  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | undefined>();
 
   useEffect(() => {
@@ -59,39 +56,19 @@ export default function CategoriesScreen() {
     setError(undefined);
   };
 
-  const onValidate = async () => {
+  const onValidate = () => {
     if (!user) return;
     if (selected.length === 0) {
       setError('Sélectionne au moins une catégorie.');
       return;
     }
-    setBusy(true);
     setError(undefined);
-    try {
-      const allowedLabels = new Set(
-        selected.flatMap((u) => interestCatalog[u] ?? []),
-      );
-      const interests = user.interests.filter((i) => allowedLabels.has(i));
-      const subCategoryIds = interests
-        .map((label) => findInterestInCatalog(label)?.id)
-        .filter((id): id is string => Boolean(id));
-      const allowedVibes = new Set(
-        getVibesForUniverses(selected).map((v) => v.id),
-      );
-      const vibes = user.vibes.filter((v) => allowedVibes.has(v));
-
-      await updateProfile({
-        universes: selected,
-        interests,
-        subCategoryIds,
-        vibes,
-      });
-      goBackSafe();
-    } catch {
-      setError('Impossible d’enregistrer. Réessaie.');
-    } finally {
-      setBusy(false);
-    }
+    const allowedLabels = new Set(selected.flatMap((u) => interestCatalog[u] ?? []));
+    const filteredInterests = user.interests.filter((i) => allowedLabels.has(i));
+    const allowedVibes = new Set(getVibesForUniverses(selected).map((v) => v.id));
+    const filteredVibes = user.vibes.filter((v) => allowedVibes.has(v));
+    setDraft({ universes: selected, interests: filteredInterests, vibes: filteredVibes });
+    router.push('/categories/interets');
   };
 
   return (
@@ -106,7 +83,6 @@ export default function CategoriesScreen() {
             onPress={goBackSafe}
             accessibilityRole="button"
             accessibilityLabel="Retour"
-            disabled={busy}
           >
             <Ionicons name="arrow-back" size={20} color={colors.ink} />
           </Pressable>
@@ -133,7 +109,6 @@ export default function CategoriesScreen() {
                 <Pressable
                   key={cat.id}
                   onPress={() => toggle(cat.id)}
-                  disabled={busy}
                   accessibilityRole="checkbox"
                   accessibilityState={{ checked: isOn }}
                   accessibilityLabel={cat.label}
@@ -181,28 +156,24 @@ export default function CategoriesScreen() {
               styles.cta,
               {
                 backgroundColor: colors.primary,
-                opacity: busy || selected.length === 0 ? 0.55 : 1,
+                opacity: selected.length === 0 ? 0.55 : 1,
               },
             ]}
             onPress={onValidate}
-            disabled={busy || selected.length === 0}
+            disabled={selected.length === 0}
             accessibilityRole="button"
-            accessibilityLabel="Valider les catégories"
+            accessibilityLabel="Continuer vers les intérêts"
           >
-            {busy ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text
-                style={{
-                  color: '#fff',
-                  fontFamily: fonts.bodyBold,
-                  textAlign: 'center',
-                  fontSize: 16,
-                }}
-              >
-                Valider
-              </Text>
-            )}
+            <Text
+              style={{
+                color: '#fff',
+                fontFamily: fonts.bodyBold,
+                textAlign: 'center',
+                fontSize: 16,
+              }}
+            >
+              Continuer
+            </Text>
           </Pressable>
         </ScrollView>
       </SafeAreaView>

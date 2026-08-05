@@ -35,16 +35,7 @@ import {
   getDuoScore,
   type DuoScore,
 } from '../../../src/lib/duoPoints';
-import {
-  clearSessionsForTeam,
-  endTeamSession,
-  getLatestSession,
-  getPendingRatingSession,
-  sessionUiStatus,
-  startTeamSession,
-  type TeamSession,
-  type TeamSessionStatus,
-} from '../../../src/lib/teamSessions';
+
 import {
   resolveUserById,
   resolveUsersByIds,
@@ -233,9 +224,6 @@ export default function TeamDetailScreen() {
 
   const [busy, setBusy] = useState(false);
   const [actionId, setActionId] = useState<string | null>(null);
-  const [session, setSession] = useState<TeamSession | null>(null);
-  const [pendingRateSession, setPendingRateSession] = useState<TeamSession | null>(null);
-  const [sessionBusy, setSessionBusy] = useState(false);
   const [duoScore, setDuoScore] = useState<DuoScore>(emptyDuoScore());
   const [enrichedById, setEnrichedById] =
     useState<Record<string, UserProfile>>(EMPTY_PROFILES);
@@ -249,22 +237,6 @@ export default function TeamDetailScreen() {
     'rename',
   );
 
-  const reloadSession = useCallback(async () => {
-    if (!id) {
-      setSession(null);
-      setPendingRateSession(null);
-      return;
-    }
-    const latest = await getLatestSession(id);
-    setSession(latest);
-    if (user?.id) {
-      const pending = await getPendingRatingSession(id, user.id);
-      setPendingRateSession(pending);
-    } else {
-      setPendingRateSession(null);
-    }
-  }, [id, user?.id]);
-
   const reloadDuoScore = useCallback(async () => {
     if (!id) {
       setDuoScore(emptyDuoScore());
@@ -274,33 +246,7 @@ export default function TeamDetailScreen() {
     setDuoScore(score);
   }, [id]);
 
-  const reloadCheckin = useCallback(async () => {
-    if (!id) return;
-    const [checkins, validated] = await Promise.all([
-      getTodayCheckins(id),
-      getValidatedDays(id, rosterIds),
-    ]);
-    setCheckedInUsers(checkins);
-    setStreak(computeStreak(validated));
-  }, [id, rosterIds]);
-
-  useFocusEffect(
-    useCallback(() => {
-      refresh().catch(() => undefined);
-      reloadSession().catch(() => undefined);
-      reloadDuoScore().catch(() => undefined);
-      reloadCheckin().catch(() => undefined);
-    }, [refresh, reloadSession, reloadDuoScore, reloadCheckin]),
-  );
-
-  const onCheckin = useCallback(async () => {
-    if (!id || !user?.id || checkinBusy) return;
-    setCheckinBusy(true);
-    await checkInToday(id, user.id);
-    await reloadCheckin();
-    setCheckinBusy(false);
-  }, [id, user?.id, checkinBusy, reloadCheckin]);
-
+  // Déclarés avant reloadCheckin pour éviter le TDZ (rosterIds utilisé dans le callback)
   const team = teams.find((t) => t.id === id);
   const membership = getMembership(id ?? '');
   const isOwner = membership === 'owner';
@@ -324,7 +270,34 @@ export default function TeamDetailScreen() {
     return ids;
   }, [team, membership, user?.id]);
 
+  const reloadCheckin = useCallback(async () => {
+    if (!id) return;
+    const [checkins, validated] = await Promise.all([
+      getTodayCheckins(id),
+      getValidatedDays(id, rosterIds),
+    ]);
+    setCheckedInUsers(checkins);
+    setStreak(computeStreak(validated));
+  }, [id, rosterIds]);
+
+  useFocusEffect(
+    useCallback(() => {
+      refresh().catch(() => undefined);
+      reloadDuoScore().catch(() => undefined);
+      reloadCheckin().catch(() => undefined);
+    }, [refresh, reloadDuoScore, reloadCheckin]),
+  );
+
+  const onCheckin = useCallback(async () => {
+    if (!id || !user?.id || checkinBusy) return;
+    setCheckinBusy(true);
+    await checkInToday(id, user.id);
+    await reloadCheckin();
+    setCheckinBusy(false);
+  }, [id, user?.id, checkinBusy, reloadCheckin]);
+
   const rosterIdsKey = rosterIds.join('|');
+  const isComplete = rosterIds.length >= (team?.capacity ?? 2);
 
   const members = useMemo(
     () =>
@@ -479,14 +452,10 @@ export default function TeamDetailScreen() {
     );
   };
 
-  const sessionStatus: TeamSessionStatus = sessionUiStatus(session);
   const isMemberOrOwner = membership === 'member' || membership === 'owner';
   const isDuo = !!team && isDuoCapacity(team.capacity);
   const needsNaming =
     isDuo && isMemberOrOwner && isProvisionalJumeloName(team?.name);
-  const canStartSession =
-    isOwner && sessionStatus !== 'active' && (team?.memberIds.length ?? 0) >= 2;
-  const canEndSession = isOwner && sessionStatus === 'active';
 
   useFocusEffect(
     useCallback(() => {
@@ -510,56 +479,6 @@ export default function TeamDetailScreen() {
     [team, user?.id, refresh],
   );
 
-  const onStartSession = async () => {
-    if (!id || !team || !user) return;
-    setSessionBusy(true);
-    const result = await startTeamSession({
-      teamId: id,
-      ownerId: team.ownerId,
-      actorId: user.id,
-      memberIds: team.memberIds,
-    });
-    setSessionBusy(false);
-    if (!result.ok) {
-      Alert.alert('Impossible', result.error);
-      return;
-    }
-    await reloadSession();
-    await reloadDuoScore();
-    Alert.alert('Session démarrée', 'Bonne session — le chef pourra la terminer quand vous aurez fini.');
-  };
-
-  const onEndSession = () => {
-    if (!id || !team || !user) return;
-    Alert.alert(
-      'Terminer la session',
-      'Chacun pourra ensuite noter anonymement les autres coéquipiers.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Terminer',
-          onPress: async () => {
-            setSessionBusy(true);
-            const result = await endTeamSession({
-              teamId: id,
-              ownerId: team.ownerId,
-              actorId: user.id,
-              memberIds: team.memberIds,
-            });
-            setSessionBusy(false);
-            if (!result.ok) {
-              Alert.alert('Impossible', result.error);
-              return;
-            }
-            await reloadSession();
-            await reloadDuoScore();
-            router.push(`/team/${id}/rate?sessionId=${result.session.id}`);
-          },
-        },
-      ],
-    );
-  };
-
   const onDissolve = () => {
     if (!id || !team) return;
     Alert.alert(
@@ -573,7 +492,6 @@ export default function TeamDetailScreen() {
           onPress: async () => {
             setBusy(true);
             const result = await dissolve(id);
-            if (result.ok) await clearSessionsForTeam(id);
             setBusy(false);
             if (!result.ok) {
               Alert.alert('Impossible', result.error);
@@ -712,8 +630,8 @@ export default function TeamDetailScreen() {
             ) : null}
           </Animated.View>
 
-          {/* Rang */}
-          <Animated.View entering={FadeInDown.delay(60).duration(360)} style={{ marginTop: spacing.md }}>
+          <Text style={[styles.sectionHead, { color: colors.ink }]}>Progression</Text>
+          <Animated.View entering={FadeInDown.delay(60).duration(360)}>
             <DuoRankPanel
               rank={duoScore.rank}
               sessionsEnded={duoScore.sessionsEnded}
@@ -722,97 +640,6 @@ export default function TeamDetailScreen() {
             />
           </Animated.View>
 
-          {/* Session */}
-          {isMemberOrOwner ? (
-            <Animated.View
-              entering={FadeInDown.delay(100).duration(360)}
-              style={[
-                styles.sessionCard,
-                {
-                  backgroundColor: colors.white,
-                  borderColor:
-                    sessionStatus === 'active'
-                      ? colors.primary
-                      : sessionStatus === 'ended'
-                        ? colors.warning
-                        : withHexAlpha(colors.ink, 0.08),
-                },
-              ]}
-            >
-              <View style={styles.sessionHead}>
-                <View
-                  style={[
-                    styles.sessionDot,
-                    {
-                      backgroundColor:
-                        sessionStatus === 'active'
-                          ? colors.primary
-                          : sessionStatus === 'ended'
-                            ? colors.warning
-                            : withHexAlpha(colors.ink, 0.2),
-                    },
-                  ]}
-                />
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.sessionTitle, { color: colors.ink }]}>
-                    {sessionStatus === 'active'
-                      ? 'Session en cours'
-                      : sessionStatus === 'ended'
-                        ? 'Session terminée'
-                        : 'Aucune session'}
-                  </Text>
-                  <Text style={[styles.sessionSub, { color: colors.inkMuted }]}>
-                    {sessionStatus === 'active'
-                      ? 'Le chef peut terminer quand vous avez fini.'
-                      : sessionStatus === 'ended'
-                        ? 'Note les coéquipiers anonymement.'
-                        : isOwner
-                          ? 'Démarre une session quand l’équipe est prête (min. 2 membres).'
-                          : 'En attente que le chef démarre une session.'}
-                  </Text>
-                </View>
-              </View>
-
-              {canStartSession ? (
-                <Button
-                  label="Démarrer la session"
-                  onPress={onStartSession}
-                  loading={sessionBusy}
-                  icon="play-outline"
-                  style={{ marginTop: spacing.sm }}
-                />
-              ) : null}
-
-              {isOwner && sessionStatus !== 'active' && (team.memberIds.length ?? 0) < 2 ? (
-                <Text style={[styles.sessionHint, { color: colors.inkMuted }]}>
-                  Invite au moins un coéquipier pour démarrer.
-                </Text>
-              ) : null}
-
-              {canEndSession ? (
-                <Button
-                  label="Terminer la session"
-                  variant="accent"
-                  onPress={onEndSession}
-                  loading={sessionBusy}
-                  icon="flag-outline"
-                  style={{ marginTop: spacing.sm }}
-                />
-              ) : null}
-
-              {pendingRateSession && isMemberOrOwner ? (
-                <Button
-                  label="Noter les coéquipiers"
-                  variant="secondary"
-                  onPress={() =>
-                    router.push(`/team/${id}/rate?sessionId=${pendingRateSession.id}`)
-                  }
-                  style={{ marginTop: spacing.sm }}
-                  icon="star-outline"
-                />
-              ) : null}
-            </Animated.View>
-          ) : null}
 
           {/* Banners */}
           {membership === 'pending' ? (
@@ -895,19 +722,31 @@ export default function TeamDetailScreen() {
             </>
           ) : null}
 
-          {/* Check-in quotidien — visible uniquement aux membres */}
+          {/* Check-in quotidien — verrouillé si jumelo incomplet */}
           {isMemberOrOwner ? (
-            <Animated.View entering={FadeInDown.delay(60).duration(320)}>
-              <CheckinCard
-                userId={user?.id ?? ''}
-                memberIds={rosterIds}
-                checkedInUsers={checkedInUsers}
-                streak={streak}
-                busy={checkinBusy}
-                onCheckin={onCheckin}
-                colors={colors}
-              />
-            </Animated.View>
+            isComplete ? (
+              <Animated.View entering={FadeInDown.delay(60).duration(320)}>
+                <CheckinCard
+                  userId={user?.id ?? ''}
+                  memberIds={rosterIds}
+                  checkedInUsers={checkedInUsers}
+                  streak={streak}
+                  busy={checkinBusy}
+                  onCheckin={onCheckin}
+                  colors={colors}
+                />
+              </Animated.View>
+            ) : (
+              <View style={[styles.waitingCard, { backgroundColor: colors.white, borderColor: withHexAlpha(colors.primary, 0.2) }]}>
+                <View style={[styles.waitingIconWrap, { backgroundColor: withHexAlpha(colors.primary, 0.1) }]}>
+                  <Ionicons name="lock-closed-outline" size={18} color={colors.primary} />
+                </View>
+                <View style={{ flex: 1, gap: 3 }}>
+                  <Text style={[styles.waitingTitle, { color: colors.ink }]}>Check-in du jour verrouillé</Text>
+                  <Text style={[styles.waitingSub, { color: colors.inkMuted }]}>Disponible une fois que tous les membres ont validé leur adhésion au jumelo.</Text>
+                </View>
+              </View>
+            )
           ) : null}
 
           {/* Membres */}
@@ -1111,40 +950,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
 
-  sessionCard: {
-    marginTop: spacing.md,
-    borderRadius: radii.md,
-    borderWidth: 1.5,
-    padding: spacing.md,
-  },
-  sessionHead: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-  },
-  sessionDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    marginTop: 5,
-    flexShrink: 0,
-  },
-  sessionTitle: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    marginBottom: 3,
-  },
-  sessionSub: {
-    fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  sessionHint: {
-    fontFamily: fonts.body,
-    fontSize: 12,
-    marginTop: spacing.sm,
-  },
-
   banner: {
     marginTop: spacing.md,
     borderRadius: radii.md,
@@ -1217,4 +1022,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+
+  waitingCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderRadius: radii.xl,
+    borderWidth: 1.5,
+    padding: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  waitingIconWrap: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  waitingTitle: { fontFamily: fonts.bodyBold, fontSize: 14 },
+  waitingSub: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
 });

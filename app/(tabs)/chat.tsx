@@ -199,10 +199,8 @@ export default function ChatListScreen() {
         {threads.length === 0 ? (
           <EmptyState
             title="Aucune conversation"
-            description="Accepte la proposition du jour (match mutuel) ou ouvre un profil puis tape « Discuter »."
+            description="Tu retrouveras ici les chats avec tes jumelons et tes groupes."
             lottie="spark"
-            actionLabel="Du jour"
-            onAction={() => router.push('/(tabs)/discover')}
           />
         ) : null}
 

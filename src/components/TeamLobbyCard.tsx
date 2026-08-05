@@ -22,6 +22,7 @@ import {
   universeIcon,
   withHexAlpha,
 } from '../design-system';
+import { baseColors } from '../constants/theme';
 import type { TeamMembershipState } from '../lib/api/teams';
 import type { DuoRankSnapshot } from '../lib/duoPoints';
 
@@ -72,6 +73,7 @@ type Props = {
   onJoin: () => void;
   onDetails: () => void;
   duoRank?: DuoRankSnapshot | null;
+  mine?: boolean;
 };
 
 const ART_H = 148;
@@ -138,6 +140,7 @@ export function TeamLobbyCard({
   onJoin,
   onDetails,
   duoRank = null,
+  mine = false,
 }: Props) {
   const { colors } = useTheme();
   const cat = getCategory(team.universe);
@@ -152,15 +155,12 @@ export function TeamLobbyCard({
     isPending || busy || (slotsLeft === 0 && !isMemberOrOwner);
 
   /**
-   * Panneau ardoise / encre — contraste lisible pour le texte clair,
-   * sans lavage bleu saturé (la marque reste sur le CTA / accents).
+   * Palette claire — fond blanc, texte encre, accent catégorie.
    */
-  const sheet = '#1E232B';
-  const sheetMid = '#252B34';
-  const sheetLift = '#2E3540';
-  const onSheet = colors.cream;
-  const onSheetMuted = withHexAlpha(colors.cream, 0.72);
-  const onSheetFaint = withHexAlpha(colors.cream, 0.48);
+  const onCard = colors.ink;
+  const onCardMuted = colors.inkMuted;
+  const onCardFaint = colors.inkFaint;
+  const cardSurface = colors.cream;
   const brand = themeBrandColors(colors);
   const brandAngle = themeGradientAngles.brand;
 
@@ -170,12 +170,18 @@ export function TeamLobbyCard({
         {/* Header media — inchangé (top) */}
         <View style={styles.media}>
           <CardArt team={team} accent={accent} />
+          {/* Fondu vers blanc en bas pour rejoindre le panneau blanc */}
           <LinearGradient
-            colors={['transparent', 'rgba(15,18,24,0.55)']}
-            locations={[0.35, 1]}
+            colors={['rgba(0,0,0,0.28)', 'transparent', withHexAlpha(colors.white, 0.6), colors.white]}
+            locations={[0, 0.3, 0.72, 1]}
             style={StyleSheet.absoluteFill}
             pointerEvents="none"
           />
+          {mine ? (
+            <View style={styles.mineBadge}>
+              <Text style={styles.mineBadgeText}>Ton jumelo</Text>
+            </View>
+          ) : null}
           <View style={styles.mediaTop}>
             <View style={styles.mediaChip}>
               <Icon
@@ -186,32 +192,24 @@ export function TeamLobbyCard({
               />
               <Text style={styles.mediaChipText}>{access.label}</Text>
             </View>
-            {team.vibe ? (
-              <View style={styles.mediaChipMuted}>
-                <Text style={styles.mediaChipText}>{team.vibe}</Text>
-              </View>
-            ) : null}
           </View>
+          {!mine && team.vibe ? (
+            <View style={styles.vibeChip}>
+              <Text style={styles.mediaChipText}>{team.vibe}</Text>
+            </View>
+          ) : null}
           <Text style={styles.mediaActivity} numberOfLines={1}>
             {team.activity}
           </Text>
         </View>
 
-        {/* Sheet qui remonte sur l’art */}
-        <View style={styles.sheet}>
-          <LinearGradient
-            colors={[sheet, sheetMid, sheetLift]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={StyleSheet.absoluteFill}
-            pointerEvents="none"
-          />
-          <View style={[styles.grip, { backgroundColor: withHexAlpha(onSheet, 0.22) }]} />
+        {/* Panneau blanc */}
+        <View style={[styles.sheet, { backgroundColor: colors.white }]}>
           <View style={[styles.accentRail, { backgroundColor: accent }]} />
 
           <View style={styles.sheetTop}>
             <View style={styles.sheetMain}>
-              <Text style={[styles.title, { color: onSheet }]} numberOfLines={2}>
+              <Text style={[styles.title, { color: onCard }]} numberOfLines={2}>
                 {team.name}
               </Text>
 
@@ -221,33 +219,33 @@ export function TeamLobbyCard({
                   <Text style={[styles.rankName, { color: duoRank.color }]}>
                     {duoRank.displayName}
                   </Text>
-                  <Text style={[styles.rankMeta, { color: onSheetFaint }]}>
+                  <Text style={[styles.rankMeta, { color: onCardFaint }]}>
                     Nv.{duoRank.level}
                   </Text>
-                  <Text style={[styles.rankMeta, { color: onSheetFaint }]}>·</Text>
+                  <Text style={[styles.rankMeta, { color: onCardFaint }]}>·</Text>
                   <Text
-                    style={[styles.rankMeta, { color: onSheetMuted, flex: 1 }]}
+                    style={[styles.rankMeta, { color: onCardMuted, flex: 1 }]}
                     numberOfLines={1}
                   >
                     {duoRank.title}
                   </Text>
                 </View>
               ) : (
-                <Text style={[styles.rankMeta, { color: onSheetMuted }]}>
+                <Text style={[styles.rankMeta, { color: onCardMuted }]}>
                   Niveau · {team.levelLabel}
                 </Text>
               )}
 
               <View style={styles.placeRow}>
-                <Icon name="city" size={13} color={onSheetFaint} />
-                <Text style={[styles.placeCity, { color: onSheetMuted }]}>
+                <Icon name="city" size={13} color={onCardFaint} />
+                <Text style={[styles.placeCity, { color: onCardMuted }]}>
                   {team.city}
                 </Text>
                 {team.nextSession && team.nextSession !== 'À définir' ? (
                   <>
-                    <Text style={{ color: onSheetFaint }}>·</Text>
+                    <Text style={{ color: onCardFaint }}>·</Text>
                     <Text
-                      style={[styles.placeCity, { color: onSheetFaint, flex: 1 }]}
+                      style={[styles.placeCity, { color: onCardFaint, flex: 1 }]}
                       numberOfLines={1}
                     >
                       {team.nextSession}
@@ -262,18 +260,18 @@ export function TeamLobbyCard({
               style={[
                 styles.slotDial,
                 {
-                  borderColor: withHexAlpha(accent, 0.55),
-                  backgroundColor: sheetLift,
+                  borderColor: withHexAlpha(accent, 0.5),
+                  backgroundColor: withHexAlpha(accent, 0.06),
                 },
               ]}
             >
-              <Text style={[styles.slotDialNum, { color: onSheet }]}>
+              <Text style={[styles.slotDialNum, { color: onCard }]}>
                 {team.membersCount}
-                <Text style={{ color: onSheetFaint, fontSize: 13 }}>
+                <Text style={{ color: onCardFaint, fontSize: 13 }}>
                   /{team.capacity}
                 </Text>
               </Text>
-              <Text style={[styles.slotDialHint, { color: onSheetFaint }]}>
+              <Text style={[styles.slotDialHint, { color: onCardFaint }]}>
                 {slotsLeft === 0 ? 'plein' : slotsLeft === 1 ? '1 place' : `${slotsLeft} pl.`}
               </Text>
             </View>
@@ -283,7 +281,7 @@ export function TeamLobbyCard({
             <View
               style={[
                 styles.track,
-                { backgroundColor: withHexAlpha(onSheet, 0.12) },
+                { backgroundColor: withHexAlpha(colors.ink, 0.08) },
               ]}
             >
               <LinearGradient
@@ -301,13 +299,13 @@ export function TeamLobbyCard({
                 style={[
                   styles.pendingBanner,
                   {
-                    backgroundColor: withHexAlpha(colors.cream, 0.1),
-                    borderColor: withHexAlpha(accent, 0.35),
+                    backgroundColor: withHexAlpha(accent, 0.08),
+                    borderColor: withHexAlpha(accent, 0.3),
                   },
                 ]}
               >
-                <Icon name="pulse" size={15} color={colors.primaryLight} weight="bold" />
-                <Text style={[styles.pending, { color: onSheet }]}>
+                <Icon name="pulse" size={15} color={accent} weight="bold" />
+                <Text style={[styles.pending, { color: onCard }]}>
                   Demande envoyée — en attente de réponse
                 </Text>
               </View>
@@ -315,14 +313,14 @@ export function TeamLobbyCard({
                 style={[
                   styles.ghostBtn,
                   {
-                    borderColor: withHexAlpha(onSheet, 0.2),
-                    backgroundColor: sheetLift,
+                    borderColor: colors.border,
+                    backgroundColor: cardSurface,
                   },
                 ]}
                 onPress={onDetails}
                 accessibilityLabel="Détails"
               >
-                <Icon name="chevronRight" size={18} color={onSheet} weight="bold" />
+                <Icon name="chevronRight" size={18} color={onCard} weight="bold" />
               </Pressable>
             </View>
           ) : (
@@ -333,7 +331,7 @@ export function TeamLobbyCard({
                 onPress={onJoin}
               >
                 <LinearGradient
-                  colors={[...brand]}
+                  colors={mine ? [accent, withHexAlpha(accent, 0.75)] : [...brand]}
                   start={brandAngle.start}
                   end={brandAngle.end}
                   style={StyleSheet.absoluteFill}
@@ -351,14 +349,14 @@ export function TeamLobbyCard({
                 style={[
                   styles.ghostBtn,
                   {
-                    borderColor: withHexAlpha(onSheet, 0.2),
-                    backgroundColor: sheetLift,
+                    borderColor: colors.border,
+                    backgroundColor: cardSurface,
                   },
                 ]}
                 onPress={onDetails}
                 accessibilityLabel="Détails"
               >
-                <Icon name="chevronRight" size={18} color={onSheet} weight="bold" />
+                <Icon name="chevronRight" size={18} color={onCard} weight="bold" />
               </Pressable>
             </View>
           )}
@@ -373,14 +371,42 @@ const styles = StyleSheet.create({
     borderRadius: 22,
     marginBottom: spacing.md,
   },
+  mineBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.28)',
+  },
+  vibeChip: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    backgroundColor: 'rgba(0,0,0,0.38)',
+    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
+  },
+  mineBadgeText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    color: '#fff',
+    letterSpacing: 0.3,
+  },
   card: {
     borderRadius: 22,
     overflow: 'hidden',
-    backgroundColor: '#12151A',
+    backgroundColor: '#fff',
   },
   media: {
     height: ART_H,
-    backgroundColor: '#12151A',
+    backgroundColor: '#EFF4FA',
     justifyContent: 'flex-end',
   },
   artImage: {
@@ -427,11 +453,10 @@ const styles = StyleSheet.create({
   mediaActivity: {
     fontFamily: fonts.bodyBold,
     fontSize: 13,
-    color: 'rgba(255,255,255,0.92)',
+    color: baseColors.ink,
     letterSpacing: 0.6,
     textTransform: 'uppercase',
     paddingHorizontal: 16,
-    // Un peu plus haut dans le header média
     paddingBottom: 18 + SHEET_OVERLAP * 0.35,
   },
   sheet: {

@@ -148,6 +148,15 @@ export default function TeamsScreen() {
     router.push(`/jumelo/${teamId}`);
   };
 
+  const myTeams = filtered.filter((t) => {
+    const s = getMembership(t.id);
+    return s === 'owner' || s === 'member';
+  });
+  const otherTeams = filtered.filter((t) => {
+    const s = getMembership(t.id);
+    return s !== 'owner' && s !== 'member';
+  });
+
   const createJumelo = () => router.push('/team/create');
   const empty = !loading && filtered.length === 0;
 
@@ -285,7 +294,43 @@ export default function TeamsScreen() {
             />
           ) : null}
 
-          {filtered.map((team, index) => {
+          {myTeams.length > 0 ? (
+            <>
+              <View style={styles.sectionRow}>
+                <Text style={[styles.sectionLabel, { color: colors.ink }]}>Mes jumelos</Text>
+                <View style={[styles.sectionBadge, { backgroundColor: colors.primary }]}>
+                  <Text style={styles.sectionBadgeNum}>{myTeams.length}</Text>
+                </View>
+              </View>
+              {myTeams.map((team, index) => {
+                const state = getMembership(team.id);
+                return (
+                  <Animated.View
+                    key={team.id}
+                    entering={FadeInDown.delay(Math.min(index, 3) * 60).duration(300)}
+                  >
+                    <TeamLobbyCard
+                      team={team}
+                      state={state}
+                      mine
+                      busy={busyId === team.id}
+                      duoRank={duoScores.get(team.id)?.rank ?? null}
+                      onJoin={() => onJoinPress(team.id, state)}
+                      onDetails={() => router.push(`/jumelo/${team.id}`)}
+                    />
+                  </Animated.View>
+                );
+              })}
+            </>
+          ) : null}
+
+          {otherTeams.length > 0 && myTeams.length > 0 ? (
+            <Text style={[styles.sectionLabel, { color: colors.inkMuted, marginTop: spacing.lg, marginBottom: spacing.sm }]}>
+              Tous les jumelos
+            </Text>
+          ) : null}
+
+          {otherTeams.map((team, index) => {
             const state = getMembership(team.id);
             return (
               <Animated.View
@@ -422,4 +467,9 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyBold,
     fontSize: 13,
   },
+
+  sectionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.md, marginBottom: spacing.sm },
+  sectionLabel: { fontFamily: fonts.displaySemi, fontSize: 18, letterSpacing: -0.3 },
+  sectionBadge: { borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 3 },
+  sectionBadgeNum: { fontFamily: fonts.bodyBold, fontSize: 13, color: '#fff' },
 });

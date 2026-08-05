@@ -559,8 +559,8 @@ const styles = StyleSheet.create({
   restMemberPhotoOverlap:{ marginLeft: -10 },
   restName: { fontFamily: fonts.bodyBold, fontSize: 13 },
   restCat:  { fontFamily: fonts.body, fontSize: 11, marginTop: 1 },
-  restRight:{ alignItems: 'flex-end', gap: 4 },
-  restPts:  { fontFamily: fonts.displaySemi, fontSize: 16, letterSpacing: -0.3 },
+  restRight:{ alignItems: 'flex-end', gap: 4, minWidth: 52 },
+  restPts:  { fontFamily: fonts.displaySemi, fontSize: 16, letterSpacing: -0.3, marginLeft: 12 },
   trendPill:     { borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3 },
   trendPillText: { fontFamily: fonts.bodyBold, fontSize: 12 },
 });

@@ -95,10 +95,9 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="discover"
         options={{
-          title: 'Jumelo',
-          tabBarAccessibilityLabel: 'Trouver un jumelo',
+          title: 'Classement',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="jumelo" color={color} focused={focused} />
+            <TabIcon name="trophy" color={color} focused={focused} />
           ),
         }}
       />
