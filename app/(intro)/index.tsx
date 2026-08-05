@@ -53,14 +53,14 @@ const SLIDES: Slide[] = [
   },
   {
     key: 'match',
-    lottie: 'success',
+    lottie: 'spark',
     eyebrow: 'Jumeler',
     title: 'Like, match,\npuis passe à l’action',
     body: 'Tu vois pourquoi ça matche. Matching transparent, raisons visibles, zéro ghosting.',
   },
   {
     key: 'teams',
-    lottie: 'confetti',
+    lottie: 'bolt',
     eyebrow: 'Jumelo & session',
     title: 'Ton jumelo,\npuis la session',
     body: 'Crée un jumelo, planifie une session, discutez dans le chat — tout est pensé pour vous deux.',
