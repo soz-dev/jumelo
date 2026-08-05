@@ -572,6 +572,21 @@ export async function listAdminActivity(): Promise<AdminActivity[]> {
   return readJson<AdminActivity[]>(ACTIVITY_KEY, []);
 }
 
+export async function clearAllBans(): Promise<void> {
+  await writeJson(BANS_KEY, {});
+  await logActivity('clear_bans', 'Tous les bans levés');
+}
+
+export async function clearAllReports(): Promise<void> {
+  await writeJson(REPORTS_KEY, []);
+  await logActivity('clear_reports', 'Tous les signalements effacés');
+}
+
+export async function clearAllWarnings(): Promise<void> {
+  await writeJson(WARNINGS_KEY, {});
+  await logActivity('clear_warnings', 'Tous les avertissements effacés');
+}
+
 export async function getAdminDashboard(viewerId?: string | null): Promise<AdminDashboard> {
   const [members, teams, reports, bans, warnings, hidden] = await Promise.all([
     listAdminMembers(),

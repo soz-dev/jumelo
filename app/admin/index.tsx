@@ -22,11 +22,16 @@ import { useAuth } from '../../src/context/AuthContext';
 import {
   getAdminDashboard,
   type AdminDashboard,
+  clearAllBans,
+  clearAllReports,
+  clearAllWarnings,
 } from '../../src/lib/adminStore';
+import { resetDailyJumeloDemoState } from '../../src/lib/dailyJumelo';
+import { resetJumeloValidationDemoState } from '../../src/lib/jumeloValidation';
 import { usePremium, usePremiumGating } from '../../src/lib/premiumStore';
 
 type NavItem = {
-  href: '/admin/members' | '/admin/teams' | '/admin/reports' | '/admin/activity';
+  href: '/admin/members' | '/admin/teams' | '/admin/reports' | '/admin/activity' | '/admin/moderateurs';
   icon: keyof typeof Ionicons.glyphMap;
   title: string;
   subtitle: string;
@@ -58,6 +63,12 @@ const NAV: NavItem[] = [
     title: 'Journal',
     subtitle: 'Actions admin (local)',
   },
+  {
+    href: '/admin/moderateurs',
+    icon: 'shield-checkmark',
+    title: 'Modérateurs',
+    subtitle: 'Droits de modération par UID Firebase',
+  },
 ];
 
 export default function AdminDashboardScreen() {
@@ -67,6 +78,7 @@ export default function AdminDashboardScreen() {
   const { isPremium, setPremium, ready: premiumReady } = usePremium();
   const [dash, setDash] = useState<AdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [toolBusy, setToolBusy] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -179,6 +191,116 @@ export default function AdminDashboardScreen() {
                   </Text>
                 </View>
                 <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
+              </Pressable>
+            ))}
+
+            {/* ─── Outils de simulation ─── */}
+            <Text style={[styles.section, { color: colors.ink }]}>Outils de simulation</Text>
+            {([
+              {
+                id: 'reset_daily',
+                icon: 'refresh-circle-outline' as const,
+                label: 'Réinitialiser le Jumelo du jour',
+                hint: 'Efface le lock 24h — nouvelle proposition au prochain chargement',
+                action: async () => { await resetDailyJumeloDemoState(); },
+                confirm: 'Remettre à zéro le Jumelo du jour ?',
+              },
+              {
+                id: 'reset_validation',
+                icon: 'git-compare-outline' as const,
+                label: 'Réinitialiser la validation de jumelage',
+                hint: 'Efface les confirmations de formation (démo)',
+                action: async () => { await resetJumeloValidationDemoState(); },
+                confirm: 'Réinitialiser la validation ?',
+              },
+              {
+                id: 'clear_bans',
+                icon: 'lock-open-outline' as const,
+                label: 'Lever tous les bans',
+                hint: 'Supprime tous les bans et suspensions locaux',
+                action: async () => { await clearAllBans(); await load(); },
+                confirm: 'Lever tous les bans ?',
+                danger: true,
+              },
+              {
+                id: 'clear_reports',
+                icon: 'flag-outline' as const,
+                label: 'Effacer tous les signalements',
+                hint: 'Vide la file de modération locale',
+                action: async () => { await clearAllReports(); await load(); },
+                confirm: 'Effacer tous les signalements ?',
+                danger: true,
+              },
+              {
+                id: 'clear_warnings',
+                icon: 'alert-circle-outline' as const,
+                label: 'Effacer tous les avertissements',
+                hint: 'Supprime l'historique des warnings locaux',
+                action: async () => { await clearAllWarnings(); await load(); },
+                confirm: 'Effacer tous les avertissements ?',
+                danger: true,
+              },
+            ] as const).map((tool) => (
+              <Pressable
+                key={tool.id}
+                disabled={toolBusy === tool.id}
+                onPress={() => {
+                  Alert.alert(
+                    tool.label,
+                    tool.confirm,
+                    [
+                      { text: 'Annuler', style: 'cancel' },
+                      {
+                        text: 'Confirmer',
+                        style: tool.danger ? 'destructive' : 'default',
+                        onPress: async () => {
+                          setToolBusy(tool.id);
+                          await tool.action().catch(() => undefined);
+                          setToolBusy(null);
+                        },
+                      },
+                    ],
+                  );
+                }}
+                style={[
+                  styles.navRow,
+                  {
+                    backgroundColor: colors.white,
+                    borderColor: tool.danger ? colors.accentSoft : colors.border,
+                    opacity: toolBusy === tool.id ? 0.6 : 1,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.navIcon,
+                    { backgroundColor: tool.danger ? colors.accentSoft : colors.primarySoft },
+                  ]}
+                >
+                  <Ionicons
+                    name={tool.icon}
+                    size={20}
+                    color={tool.danger ? colors.accent : colors.primaryDark}
+                  />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text
+                    style={[
+                      styles.navTitle,
+                      { color: tool.danger ? colors.accent : colors.ink },
+                    ]}
+                  >
+                    {tool.label}
+                  </Text>
+                  <Text style={{ color: colors.inkMuted, fontFamily: typography.body.fontFamily }}>
+                    {tool.hint}
+                  </Text>
+                </View>
+                {toolBusy === tool.id ? (
+                  <Ionicons name="hourglass-outline" size={18} color={colors.inkFaint} />
+                ) : (
+                  <Ionicons name="play-circle-outline" size={18} color={colors.inkFaint} />
+                )}
               </Pressable>
             ))}
           </>

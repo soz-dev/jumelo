@@ -39,6 +39,7 @@ export default function AdminLayout() {
       <Stack.Screen name="teams" />
       <Stack.Screen name="reports" />
       <Stack.Screen name="activity" />
+      <Stack.Screen name="moderateurs" />
       <Stack.Screen name="[id]" />
     </Stack>
   );
