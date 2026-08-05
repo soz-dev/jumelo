@@ -24,7 +24,7 @@ import {
   spacing,
   withHexAlpha,
 } from '../../src/design-system';
-import { getDuoScoresByTeamIds, type DuoScore } from '../../src/lib/duoPoints';
+import { getDuoScoresByTeamIds, emptyDuoScore, type DuoScore } from '../../src/lib/duoPoints';
 import type { Team } from '../../src/lib/api/teams';
 
 const MEDALS = ['🥇', '🥈', '🥉'];
@@ -57,8 +57,7 @@ export default function ClassementScreen() {
       ? teams
       : teams.filter((t) => t.universe === filter);
     return filtered
-      .map((team) => ({ team, score: scores.get(team.id) ?? null }))
-      .filter((e): e is { team: Team; score: DuoScore } => e.score !== null)
+      .map((team) => ({ team, score: scores.get(team.id) ?? emptyDuoScore() }))
       .sort((a, b) => b.score.points - a.score.points)
       .slice(0, 50)
       .map((e, i) => ({ ...e, position: i + 1 }));
@@ -273,6 +272,7 @@ const styles = StyleSheet.create({
   filterChip: {
     flexDirection: 'row',
     alignItems: 'center',
+    alignSelf: 'flex-start',
     gap: 5,
     paddingHorizontal: 13,
     paddingVertical: 8,
