@@ -23,6 +23,8 @@ export type ProfileRow = {
   theme_id: string;
   onboarding_complete: boolean;
   languages: string[] | null;
+  /** Age in years (13–100), used by matching. */
+  age?: number | null;
   created_at?: string;
   updated_at?: string;
 };
@@ -56,6 +58,8 @@ export function mapProfileRow(
     objectives: relations.objectives ?? [],
     reliability: row.reliability,
     languages: row.languages ?? [],
+    age:
+      typeof row.age === 'number' && Number.isFinite(row.age) ? row.age : undefined,
     onboardingComplete: row.onboarding_complete,
     themeId: (row.theme_id as ThemeId) || 'teal',
   };

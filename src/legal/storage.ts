@@ -80,6 +80,7 @@ export const JUMELO_LOCAL_KEYS = [
   '@jumelo/dm-chats',
   '@jumelo/team-chats',
   '@jumelo/teams-state',
+  '@jumelo/jumelo-validation',
   '@jumelo/profile-directory',
   '@jumelo/team-sessions',
   '@jumelo/premium-gating',

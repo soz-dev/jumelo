@@ -1,0 +1,161 @@
+import { useEffect, useState } from 'react';
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import { useAuth } from '../context/AuthContext';
+import { useTheme } from '../context/ThemeContext';
+import { Button, TextField, fonts, spacing } from '../design-system';
+import {
+  DISPLAY_NAME_MAX,
+  validateDisplayName,
+} from '../lib/displayName';
+
+type Props = {
+  visible: boolean;
+  onClose: () => void;
+};
+
+export function ProfileNameEditor({ visible, onClose }: Props) {
+  const { colors } = useTheme();
+  const { user, updateProfile } = useAuth();
+  const insets = useSafeAreaInsets();
+  const [value, setValue] = useState('');
+  const [error, setError] = useState<string | undefined>();
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (visible && user) {
+      setValue(user.name);
+      setError(undefined);
+      setBusy(false);
+    }
+  }, [visible, user]);
+
+  if (!user) return null;
+
+  const onSave = async () => {
+    const result = validateDisplayName(value);
+    if (!result.ok) {
+      setError(result.error);
+      return;
+    }
+    if (result.name === user.name.trim()) {
+      onClose();
+      return;
+    }
+    setBusy(true);
+    setError(undefined);
+    try {
+      await updateProfile({ name: result.name });
+      onClose();
+    } catch {
+      setError('Impossible d’enregistrer le pseudo. Réessaie.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={busy ? undefined : onClose}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
+        <Pressable style={styles.backdrop} onPress={busy ? undefined : onClose}>
+          <Pressable
+            style={[
+              styles.sheet,
+              {
+                backgroundColor: colors.cream,
+                paddingBottom: Math.max(insets.bottom, spacing.lg),
+              },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={styles.handleRow}>
+              <View style={[styles.handle, { backgroundColor: colors.border }]} />
+            </View>
+            <Text style={[styles.title, { color: colors.ink }]}>Modifier le pseudo</Text>
+            <Text style={[styles.sub, { color: colors.inkMuted }]}>
+              C’est le nom visible sur ton profil, en home et dans tes équipes.
+            </Text>
+
+            <TextField
+              label="Pseudo"
+              value={value}
+              onChangeText={(text) => {
+                setValue(text);
+                if (error) setError(undefined);
+              }}
+              placeholder="Ton pseudo"
+              autoCapitalize="words"
+              autoCorrect={false}
+              maxLength={DISPLAY_NAME_MAX}
+              editable={!busy}
+              error={error}
+              hint={`${value.trim().length}/${DISPLAY_NAME_MAX}`}
+              returnKeyType="done"
+              onSubmitEditing={onSave}
+            />
+
+            <Button
+              label="Enregistrer"
+              onPress={onSave}
+              loading={busy}
+              disabled={busy}
+              style={styles.save}
+            />
+
+            <Pressable onPress={onClose} disabled={busy} style={styles.cancel}>
+              <Text style={{ fontFamily: fonts.bodyBold, color: colors.primary }}>
+                Annuler
+              </Text>
+            </Pressable>
+          </Pressable>
+        </Pressable>
+      </KeyboardAvoidingView>
+    </Modal>
+  );
+}
+
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+  backdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(20,28,36,0.45)',
+  },
+  sheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.sm,
+  },
+  handleRow: { alignItems: 'center', marginBottom: spacing.sm },
+  handle: { width: 40, height: 4, borderRadius: 2 },
+  title: {
+    fontFamily: fonts.displaySemi,
+    fontSize: 22,
+    letterSpacing: -0.3,
+  },
+  sub: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    marginTop: 4,
+    marginBottom: spacing.md,
+    lineHeight: 20,
+  },
+  save: { marginTop: spacing.xs },
+  cancel: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+});

@@ -14,13 +14,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { safeBack } from '../../../src/lib/navigation';
 import { CategoryIcon } from '../../../src/components/CategoryIcon';
+import { DuoRankPanel } from '../../../src/components/DuoRankBadge';
 import { Avatar, Button, Subtitle, Title } from '../../../src/components/ui';
-import { fonts, radii, spacing } from '../../../src/constants/theme';
+import { fonts, radii, spacing, withHexAlpha } from '../../../src/constants/theme';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useTeams } from '../../../src/context/TeamsContext';
 import { useTheme } from '../../../src/context/ThemeContext';
 import { mockUsers, type UserProfile } from '../../../src/data/mock';
 import { ensureTeamChat } from '../../../src/lib/api/teamChats';
+import {
+  emptyDuoScore,
+  getDuoScore,
+  type DuoScore,
+} from '../../../src/lib/duoPoints';
 import {
   clearSessionsForTeam,
   endTeamSession,
@@ -79,6 +85,7 @@ export default function TeamDetailScreen() {
   const [session, setSession] = useState<TeamSession | null>(null);
   const [pendingRateSession, setPendingRateSession] = useState<TeamSession | null>(null);
   const [sessionBusy, setSessionBusy] = useState(false);
+  const [duoScore, setDuoScore] = useState<DuoScore>(emptyDuoScore());
   const [enrichedById, setEnrichedById] = useState<Record<string, UserProfile>>({});
   const [pendingProfiles, setPendingProfiles] = useState<Record<string, UserProfile>>(
     {},
@@ -100,11 +107,21 @@ export default function TeamDetailScreen() {
     }
   }, [id, user?.id]);
 
+  const reloadDuoScore = useCallback(async () => {
+    if (!id) {
+      setDuoScore(emptyDuoScore());
+      return;
+    }
+    const score = await getDuoScore(id);
+    setDuoScore(score);
+  }, [id]);
+
   useFocusEffect(
     useCallback(() => {
       refresh().catch(() => undefined);
       reloadSession().catch(() => undefined);
-    }, [refresh, reloadSession]),
+      reloadDuoScore().catch(() => undefined);
+    }, [refresh, reloadSession, reloadDuoScore]),
   );
 
   const team = teams.find((t) => t.id === id);
@@ -222,8 +239,8 @@ export default function TeamDetailScreen() {
       Alert.alert(
         'Bienvenue !',
         team
-          ? `Tu as rejoint « ${team.name} ». Le groupe est en tête de tes équipes actives.`
-          : 'Tu as rejoint le groupe. Il est en tête de tes équipes actives.',
+          ? `Tu as rejoint « ${team.name} ». Il est en tête de tes jumelos.`
+          : 'Tu as rejoint le jumelo. Il est en tête de ta liste.',
       );
     } else {
       Alert.alert(
@@ -252,8 +269,8 @@ export default function TeamDetailScreen() {
   const onKick = (memberId: string, memberName: string) => {
     if (!id) return;
     Alert.alert(
-      'Exclure du groupe',
-      `Retirer ${memberName} de l’équipe ?`,
+      'Exclure du jumelo',
+      `Retirer ${memberName} du jumelo ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -291,6 +308,7 @@ export default function TeamDetailScreen() {
       return;
     }
     await reloadSession();
+    await reloadDuoScore();
     Alert.alert('Session démarrée', 'Bonne session — le chef pourra la terminer quand vous aurez fini.');
   };
 
@@ -317,6 +335,7 @@ export default function TeamDetailScreen() {
               return;
             }
             await reloadSession();
+            await reloadDuoScore();
             router.push(`/team/${id}/rate?sessionId=${result.session.id}`);
           },
         },
@@ -327,8 +346,8 @@ export default function TeamDetailScreen() {
   const onDissolve = () => {
     if (!id || !team) return;
     Alert.alert(
-      'Dissoudre l’équipe',
-      `« ${team.name} » sera définitivement supprimée. Continuer ?`,
+      'Dissoudre le jumelo',
+      `« ${team.name} » sera définitivement supprimé. Continuer ?`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -375,8 +394,8 @@ export default function TeamDetailScreen() {
         <Text style={{ color: colors.primary }} onPress={() => safeBack('/(tabs)/teams')}>
           ← Retour
         </Text>
-        <Title>Team introuvable</Title>
-        <Subtitle>Cette équipe a peut‑être été dissoute.</Subtitle>
+        <Title>Introuvable</Title>
+        <Subtitle>Ce jumelo a peut‑être été dissous.</Subtitle>
       </SafeAreaView>
     );
   }
@@ -390,13 +409,26 @@ export default function TeamDetailScreen() {
 
         <View style={[styles.hero, { backgroundColor: colors.white }]}>
           <CategoryIcon universeId={team.universe} size={56} />
+          <Text
+            style={{
+              color: colors.primaryDark,
+              fontFamily: fonts.bodyBold,
+              fontSize: 11,
+              letterSpacing: 1.2,
+              marginBottom: 6,
+            }}
+          >
+            JUMELO
+          </Text>
           <Title style={{ fontSize: 28 }}>{team.name}</Title>
           <Subtitle>
             {team.activity} · {team.nextSession}
           </Subtitle>
           <Text style={[styles.blurb, { color: colors.ink }]}>{team.blurb}</Text>
           <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, marginTop: 8 }}>
-            {team.city} · {team.membersCount}/{team.capacity} · {team.vibe}
+            {team.city} · {team.membersCount}/{team.capacity}
+            {' · '}
+            {team.vibe}
             {' · '}
             {team.locked ? 'Sur demande' : 'Entrée libre'}
           </Text>
@@ -410,6 +442,13 @@ export default function TeamDetailScreen() {
             </View>
           ) : null}
         </View>
+
+        <DuoRankPanel
+          rank={duoScore.rank}
+          sessionsEnded={duoScore.sessionsEnded}
+          averageRating={duoScore.averageRating}
+          ratingCount={duoScore.ratingCount}
+        />
 
         {isMemberOrOwner ? (
           <View
@@ -508,9 +547,18 @@ export default function TeamDetailScreen() {
         ) : null}
 
         {membership === 'pending' ? (
-          <View style={[styles.banner, { backgroundColor: colors.primarySoft }]}>
-            <Ionicons name="time-outline" size={20} color={colors.primaryDark} />
-            <Text style={{ color: colors.primaryDark, fontFamily: fonts.bodyMedium, flex: 1 }}>
+          <View
+            style={[
+              styles.banner,
+              {
+                backgroundColor: withHexAlpha(colors.white, 0.72),
+                borderColor: withHexAlpha(colors.primary, 0.35),
+                borderWidth: 1.5,
+              },
+            ]}
+          >
+            <Ionicons name="time-outline" size={20} color={colors.primary} />
+            <Text style={{ color: colors.ink, fontFamily: fonts.bodyMedium, flex: 1 }}>
               En attente d’approbation du chef
             </Text>
           </View>
@@ -596,10 +644,18 @@ export default function TeamDetailScreen() {
                     {member.id === user?.id ? ' (toi)' : ''}
                   </Text>
                   {member.id === team.ownerId ? (
-                    <View style={[styles.badge, { backgroundColor: colors.primarySoft }]}>
+                    <View
+                      style={[
+                        styles.badge,
+                        {
+                          backgroundColor: withHexAlpha(colors.white, 0.72),
+                          borderColor: withHexAlpha(colors.primary, 0.4),
+                        },
+                      ]}
+                    >
                       <Text
                         style={{
-                          color: colors.primaryDark,
+                          color: colors.primary,
                           fontFamily: fonts.bodyMedium,
                           fontSize: 11,
                         }}
@@ -633,7 +689,9 @@ export default function TeamDetailScreen() {
         {membership === 'none' || membership === 'rejected' ? (
           <Button
             label={
-              team.locked ? 'Demander à intégrer le groupe' : 'Rejoindre le groupe'
+              team.locked
+                ? 'Demander à rejoindre le jumelo'
+                : 'Rejoindre le jumelo'
             }
             onPress={onRequestJoin}
             loading={busy}
@@ -644,7 +702,7 @@ export default function TeamDetailScreen() {
 
         {membership === 'member' || membership === 'owner' ? (
           <Button
-            label="Ouvrir le chat du groupe"
+            label="Ouvrir le chat du jumelo"
             onPress={onOpenGroupChat}
             loading={busy}
             style={{ marginTop: spacing.xl }}
@@ -654,7 +712,21 @@ export default function TeamDetailScreen() {
 
         {isOwner ? (
           <Button
-            label="Dissoudre l’équipe"
+            label="Modifier le jumelo"
+            onPress={() =>
+              router.push({
+                pathname: '/team/create',
+                params: { editId: team.id },
+              })
+            }
+            style={{ marginTop: spacing.xl }}
+            icon="create-outline"
+          />
+        ) : null}
+
+        {isOwner ? (
+          <Button
+            label="Dissoudre le jumelo"
             variant="accent"
             onPress={onDissolve}
             loading={busy}
@@ -735,6 +807,7 @@ const styles = StyleSheet.create({
   nameRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   badge: {
     borderRadius: radii.pill,
+    borderWidth: 1.5,
     paddingHorizontal: 8,
     paddingVertical: 2,
   },

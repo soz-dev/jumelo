@@ -17,13 +17,21 @@ import Svg, { Defs, Line, Pattern, Rect } from 'react-native-svg';
 import { BrandLogo } from '../../src/components/BrandLogo';
 import { JumeloLottie } from '../../src/components/JumeloLottie';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
-import { Subtitle, fonts, radii, spacing, typography } from '../../src/design-system';
+import {
+  Subtitle,
+  fonts,
+  radii,
+  spacing,
+  themeHeroColors,
+  themeWashColors,
+  themeGradientAngles,
+  typography,
+} from '../../src/design-system';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import { LEGAL_VERSION, acceptLegal } from '../../src/legal';
 import {
   APPLE_FIREBASE_EXPO_GO_MESSAGE,
-  GOOGLE_WORKSPACE_HINT_FR,
   isExpoGoRuntime,
 } from '../../src/lib/firebaseAuth';
 
@@ -31,21 +39,6 @@ const isWeb = Platform.OS === 'web';
 /** iPhone → Apple ; Android → Google ; web → Google. */
 const showAppleCta = Platform.OS === 'ios';
 const showGoogleCta = Platform.OS === 'android' || isWeb;
-
-async function confirmGoogleHint(): Promise<boolean> {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      return window.confirm(`${GOOGLE_WORKSPACE_HINT_FR}\n\nContinuer avec Google ?`);
-    }
-    return true;
-  }
-  return new Promise<boolean>((resolve) => {
-    Alert.alert('Compte Google', GOOGLE_WORKSPACE_HINT_FR, [
-      { text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
-      { text: 'Continuer', onPress: () => resolve(true) },
-    ]);
-  });
-}
 
 export default function WelcomeScreen() {
   const { colors } = useTheme();
@@ -70,10 +63,7 @@ export default function WelcomeScreen() {
       ]);
       return;
     }
-    if (provider === 'google') {
-      const proceed = await confirmGoogleHint();
-      if (!proceed) return;
-    }
+    // Pas de confirm avant Google (casse le geste → popup bloquée).
     setOauthLoading(true);
     setError('');
     const result = await loginWithProvider(provider);
@@ -128,10 +118,10 @@ export default function WelcomeScreen() {
         <Animated.View entering={FadeInDown.duration(420)} style={styles.hero}>
           <BrandLogo size={72} />
           <Text style={styles.brand}>Jumelo</Text>
-          <Text style={styles.headline}>Trouve ton{'\n'}Jumelo.</Text>
+          <Text style={styles.headline}>Trouve ton{'\n'}jumelo.</Text>
           <Subtitle style={styles.lead}>
-            Coequipiers gaming, sport, études, musique — matching clair, raisons
-            visibles, zéro ghosting.
+            Gaming, sport, études, musique. Matching clair,
+            raisons visibles, zéro ghosting.
           </Subtitle>
         </Animated.View>
 

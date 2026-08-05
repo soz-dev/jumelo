@@ -17,7 +17,7 @@ import {
   resolveTheme,
   themePalettes,
 } from '../constants/theme';
-import { useAuth } from './AuthContext';
+// import { useAuth } from './AuthContext'; // standby sync profil thème
 
 const STORAGE_KEY = '@jumelo/theme';
 
@@ -34,7 +34,7 @@ type ThemeContextValue = {
 const ThemeContext = createContext<ThemeContextValue | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const { user, updateProfile } = useAuth();
+  // const { user, updateProfile } = useAuth();
   const [themeId, setThemeIdState] = useState<ThemeId>(DEFAULT_THEME_ID);
   const [loading, setLoading] = useState(true);
 
@@ -42,15 +42,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     let active = true;
     (async () => {
       try {
+        // Standby multi-thèmes : forcer la charte bleue Jumelo.
+        if (active) {
+          setThemeIdState(DEFAULT_THEME_ID);
+          await AsyncStorage.setItem(STORAGE_KEY, DEFAULT_THEME_ID);
+        }
+        /*
         const raw = await AsyncStorage.getItem(STORAGE_KEY);
         if (!active) return;
         if (raw && themePalettes.some((p) => p.id === raw)) {
           setThemeIdState(raw as ThemeId);
         } else {
-          // Première visite / pas de préférence → charte logo Jumelo
           setThemeIdState(DEFAULT_THEME_ID);
           await AsyncStorage.setItem(STORAGE_KEY, DEFAULT_THEME_ID);
         }
+        */
       } finally {
         if (active) setLoading(false);
       }
@@ -60,7 +66,8 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Prefer profile.themeId when logged in (Supabase or local)
+  /*
+  // Prefer profile.themeId when logged in — standby
   useEffect(() => {
     if (!user?.themeId) return;
     if (!themePalettes.some((p) => p.id === user.themeId)) return;
@@ -68,24 +75,30 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
     setThemeIdState(user.themeId);
     AsyncStorage.setItem(STORAGE_KEY, user.themeId).catch(() => undefined);
   }, [user?.themeId, themeId]);
+  */
 
-  const setThemeId = useCallback(
-    async (id: ThemeId) => {
-      setThemeIdState(id);
-      await AsyncStorage.setItem(STORAGE_KEY, id);
-      // AsyncStorage = cache locale ; profiles.theme_id via updateProfile si connecté
-      if (user && user.themeId !== id) {
-        await updateProfile({ themeId: id });
-      }
-    },
-    [user, updateProfile],
-  );
+  const setThemeId = useCallback(async (_id: ThemeId) => {
+    // Standby : ignore les changements, reste sur bleu.
+    setThemeIdState(DEFAULT_THEME_ID);
+    await AsyncStorage.setItem(STORAGE_KEY, DEFAULT_THEME_ID);
+    /*
+    setThemeIdState(id);
+    await AsyncStorage.setItem(STORAGE_KEY, id);
+    if (user && user.themeId !== id) {
+      await updateProfile({ themeId: id });
+    }
+    */
+  }, []);
 
   const cycleTheme = useCallback(async () => {
+    // Standby : no-op
+    await setThemeId(DEFAULT_THEME_ID);
+    /*
     const index = themePalettes.findIndex((p) => p.id === themeId);
     const next = themePalettes[(index + 1) % themePalettes.length];
     await setThemeId(next.id);
-  }, [setThemeId, themeId]);
+    */
+  }, [setThemeId]);
 
   const palette = useMemo(() => resolveTheme(themeId), [themeId]);
   const colors = useMemo(() => buildColors(palette), [palette]);

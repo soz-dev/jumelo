@@ -1,17 +1,47 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Redirect, Tabs, useFocusEffect } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 
 import { elevation, fonts, Icon, type IconName, withHexAlpha } from '../../src/design-system';
 import { useAuth } from '../../src/context/AuthContext';
+import { useTeams } from '../../src/context/TeamsContext';
 import { useTheme } from '../../src/context/ThemeContext';
+import { countMyDmUnread } from '../../src/lib/api/messages';
+import { countTeamChatsUnread } from '../../src/lib/api/teamChats';
 
 function TabIcon({ name, color, focused }: { name: IconName; color: string; focused: boolean }) {
   return <Icon name={name} size={24} color={color} weight={focused ? 'fill' : 'regular'} />;
 }
 
+function formatUnread(n: number): string {
+  return n > 9 ? '9+' : String(n);
+}
+
 export default function TabsLayout() {
   const { user, loading } = useAuth();
   const { colors } = useTheme();
+  const { teams } = useTeams();
+  const [messagesUnread, setMessagesUnread] = useState(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        if (!user?.id) {
+          if (active) setMessagesUnread(0);
+          return;
+        }
+        const [dms, groups] = await Promise.all([
+          countMyDmUnread(user.id),
+          countTeamChatsUnread(user.id, teams),
+        ]);
+        if (active) setMessagesUnread(dms + groups);
+      })();
+      return () => {
+        active = false;
+      };
+    }, [user?.id, teams]),
+  );
 
   if (loading) {
     return (
@@ -63,7 +93,8 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="discover"
         options={{
-          title: 'Discover',
+          title: 'Du jour',
+          tabBarAccessibilityLabel: 'Proposition du jour',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="discover" color={color} focused={focused} />
           ),
@@ -72,9 +103,10 @@ export default function TabsLayout() {
       <Tabs.Screen
         name="teams"
         options={{
-          title: 'Équipes',
+          title: 'Lobby',
+          tabBarAccessibilityLabel: 'Lobby',
           tabBarIcon: ({ color, focused }) => (
-            <TabIcon name="teams" color={color} focused={focused} />
+            <TabIcon name="social" color={color} focused={focused} />
           ),
         }}
       />
@@ -82,6 +114,13 @@ export default function TabsLayout() {
         name="chat"
         options={{
           title: 'Messages',
+          tabBarBadge: messagesUnread > 0 ? formatUnread(messagesUnread) : undefined,
+          tabBarBadgeStyle: {
+            backgroundColor: '#EF4444',
+            color: '#fff',
+            fontSize: 11,
+            fontFamily: fonts.bodyBold,
+          },
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="chat" color={color} focused={focused} />
           ),

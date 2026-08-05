@@ -19,6 +19,7 @@ const KIND_ICON: Record<CommonPoint['kind'], IconName> = {
   vibe: 'vibe',
   city: 'city',
   availability: 'soir',
+  age: 'pulse',
 };
 
 type Props = {

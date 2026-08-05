@@ -26,7 +26,6 @@ import { LEGAL_VERSION, acceptLegal } from '../../src/legal';
 import {
   APPLE_FIREBASE_EXPO_GO_MESSAGE,
   APPLE_WEB_UNSUPPORTED_MESSAGE,
-  GOOGLE_WORKSPACE_HINT_FR,
   isExpoGoRuntime,
 } from '../../src/lib/firebaseAuth';
 
@@ -34,21 +33,6 @@ const isWeb = Platform.OS === 'web';
 /** iPhone → Apple ; Android / web → Google. */
 const showAppleButton = Platform.OS === 'ios';
 const showGoogleButton = Platform.OS === 'android' || isWeb;
-
-async function confirmGoogleHint(): Promise<boolean> {
-  if (Platform.OS === 'web') {
-    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
-      return window.confirm(`${GOOGLE_WORKSPACE_HINT_FR}\n\nContinuer avec Google ?`);
-    }
-    return true;
-  }
-  return new Promise<boolean>((resolve) => {
-    Alert.alert('Compte Google', GOOGLE_WORKSPACE_HINT_FR, [
-      { text: 'Annuler', style: 'cancel', onPress: () => resolve(false) },
-      { text: 'Continuer', onPress: () => resolve(true) },
-    ]);
-  });
-}
 
 export default function RegisterScreen() {
   const { register, loginWithProvider } = useAuth();
@@ -98,10 +82,7 @@ export default function RegisterScreen() {
       );
       return;
     }
-    if (provider === 'google') {
-      const proceed = await confirmGoogleHint();
-      if (!proceed) return;
-    }
+    // Pas de confirm/Alert avant Google : ça casse le geste → popup bloquée (même sur PC).
     setOauthLoading(provider);
     setError('');
     const result = await loginWithProvider(provider);

@@ -11,7 +11,7 @@ export function LegalDocumentView({ document }: { document: LegalDocument }) {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
-      <SettingsBackHeader title={document.title} />
+      <SettingsBackHeader title={document.title} fallback="/settings" />
       <ScrollView
         contentContainerStyle={styles.content}
         accessibilityRole="scrollbar"

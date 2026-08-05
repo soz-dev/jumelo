@@ -58,19 +58,11 @@ const gamePlatforms = platforms.filter((p) =>
 );
 
 const pcDiscord = platforms.filter((p) => ['pc', 'discord'].includes(p.id));
-const pcMobileDiscord = platforms.filter((p) =>
-  ['pc', 'mobile', 'discord'].includes(p.id),
+const mobileDiscord = platforms.filter((p) =>
+  ['mobile', 'discord'].includes(p.id),
 );
 const consolePlus = platforms.filter((p) =>
   ['pc', 'psn', 'xbox', 'switch', 'discord'].includes(p.id),
-);
-const irlOnly = platforms.filter((p) => p.id === 'irl');
-const irlOnline = platforms.filter((p) => ['irl', 'online'].includes(p.id));
-const irlOnlineDiscord = platforms.filter((p) =>
-  ['irl', 'online', 'discord'].includes(p.id),
-);
-const onlineDiscord = platforms.filter((p) =>
-  ['online', 'discord'].includes(p.id),
 );
 
 export const categories: Category[] = [
@@ -81,37 +73,24 @@ export const categories: Category[] = [
     emoji: '🎮',
     description: 'Online, solo, compétitif ou chill',
     color: '#7C5CFC',
+    /** Top jeux les plus joués — catalogue volontairement court */
     subCategories: [
       { id: 'valorant', label: 'Valorant', emoji: '🔫', platforms: gamePlatforms },
-      { id: 'lol', label: 'League of Legends', emoji: '⚔️', platforms: pcMobileDiscord },
-      { id: 'cod', label: 'Call of Duty', emoji: '💥', platforms: gamePlatforms },
+      { id: 'lol', label: 'League of Legends', emoji: '⚔️', platforms: pcDiscord },
+      {
+        id: 'wild-rift',
+        label: 'Wild Rift',
+        emoji: '📱',
+        platforms: mobileDiscord,
+      },
+      { id: 'cod', label: 'Call of Duty / Warzone', emoji: '💥', platforms: gamePlatforms },
       { id: 'fortnite', label: 'Fortnite', emoji: '🏗️', platforms: gamePlatforms },
       { id: 'minecraft', label: 'Minecraft', emoji: '⛏️', platforms: gamePlatforms },
       { id: 'fifa', label: 'FIFA / EA FC', emoji: '⚽', platforms: gamePlatforms },
       { id: 'rocket-league', label: 'Rocket League', emoji: '🚗', platforms: gamePlatforms },
       { id: 'apex', label: 'Apex Legends', emoji: '🪂', platforms: gamePlatforms },
       { id: 'cs2', label: 'Counter-Strike 2', emoji: '🎯', platforms: pcDiscord },
-      { id: 'overwatch', label: 'Overwatch 2', emoji: '🦸', platforms: consolePlus },
       { id: 'gta', label: 'GTA Online', emoji: '🚓', platforms: consolePlus },
-      { id: 'warzone', label: 'Warzone', emoji: '🪖', platforms: gamePlatforms },
-      { id: 'destiny', label: 'Destiny 2', emoji: '🌑', platforms: consolePlus },
-      { id: 'diablo', label: 'Diablo', emoji: '😈', platforms: consolePlus },
-      { id: 'wow', label: 'World of Warcraft', emoji: '🐉', platforms: pcDiscord },
-      { id: 'genshin', label: 'Genshin Impact', emoji: '✨', platforms: pcMobileDiscord },
-      { id: 'roblox', label: 'Roblox', emoji: '🧱', platforms: gamePlatforms },
-      { id: 'among-us', label: 'Among Us', emoji: '🚨', platforms: gamePlatforms },
-      { id: 'pokemon', label: 'Pokémon', emoji: '⚡', platforms: platforms.filter((p) => ['switch', 'mobile', 'discord'].includes(p.id)) },
-      { id: 'zelda', label: 'Zelda', emoji: '🗡️', platforms: platforms.filter((p) => ['switch', 'discord'].includes(p.id)) },
-      { id: 'street-fighter', label: 'Street Fighter', emoji: '👊', platforms: consolePlus },
-      { id: 'tekken', label: 'Tekken', emoji: '🥋', platforms: consolePlus },
-      { id: 'smash', label: 'Super Smash Bros', emoji: '💥', platforms: platforms.filter((p) => ['switch', 'discord'].includes(p.id)) },
-      { id: 'overcooked', label: 'Overcooked', emoji: '🍲', platforms: consolePlus },
-      { id: 'it-takes-two', label: 'It Takes Two', emoji: '🧩', platforms: consolePlus },
-      { id: 'lethal-company', label: 'Lethal Company', emoji: '👻', platforms: pcDiscord },
-      { id: 'phasmophobia', label: 'Phasmophobia', emoji: '🔦', platforms: pcDiscord },
-      { id: 'stardew', label: 'Stardew Valley', emoji: '🌾', platforms: gamePlatforms },
-      { id: 'indie-coop', label: 'Indie co-op', emoji: '🎲', platforms: gamePlatforms },
-      { id: 'autre-jeu', label: 'Autre jeu', emoji: '🕹️', platforms: gamePlatforms },
     ],
   },
   {
@@ -122,31 +101,31 @@ export const categories: Category[] = [
     description: 'Foot, muscu, running et plus',
     color: '#0F8F8A',
     subCategories: [
-      { id: 'football', label: 'Football', emoji: '⚽', platforms: irlOnline },
-      { id: 'muscu', label: 'Musculation', emoji: '🏋️', platforms: irlOnly },
-      { id: 'running', label: 'Running', emoji: '🏃', platforms: irlOnly },
-      { id: 'basket', label: 'Basket', emoji: '🏀', platforms: irlOnly },
-      { id: 'tennis', label: 'Tennis', emoji: '🎾', platforms: irlOnly },
-      { id: 'padel', label: 'Padel', emoji: '🏸', platforms: irlOnly },
-      { id: 'badminton', label: 'Badminton', emoji: '🏸', platforms: irlOnly },
-      { id: 'volley', label: 'Volley', emoji: '🏐', platforms: irlOnly },
-      { id: 'handball', label: 'Handball', emoji: '🤾', platforms: irlOnly },
-      { id: 'rugby', label: 'Rugby', emoji: '🏉', platforms: irlOnly },
-      { id: 'natation', label: 'Natation', emoji: '🏊', platforms: irlOnly },
-      { id: 'velo', label: 'Vélo / cyclisme', emoji: '🚴', platforms: irlOnly },
-      { id: 'randonnee', label: 'Randonnée', emoji: '🥾', platforms: irlOnly },
-      { id: 'escalade', label: 'Escalade', emoji: '🧗', platforms: irlOnly },
-      { id: 'yoga', label: 'Yoga', emoji: '🧘', platforms: irlOnline },
-      { id: 'pilates', label: 'Pilates', emoji: '🤸', platforms: irlOnline },
-      { id: 'crossfit', label: 'CrossFit', emoji: '💥', platforms: irlOnly },
-      { id: 'boxe', label: 'Boxe', emoji: '🥊', platforms: irlOnly },
-      { id: 'arts-martiaux', label: 'Arts martiaux', emoji: '🥋', platforms: irlOnly },
-      { id: 'danse', label: 'Danse', emoji: '💃', platforms: irlOnline },
-      { id: 'skate', label: 'Skate / roller', emoji: '🛹', platforms: irlOnly },
-      { id: 'ski', label: 'Ski / snowboard', emoji: '⛷️', platforms: irlOnly },
-      { id: 'golf', label: 'Golf', emoji: '⛳', platforms: irlOnly },
-      { id: 'fitness', label: 'Fitness / HIIT', emoji: '🔥', platforms: irlOnline },
-      { id: 'autre-sport', label: 'Autre sport', emoji: '🏅', platforms: irlOnline },
+      { id: 'football', label: 'Football', emoji: '⚽' },
+      { id: 'muscu', label: 'Musculation', emoji: '🏋️' },
+      { id: 'running', label: 'Running', emoji: '🏃' },
+      { id: 'basket', label: 'Basket', emoji: '🏀' },
+      { id: 'tennis', label: 'Tennis', emoji: '🎾' },
+      { id: 'padel', label: 'Padel', emoji: '🏸' },
+      { id: 'badminton', label: 'Badminton', emoji: '🏸' },
+      { id: 'volley', label: 'Volley', emoji: '🏐' },
+      { id: 'handball', label: 'Handball', emoji: '🤾' },
+      { id: 'rugby', label: 'Rugby', emoji: '🏉' },
+      { id: 'natation', label: 'Natation', emoji: '🏊' },
+      { id: 'velo', label: 'Vélo / cyclisme', emoji: '🚴' },
+      { id: 'randonnee', label: 'Randonnée', emoji: '🥾' },
+      { id: 'escalade', label: 'Escalade', emoji: '🧗' },
+      { id: 'yoga', label: 'Yoga', emoji: '🧘' },
+      { id: 'pilates', label: 'Pilates', emoji: '🤸' },
+      { id: 'crossfit', label: 'CrossFit', emoji: '💥' },
+      { id: 'boxe', label: 'Boxe', emoji: '🥊' },
+      { id: 'arts-martiaux', label: 'Arts martiaux', emoji: '🥋' },
+      { id: 'danse', label: 'Danse', emoji: '💃' },
+      { id: 'skate', label: 'Skate / roller', emoji: '🛹' },
+      { id: 'ski', label: 'Ski / snowboard', emoji: '⛷️' },
+      { id: 'golf', label: 'Golf', emoji: '⛳' },
+      { id: 'fitness', label: 'Fitness / HIIT', emoji: '🔥' },
+      { id: 'autre-sport', label: 'Autre sport', emoji: '🏅' },
     ],
   },
   {
@@ -157,16 +136,16 @@ export const categories: Category[] = [
     description: 'Études, langues, révision',
     color: '#3B82F6',
     subCategories: [
-      { id: 'maths', label: 'Maths', emoji: '➗', platforms: irlOnlineDiscord },
-      { id: 'anglais', label: 'Anglais', emoji: '🇬🇧', platforms: irlOnlineDiscord },
-      { id: 'code', label: 'Code', emoji: '💻', platforms: irlOnlineDiscord },
-      { id: 'design', label: 'Design', emoji: '🎨', platforms: irlOnlineDiscord },
-      { id: 'prepa', label: 'Prépa', emoji: '📝', platforms: irlOnline },
-      { id: 'langues', label: 'Langues', emoji: '🗣️', platforms: irlOnlineDiscord },
-      { id: 'physique', label: 'Physique / chimie', emoji: '⚗️', platforms: irlOnlineDiscord },
-      { id: 'eco', label: 'Éco / gestion', emoji: '📊', platforms: irlOnlineDiscord },
-      { id: 'droit', label: 'Droit', emoji: '⚖️', platforms: irlOnlineDiscord },
-      { id: 'medecine', label: 'Médecine / santé', emoji: '🩺', platforms: irlOnlineDiscord },
+      { id: 'maths', label: 'Maths', emoji: '➗' },
+      { id: 'anglais', label: 'Anglais', emoji: '🇬🇧' },
+      { id: 'code', label: 'Code', emoji: '💻' },
+      { id: 'design', label: 'Design', emoji: '🎨' },
+      { id: 'prepa', label: 'Prépa', emoji: '📝' },
+      { id: 'langues', label: 'Langues', emoji: '🗣️' },
+      { id: 'physique', label: 'Physique / chimie', emoji: '⚗️' },
+      { id: 'eco', label: 'Éco / gestion', emoji: '📊' },
+      { id: 'droit', label: 'Droit', emoji: '⚖️' },
+      { id: 'medecine', label: 'Médecine / santé', emoji: '🩺' },
     ],
   },
   {
@@ -177,24 +156,24 @@ export const categories: Category[] = [
     description: 'Jam, instruments, prod, chorale',
     color: '#F59E0B',
     subCategories: [
-      { id: 'guitare', label: 'Guitare', emoji: '🎸', platforms: irlOnlineDiscord },
-      { id: 'basse', label: 'Basse', emoji: '🎸', platforms: irlOnlineDiscord },
-      { id: 'piano', label: 'Piano', emoji: '🎹', platforms: irlOnline },
-      { id: 'batterie', label: 'Batterie', emoji: '🥁', platforms: irlOnly },
-      { id: 'violon', label: 'Violon', emoji: '🎻', platforms: irlOnline },
-      { id: 'ukulele', label: 'Ukulélé', emoji: '🪕', platforms: irlOnline },
-      { id: 'saxophone', label: 'Saxophone', emoji: '🎷', platforms: irlOnly },
-      { id: 'trompette', label: 'Trompette', emoji: '🎺', platforms: irlOnly },
-      { id: 'flute', label: 'Flûte', emoji: '🎶', platforms: irlOnline },
-      { id: 'synthe', label: 'Synthétiseur', emoji: '🎛️', platforms: irlOnlineDiscord },
-      { id: 'chant', label: 'Chant', emoji: '🎤', platforms: irlOnline },
-      { id: 'chorale', label: 'Chorale', emoji: '👥', platforms: irlOnly },
-      { id: 'prod', label: 'Prod / DAW', emoji: '🎧', platforms: onlineDiscord },
-      { id: 'composition', label: 'Composition', emoji: '🎼', platforms: irlOnlineDiscord },
-      { id: 'dj', label: 'DJ', emoji: '🎚️', platforms: irlOnline },
-      { id: 'beatbox', label: 'Beatbox', emoji: '🎙️', platforms: irlOnline },
-      { id: 'jam', label: 'Jam session', emoji: '🎵', platforms: irlOnlineDiscord },
-      { id: 'autre-musique', label: 'Autre instrument', emoji: '🎻', platforms: irlOnline },
+      { id: 'guitare', label: 'Guitare', emoji: '🎸' },
+      { id: 'basse', label: 'Basse', emoji: '🎸' },
+      { id: 'piano', label: 'Piano', emoji: '🎹' },
+      { id: 'batterie', label: 'Batterie', emoji: '🥁' },
+      { id: 'violon', label: 'Violon', emoji: '🎻' },
+      { id: 'ukulele', label: 'Ukulélé', emoji: '🪕' },
+      { id: 'saxophone', label: 'Saxophone', emoji: '🎷' },
+      { id: 'trompette', label: 'Trompette', emoji: '🎺' },
+      { id: 'flute', label: 'Flûte', emoji: '🎶' },
+      { id: 'synthe', label: 'Synthétiseur', emoji: '🎛️' },
+      { id: 'chant', label: 'Chant', emoji: '🎤' },
+      { id: 'chorale', label: 'Chorale', emoji: '👥' },
+      { id: 'prod', label: 'Prod / DAW', emoji: '🎧' },
+      { id: 'composition', label: 'Composition', emoji: '🎼' },
+      { id: 'dj', label: 'DJ', emoji: '🎚️' },
+      { id: 'beatbox', label: 'Beatbox', emoji: '🎙️' },
+      { id: 'jam', label: 'Jam session', emoji: '🎵' },
+      { id: 'autre-musique', label: 'Autre instrument', emoji: '🎻' },
     ],
   },
   {
@@ -205,26 +184,26 @@ export const categories: Category[] = [
     description: 'Créa, culture, passions & sorties',
     color: '#EC4899',
     subCategories: [
-      { id: 'lecture', label: 'Lecture', emoji: '📖', platforms: irlOnlineDiscord },
-      { id: 'ecriture', label: 'Écriture', emoji: '✍️', platforms: irlOnlineDiscord },
-      { id: 'musees', label: 'Musées', emoji: '🏛️', platforms: irlOnly },
-      { id: 'histoire', label: 'Histoire', emoji: '📜', platforms: irlOnlineDiscord },
-      { id: 'cinema', label: 'Cinéma', emoji: '🎬', platforms: irlOnline },
-      { id: 'theatre', label: 'Théâtre', emoji: '🎭', platforms: irlOnly },
-      { id: 'photo', label: 'Photo', emoji: '📷', platforms: irlOnline },
-      { id: 'dessin', label: 'Dessin / art', emoji: '🎨', platforms: irlOnlineDiscord },
-      { id: 'cuisine', label: 'Cuisine', emoji: '🍳', platforms: irlOnly },
-      { id: 'jardinage', label: 'Jardinage', emoji: '🌱', platforms: irlOnly },
-      { id: 'voyage', label: 'Voyage', emoji: '✈️', platforms: irlOnline },
-      { id: 'board-games', label: 'Jeux de société', emoji: '🎲', platforms: irlOnline },
-      { id: 'escape-game', label: 'Escape game', emoji: '🔐', platforms: irlOnly },
-      { id: 'astronomie', label: 'Astronomie', emoji: '🔭', platforms: irlOnline },
-      { id: 'bricolage', label: 'Bricolage / DIY', emoji: '🛠️', platforms: irlOnly },
-      { id: 'couture', label: 'Couture', emoji: '🧵', platforms: irlOnline },
-      { id: 'podcasts', label: 'Podcasts', emoji: '🎧', platforms: onlineDiscord },
-      { id: 'benevolat', label: 'Bénévolat', emoji: '🤝', platforms: irlOnline },
-      { id: 'startup', label: 'Startup / side-project', emoji: '🚀', platforms: irlOnlineDiscord },
-      { id: 'autre-hobby', label: 'Autre hobby', emoji: '💫', platforms: irlOnline },
+      { id: 'lecture', label: 'Lecture', emoji: '📖' },
+      { id: 'ecriture', label: 'Écriture', emoji: '✍️' },
+      { id: 'musees', label: 'Musées', emoji: '🏛️' },
+      { id: 'histoire', label: 'Histoire', emoji: '📜' },
+      { id: 'cinema', label: 'Cinéma', emoji: '🎬' },
+      { id: 'theatre', label: 'Théâtre', emoji: '🎭' },
+      { id: 'photo', label: 'Photo', emoji: '📷' },
+      { id: 'dessin', label: 'Dessin / art', emoji: '🎨' },
+      { id: 'cuisine', label: 'Cuisine', emoji: '🍳' },
+      { id: 'jardinage', label: 'Jardinage', emoji: '🌱' },
+      { id: 'voyage', label: 'Voyage', emoji: '✈️' },
+      { id: 'board-games', label: 'Jeux de société', emoji: '🎲' },
+      { id: 'escape-game', label: 'Escape game', emoji: '🔐' },
+      { id: 'astronomie', label: 'Astronomie', emoji: '🔭' },
+      { id: 'bricolage', label: 'Bricolage / DIY', emoji: '🛠️' },
+      { id: 'couture', label: 'Couture', emoji: '🧵' },
+      { id: 'podcasts', label: 'Podcasts', emoji: '🎧' },
+      { id: 'benevolat', label: 'Bénévolat', emoji: '🤝' },
+      { id: 'startup', label: 'Startup / side-project', emoji: '🚀' },
+      { id: 'autre-hobby', label: 'Autre hobby', emoji: '💫' },
     ],
   },
 ];
@@ -247,6 +226,95 @@ export function getCategory(id: UniverseId) {
 
 export function getSubCategory(universeId: UniverseId, subId: string) {
   return getCategory(universeId)?.subCategories.find((s) => s.id === subId);
+}
+
+export type CatalogInterestMatch = {
+  id: string;
+  label: string;
+  universeId: UniverseId;
+};
+
+/** Résout un intérêt profil (label ou id) vers une sous-catégorie catalogue. */
+export function findInterestInCatalog(
+  interest: string,
+): CatalogInterestMatch | null {
+  const n = interest.trim().toLowerCase();
+  if (!n) return null;
+  for (const cat of categories) {
+    const sub = cat.subCategories.find(
+      (s) => s.id.toLowerCase() === n || s.label.toLowerCase() === n,
+    );
+    if (sub) {
+      return { id: sub.id, label: sub.label, universeId: cat.id };
+    }
+  }
+  return null;
+}
+
+/** Alias courts / familiers → id sous-catégorie (matching texte libre équipes). */
+const CATALOG_TEXT_ALIASES: Record<string, string[]> = {
+  football: ['foot', 'soccer'],
+  valorant: ['valo'],
+  lol: ['league', 'league of legends'],
+  'wild-rift': ['wild rift', 'wr'],
+  cod: ['warzone', 'call of duty'],
+  fifa: ['ea fc', 'fc 25', 'fc25'],
+  muscu: ['musculation', 'salle'],
+  'rocket-league': ['rocket league', 'rl'],
+  cs2: ['counter-strike', 'csgo', 'cs:go'],
+  prepa: ['concours', 'inge', 'ingé'],
+};
+
+function catalogNeedleMatches(haystack: string, needle: string): boolean {
+  const n = needle.trim().toLowerCase();
+  if (!n || !haystack.includes(n)) return false;
+  // Ids très courts : exiger une borne (évite « art » dans un mot).
+  if (n.length <= 2) {
+    return new RegExp(`(^|[^a-z0-9])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}([^a-z0-9]|$)`).test(
+      haystack,
+    );
+  }
+  return true;
+}
+
+/**
+ * Résout une sous-catégorie depuis un texte libre (nom + activité d’équipe).
+ * Préfère l’univers fourni et le libellé / alias le plus long.
+ */
+export function findCatalogInText(
+  text: string,
+  universeId?: UniverseId | null,
+): CatalogInterestMatch | null {
+  const exact = findInterestInCatalog(text);
+  if (exact && (!universeId || exact.universeId === universeId)) return exact;
+
+  const hay = text.trim().toLowerCase();
+  if (!hay) return null;
+
+  const cats = universeId
+    ? categories.filter((c) => c.id === universeId)
+    : categories;
+
+  let best: CatalogInterestMatch | null = null;
+  let bestLen = 0;
+
+  for (const cat of cats) {
+    for (const sub of cat.subCategories) {
+      const needles = [
+        sub.id,
+        sub.label,
+        ...(CATALOG_TEXT_ALIASES[sub.id] ?? []),
+      ];
+      for (const needle of needles) {
+        const len = needle.trim().length;
+        if (len < bestLen) continue;
+        if (!catalogNeedleMatches(hay, needle)) continue;
+        best = { id: sub.id, label: sub.label, universeId: cat.id };
+        bestLen = len;
+      }
+    }
+  }
+  return best;
 }
 
 export const levels: { id: Level; label: string }[] = [
@@ -291,38 +359,18 @@ export const vibesByUniverse: Record<UniverseId, Vibe[]> = {
  * Ex. cuisine n’a pas « compétitif » ; Valorant reste orienté ranked.
  */
 export const vibesBySubCategory: Partial<Record<string, Vibe[]>> = {
-  // Gaming — compétitif
+  // Gaming (top 10)
   valorant: ['competitif', 'casual', 'fun'],
   lol: ['competitif', 'casual', 'fun', 'serieux'],
+  'wild-rift': ['competitif', 'casual', 'fun', 'serieux'],
   cod: ['competitif', 'casual', 'fun'],
   fortnite: ['competitif', 'casual', 'fun'],
   fifa: ['competitif', 'casual', 'fun'],
   'rocket-league': ['competitif', 'casual', 'fun'],
   apex: ['competitif', 'casual', 'fun'],
   cs2: ['competitif', 'casual', 'fun', 'serieux'],
-  overwatch: ['competitif', 'casual', 'fun', 'social'],
-  warzone: ['competitif', 'casual', 'fun'],
-  'street-fighter': ['competitif', 'casual', 'fun', 'serieux'],
-  tekken: ['competitif', 'casual', 'fun', 'serieux'],
-  smash: ['competitif', 'casual', 'fun', 'social'],
-  // Gaming — chill / créatif / coop
   minecraft: ['casual', 'fun', 'creatif', 'chill'],
   gta: ['casual', 'fun', 'social', 'chill'],
-  destiny: ['competitif', 'casual', 'social', 'serieux'],
-  diablo: ['casual', 'fun', 'competitif', 'chill'],
-  wow: ['casual', 'social', 'serieux', 'fun'],
-  genshin: ['casual', 'chill', 'fun', 'social'],
-  roblox: ['casual', 'fun', 'creatif', 'social'],
-  'among-us': ['fun', 'social', 'casual'],
-  pokemon: ['casual', 'fun', 'chill', 'social'],
-  zelda: ['casual', 'chill', 'fun'],
-  overcooked: ['fun', 'social', 'casual'],
-  'it-takes-two': ['fun', 'casual', 'chill', 'social'],
-  'lethal-company': ['fun', 'social', 'casual'],
-  phasmophobia: ['fun', 'social', 'casual', 'chill'],
-  stardew: ['chill', 'casual', 'creatif', 'social'],
-  'indie-coop': ['casual', 'fun', 'chill', 'social'],
-  'autre-jeu': ['casual', 'fun', 'competitif', 'social'],
   // Sports
   yoga: ['chill', 'casual', 'serieux'],
   pilates: ['chill', 'casual', 'serieux'],

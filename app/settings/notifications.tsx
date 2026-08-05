@@ -31,6 +31,7 @@ export default function NotificationsSettingsScreen() {
       <SettingsBackHeader
         title="Notifications"
         subtitle="Push iOS / Android + préférences locales"
+        fallback="/settings"
       />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.note, { color: colors.inkMuted }]}>

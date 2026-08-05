@@ -7,9 +7,10 @@ import { isOfficialJumelage } from './matching';
  * Un jumelage officiel exige toujours score ≥ MATCH_THRESHOLD (80%), y compris
  * en cas d’invite mutuelle. En dessous : invite seule / toast, pas de célébration.
  *
- * Cas de test (voir TEST.md) :
- * - Home → « Invite reçue » → Maxime (≥80%) → Jumeler aussi
- * - Home → « Jumelage mutuel » → Maya (≥80%) dans Discover → jumelage
+ * Cas de test (Home · DEV) :
+ * - « Invite reçue » → Maxime (≥80%) → Jumeler aussi
+ * - « Jumelage mutuel » → Maya (≥80%) dans Discover → jumelage
+ * - « Match aléatoire » → participant random ≥80% → écran match-success
  * - Premier swipe Discover avec score ≥ 80 → « C’est un jumelage ! »
  * - Score < 80 → toast seulement (pas de jumelage)
  */

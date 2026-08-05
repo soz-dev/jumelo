@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { Href } from 'expo-router';
 import type { ReactNode } from 'react';
 import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
 
@@ -9,15 +10,18 @@ import { safeBack } from '../lib/navigation';
 export function SettingsBackHeader({
   title,
   subtitle,
+  fallback = '/(tabs)/profile',
 }: {
   title: string;
   subtitle?: string;
+  /** Écran de repli si l’historique est vide (deep link). */
+  fallback?: Href;
 }) {
   const { colors } = useTheme();
   return (
     <View style={styles.header}>
       <Pressable
-        onPress={() => safeBack('/(tabs)/profile')}
+        onPress={() => safeBack(fallback)}
         accessibilityRole="button"
         accessibilityLabel="Retour"
         style={[styles.backBtn, { backgroundColor: colors.white, borderColor: colors.border }]}

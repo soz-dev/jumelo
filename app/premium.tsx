@@ -23,7 +23,7 @@ const BENEFITS = [
   {
     icon: 'sparkles-outline' as const,
     title: 'Priorité jumelage',
-    hint: 'Bientôt — plus de visibilité dans Discover',
+    hint: 'Bientôt — plus de visibilité sur le Jumelo du jour',
   },
 ];
 

@@ -27,7 +27,11 @@ export default function ConsentsScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
-      <SettingsBackHeader title="Consentements" subtitle="Gérez vos choix" />
+      <SettingsBackHeader
+        title="Consentements"
+        subtitle="Gérez vos choix"
+        fallback="/settings"
+      />
       <ScrollView contentContainerStyle={styles.content}>
         <SettingsSectionLabel label="Essentiels" />
         <View style={[styles.card, { backgroundColor: colors.white, borderColor: colors.border }]}>

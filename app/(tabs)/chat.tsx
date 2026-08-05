@@ -27,9 +27,12 @@ import { useAuth } from '../../src/context/AuthContext';
 import { useTeams } from '../../src/context/TeamsContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import { mockUsers } from '../../src/data/mock';
+import { useIsAdmin } from '../../src/lib/admin';
 import { listAdminNotices, type AdminNotice } from '../../src/lib/adminStore';
 import { listMyDmThreads, type DmThread } from '../../src/lib/api/messages';
 import { listTeamChatsForMember } from '../../src/lib/api/teamChats';
+
+const UNREAD_BADGE = '#EF4444';
 
 type ListThread = {
   id: string;
@@ -37,17 +40,26 @@ type ListThread = {
   preview: string;
   updatedAt: string;
   unread: number;
+  lastFromMe?: boolean;
+  readStatus?: 'vu' | 'envoye' | null;
   peerId?: string;
   photo?: string;
   avatarColor?: string;
   avatarLetter?: string;
   isGroup?: boolean;
+  /** true = chat jumelo ; undefined = DM */
+  isDuoChat?: boolean;
 };
+
+function formatUnread(n: number): string {
+  return n > 9 ? '9+' : String(n);
+}
 
 export default function ChatListScreen() {
   const { colors } = useTheme();
   const { user, usingSupabase } = useAuth();
   const { teams } = useTeams();
+  const isAdmin = useIsAdmin();
   const [query, setQuery] = useState('');
   const [remoteThreads, setRemoteThreads] = useState<DmThread[]>([]);
   const [teamThreads, setTeamThreads] = useState<ListThread[]>([]);
@@ -58,8 +70,12 @@ export default function ChatListScreen() {
       let active = true;
 
       (async () => {
-        const notices = await listAdminNotices();
-        if (active) setAdminNotices(notices);
+        if (isAdmin) {
+          const notices = await listAdminNotices();
+          if (active) setAdminNotices(notices);
+        } else if (active) {
+          setAdminNotices([]);
+        }
 
         if (!user?.id) {
           if (active) {
@@ -77,23 +93,31 @@ export default function ChatListScreen() {
         if (!active) return;
         setRemoteThreads(rows);
         setTeamThreads(
-          groups.map((t) => ({
-            id: t.id,
-            name: t.name,
-            preview: t.preview,
-            updatedAt: t.updatedAt,
-            unread: t.unread,
-            avatarColor: t.avatarColor,
-            avatarLetter: t.avatarLetter,
-            isGroup: true,
-          })),
+          groups
+            .filter((t) => {
+              const team = teams.find((item) => item.id === t.teamId);
+              return !team || team.capacity <= 2;
+            })
+            .map((t) => ({
+              id: t.id,
+              name: t.name,
+              preview: t.preview,
+              updatedAt: t.updatedAt,
+              unread: t.unread,
+              lastFromMe: t.lastFromMe,
+              readStatus: t.readStatus,
+              avatarColor: t.avatarColor,
+              avatarLetter: t.avatarLetter,
+              isGroup: true,
+              isDuoChat: true,
+            })),
         );
       })();
 
       return () => {
         active = false;
       };
-    }, [usingSupabase, user, teams]),
+    }, [usingSupabase, user, teams, isAdmin]),
   );
 
   const threads = useMemo(() => {
@@ -105,6 +129,8 @@ export default function ChatListScreen() {
       preview: t.preview,
       updatedAt: t.updatedAt,
       unread: t.unread,
+      lastFromMe: t.lastFromMe,
+      readStatus: t.readStatus,
       peerId: t.peerId,
       photo: t.peerPhoto,
       avatarColor: t.peerAvatarColor,
@@ -122,6 +148,8 @@ export default function ChatListScreen() {
         preview: n.body,
         updatedAt: 'Admin',
         unread: 1,
+        lastFromMe: true,
+        readStatus: 'envoye',
         peerId: n.peerId,
         avatarColor: '#12212B',
         avatarLetter: 'A',
@@ -140,7 +168,7 @@ export default function ChatListScreen() {
       <ScrollView contentContainerStyle={styles.content}>
         <HeaderRow
           title="Messages"
-          subtitle="DMs, groupes & notices"
+          subtitle="Privés et groupes"
           right={
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
               <BrandLogo size={34} />
@@ -171,9 +199,9 @@ export default function ChatListScreen() {
         {threads.length === 0 ? (
           <EmptyState
             title="Aucune conversation"
-            description="Intègre une équipe pour son chat de groupe, ou ouvre un profil puis tape « Discuter »."
+            description="Accepte la proposition du jour (match mutuel) ou ouvre un profil puis tape « Discuter »."
             lottie="spark"
-            actionLabel="Découvrir"
+            actionLabel="Du jour"
             onAction={() => router.push('/(tabs)/discover')}
           />
         ) : null}
@@ -183,6 +211,13 @@ export default function ChatListScreen() {
             ? mockUsers.find((u) => u.id === thread.peerId)
             : undefined;
           const photo = thread.photo ?? peer?.photo;
+          const hasUnread = thread.unread > 0;
+          const statusLabel =
+            !hasUnread && thread.lastFromMe
+              ? thread.readStatus === 'vu'
+                ? 'Vu'
+                : 'Envoyé'
+              : null;
 
           return (
             <Pressable
@@ -227,33 +262,58 @@ export default function ChatListScreen() {
                   </View>
                 )}
               </Pressable>
-              <View style={{ flex: 1 }}>
+              <View style={{ flex: 1, minWidth: 0 }}>
                 <View style={styles.rowTop}>
                   <View style={styles.nameRow}>
                     <Text style={[styles.name, { color: colors.ink }]} numberOfLines={1}>
                       {thread.name}
                     </Text>
                     {thread.isGroup ? (
-                      <View style={[styles.groupBadge, { backgroundColor: colors.primarySoft }]}>
-                        <Text style={[styles.groupBadgeText, { color: colors.primaryDark }]}>
-                          Groupe
+                      <View
+                        style={[
+                          styles.groupBadge,
+                          { backgroundColor: colors.primarySoft },
+                        ]}
+                      >
+                        <Text
+                          style={[
+                            styles.groupBadgeText,
+                            { color: colors.primaryDark },
+                          ]}
+                        >
+                          Jumelo
                         </Text>
                       </View>
                     ) : null}
                   </View>
-                  <Text style={{ color: colors.inkFaint, fontFamily: fonts.body, fontSize: 12 }}>
+                  <Text style={[styles.metaTime, { color: colors.inkFaint }]}>
                     {thread.updatedAt}
                   </Text>
                 </View>
-                <Text style={{ color: colors.inkMuted, fontFamily: fonts.body }} numberOfLines={1}>
-                  {thread.preview}
-                </Text>
-              </View>
-              {thread.unread > 0 ? (
-                <View style={[styles.badge, { backgroundColor: colors.accent }]}>
-                  <Text style={styles.badgeText}>{thread.unread}</Text>
+                <View style={styles.rowBottom}>
+                  <Text
+                    style={[
+                      styles.preview,
+                      {
+                        color: hasUnread ? colors.ink : colors.inkMuted,
+                        fontFamily: hasUnread ? fonts.bodyBold : fonts.body,
+                      },
+                    ]}
+                    numberOfLines={1}
+                  >
+                    {thread.preview}
+                  </Text>
+                  {hasUnread ? (
+                    <View style={[styles.badge, { backgroundColor: UNREAD_BADGE }]}>
+                      <Text style={styles.badgeText}>{formatUnread(thread.unread)}</Text>
+                    </View>
+                  ) : statusLabel ? (
+                    <Text style={[styles.readStatus, { color: colors.inkFaint }]}>
+                      {statusLabel}
+                    </Text>
+                  ) : null}
                 </View>
-              ) : null}
+              </View>
             </Pressable>
           );
         })}
@@ -303,10 +363,16 @@ const styles = StyleSheet.create({
   rowTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     gap: 8,
     marginBottom: 4,
   },
-  nameRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6 },
+  rowBottom: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  nameRow: { flex: 1, flexDirection: 'row', alignItems: 'center', gap: 6, minWidth: 0 },
   name: { flexShrink: 1, fontFamily: fonts.bodyBold, fontSize: 16 },
   groupBadge: {
     borderRadius: radii.pill,
@@ -314,6 +380,13 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   groupBadgeText: { fontFamily: fonts.bodyMedium, fontSize: 11 },
+  metaTime: { fontFamily: fonts.body, fontSize: 12, flexShrink: 0 },
+  preview: { flex: 1, fontSize: 14 },
+  readStatus: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    flexShrink: 0,
+  },
   badge: {
     minWidth: 22,
     height: 22,
@@ -321,6 +394,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 6,
+    flexShrink: 0,
   },
   badgeText: { color: '#fff', fontFamily: fonts.bodyBold, fontSize: 12 },
 });

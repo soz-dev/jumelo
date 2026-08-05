@@ -13,7 +13,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Avatar, Button } from '../../../src/components/ui';
-import { fonts, radii, spacing } from '../../../src/constants/theme';
+import { fonts, radii, spacing, withHexAlpha } from '../../../src/constants/theme';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useTheme } from '../../../src/context/ThemeContext';
 import { safeBack } from '../../../src/lib/navigation';
@@ -217,15 +217,18 @@ export default function RateTeammatesScreen() {
                     style={[
                       styles.tag,
                       {
-                        backgroundColor: selected ? colors.primary : colors.primarySoft,
+                        backgroundColor: selected
+                          ? withHexAlpha(colors.primary, 0.12)
+                          : colors.white,
+                        borderColor: selected ? colors.primary : colors.border,
                       },
                     ]}
                   >
                     <Text
                       style={{
-                        fontFamily: fonts.bodyMedium,
+                        fontFamily: selected ? fonts.bodyBold : fonts.bodyMedium,
                         fontSize: 12,
-                        color: selected ? '#fff' : colors.primaryDark,
+                        color: selected ? colors.primary : colors.inkMuted,
                       }}
                     >
                       {tag.label}
@@ -280,6 +283,7 @@ const styles = StyleSheet.create({
   tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   tag: {
     borderRadius: radii.pill,
+    borderWidth: 1.5,
     paddingHorizontal: 12,
     paddingVertical: 6,
   },

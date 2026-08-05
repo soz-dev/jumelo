@@ -1,3 +1,15 @@
+/**
+ * Sélecteur de palettes — EN STANDBY.
+ * L’app est verrouillée sur la charte bleue Jumelo.
+ * Pour réactiver : restaurer le composant commenté ci-dessous
+ * et retirer le force-blue dans ThemeContext / resolveTheme.
+ */
+
+export function ThemeSwitcherButton(_props: { size?: number }) {
+  return null;
+}
+
+/*
 import { Ionicons } from '@expo/vector-icons';
 import React, { useState } from 'react';
 import {
@@ -154,3 +166,4 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+*/

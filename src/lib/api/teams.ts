@@ -577,6 +577,8 @@ export type CreateTeamInput = {
   name: string;
   universe: Team['universe'];
   activity: string;
+  subCategoryId?: string | null;
+  activityDetails?: Team['activityDetails'];
   city: string;
   levelLabel: string;
   vibe: string;
@@ -587,42 +589,71 @@ export type CreateTeamInput = {
   locked?: boolean;
 };
 
+export type UpdateTeamInput = CreateTeamInput;
+
+function normalizeTeamPayload(input: CreateTeamInput): {
+  name: string;
+  universe: Team['universe'];
+  activity: string;
+  subCategoryId: string | null;
+  activityDetails: Team['activityDetails'];
+  city: string;
+  levelLabel: string;
+  vibe: string;
+  nextSession: string;
+  blurb: string;
+  capacity: number;
+  locked: boolean;
+} | { error: string } {
+  const name = input.name.trim();
+  if (!name) return { error: 'Donne un nom à ton jumelo ou groupe.' };
+  if (!input.universe) return { error: 'Choisis un univers.' };
+  const capacity = Math.round(Number(input.capacity));
+  if (!Number.isFinite(capacity) || capacity < 2 || capacity > 20) {
+    return { error: 'La capacité doit être entre 2 et 20.' };
+  }
+  return {
+    name,
+    universe: input.universe,
+    activity: input.activity.trim() || name,
+    subCategoryId: input.subCategoryId?.trim() || null,
+    activityDetails: input.activityDetails ?? {},
+    city: input.city.trim() || 'Lyon',
+    levelLabel: input.levelLabel.trim() || 'tous niveaux',
+    vibe: input.vibe.trim() || 'fun',
+    nextSession: input.nextSession.trim() || 'À définir',
+    blurb: input.blurb.trim() || `Équipe ${name} — rejoins-nous !`,
+    capacity,
+    locked: input.locked !== false,
+  };
+}
+
 export async function createTeam(
   ownerId: string,
   input: CreateTeamInput,
 ): Promise<{ ok: true; team: Team } | { ok: false; error: string }> {
-  const name = input.name.trim();
-  if (!name) return { ok: false, error: 'Donne un nom à ton équipe.' };
-  if (!input.universe) return { ok: false, error: 'Choisis un univers.' };
-  const capacity = Math.round(Number(input.capacity));
-  if (!Number.isFinite(capacity) || capacity < 2 || capacity > 20) {
-    return { ok: false, error: 'La capacité doit être entre 2 et 20.' };
-  }
-
-  const activity = input.activity.trim() || name;
-  const city = input.city.trim() || 'Lyon';
-  const levelLabel = input.levelLabel.trim() || 'tous niveaux';
-  const vibe = input.vibe.trim() || 'fun';
-  const nextSession = input.nextSession.trim() || 'À définir';
-  const blurb = input.blurb.trim() || `Équipe ${name} — rejoins-nous !`;
+  const normalized = normalizeTeamPayload(input);
+  if ('error' in normalized) return { ok: false, error: normalized.error };
 
   if (useLocalStore(ownerId)) {
     const state = await loadLocal();
     const team: Team = syncMemberCount({
       id: `t-${Date.now()}`,
-      name,
-      universe: input.universe,
-      activity,
+      name: normalized.name,
+      universe: normalized.universe,
+      activity: normalized.activity,
+      subCategoryId: normalized.subCategoryId,
+      activityDetails: normalized.activityDetails,
       ownerId,
       memberIds: [ownerId],
       membersCount: 1,
-      capacity,
-      city,
-      levelLabel,
-      vibe,
-      nextSession,
-      blurb,
-      locked: input.locked !== false,
+      capacity: normalized.capacity,
+      city: normalized.city,
+      levelLabel: normalized.levelLabel,
+      vibe: normalized.vibe,
+      nextSession: normalized.nextSession,
+      blurb: normalized.blurb,
+      locked: normalized.locked,
     });
     state.teams = [team, ...state.teams];
     await saveLocal(state);
@@ -635,15 +666,15 @@ export async function createTeam(
   const { data: row, error } = await supabase
     .from('teams')
     .insert({
-      name,
-      universe: input.universe,
-      activity,
-      city,
-      level_label: levelLabel,
-      vibe,
-      next_session: nextSession,
-      blurb,
-      capacity,
+      name: normalized.name,
+      universe: normalized.universe,
+      activity: normalized.activity,
+      city: normalized.city,
+      level_label: normalized.levelLabel,
+      vibe: normalized.vibe,
+      next_session: normalized.nextSession,
+      blurb: normalized.blurb,
+      capacity: normalized.capacity,
       owner_id: ownerId,
     })
     .select('*')
@@ -663,7 +694,175 @@ export async function createTeam(
     return { ok: false, error: memErr.message };
   }
 
-  return { ok: true, team: mapDbTeam(row, [ownerId]) };
+  return {
+    ok: true,
+    team: {
+      ...mapDbTeam(row, [ownerId]),
+      subCategoryId: normalized.subCategoryId,
+      activityDetails: normalized.activityDetails,
+      locked: normalized.locked,
+    },
+  };
+}
+
+export async function updateTeam(
+  teamId: string,
+  ownerId: string,
+  input: UpdateTeamInput,
+): Promise<{ ok: true; team: Team } | { ok: false; error: string }> {
+  const normalized = normalizeTeamPayload(input);
+  if ('error' in normalized) return { ok: false, error: normalized.error };
+
+  if (useLocalStore(ownerId)) {
+    const state = await loadLocal();
+    const existing = state.teams.find((t) => t.id === teamId);
+    if (!existing || existing.ownerId !== ownerId) {
+      return { ok: false, error: 'Seul le chef peut modifier l’équipe.' };
+    }
+    if (normalized.capacity < existing.memberIds.length) {
+      return {
+        ok: false,
+        error: `Capacité trop basse : ${existing.memberIds.length} membre(s) déjà présents.`,
+      };
+    }
+    const team = syncMemberCount({
+      ...existing,
+      name: normalized.name,
+      universe: normalized.universe,
+      activity: normalized.activity,
+      subCategoryId: normalized.subCategoryId,
+      activityDetails: normalized.activityDetails,
+      capacity: normalized.capacity,
+      city: normalized.city,
+      levelLabel: normalized.levelLabel,
+      vibe: normalized.vibe,
+      nextSession: normalized.nextSession,
+      blurb: normalized.blurb,
+      locked: normalized.locked,
+    });
+    state.teams = state.teams.map((t) => (t.id === teamId ? team : t));
+    await saveLocal(state);
+    return { ok: true, team };
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: 'Supabase indisponible.' };
+
+  const { data: current } = await supabase
+    .from('teams')
+    .select('owner_id')
+    .eq('id', teamId)
+    .single();
+  if (!current || current.owner_id !== ownerId) {
+    return { ok: false, error: 'Seul le chef peut modifier l’équipe.' };
+  }
+
+  const { data: row, error } = await supabase
+    .from('teams')
+    .update({
+      name: normalized.name,
+      universe: normalized.universe,
+      activity: normalized.activity,
+      city: normalized.city,
+      level_label: normalized.levelLabel,
+      vibe: normalized.vibe,
+      next_session: normalized.nextSession,
+      blurb: normalized.blurb,
+      capacity: normalized.capacity,
+    })
+    .eq('id', teamId)
+    .select('*')
+    .single();
+
+  if (error || !row) {
+    return { ok: false, error: error?.message ?? 'Mise à jour impossible.' };
+  }
+
+  const { data: members } = await supabase
+    .from('team_members')
+    .select('user_id')
+    .eq('team_id', teamId);
+  const memberIds = (members ?? []).map((m) => m.user_id);
+
+  return {
+    ok: true,
+    team: {
+      ...mapDbTeam(row, memberIds),
+      subCategoryId: normalized.subCategoryId,
+      activityDetails: normalized.activityDetails,
+      locked: normalized.locked,
+    },
+  };
+}
+
+/**
+ * Renomme un jumelo (binôme) — tout membre peut le faire une fois validé.
+ * Met à jour `Team.name` partagé (local + Supabase si dispo).
+ */
+export async function renameJumeloName(
+  teamId: string,
+  actorId: string,
+  rawName: string,
+): Promise<{ ok: true; team: Team } | { ok: false; error: string }> {
+  const name = rawName.trim().replace(/\s+/g, ' ');
+  if (!name) return { ok: false, error: 'Donne un nom à ton jumelo.' };
+  if (name.length < 2) return { ok: false, error: 'Au moins 2 caractères.' };
+  if (name.length > 40) return { ok: false, error: 'Maximum 40 caractères.' };
+
+  if (useLocalStore(actorId)) {
+    const state = await loadLocal();
+    const existing = state.teams.find((t) => t.id === teamId);
+    if (!existing) return { ok: false, error: 'Jumelo introuvable.' };
+    if (existing.capacity > 2) {
+      return { ok: false, error: 'Seul un jumelo (binôme) peut être renommé ainsi.' };
+    }
+    const members = new Set(
+      [existing.ownerId, ...existing.memberIds].filter(Boolean),
+    );
+    if (!members.has(actorId)) {
+      return { ok: false, error: 'Tu n’es pas membre de ce jumelo.' };
+    }
+    const team = syncMemberCount({ ...existing, name });
+    state.teams = state.teams.map((t) => (t.id === teamId ? team : t));
+    await saveLocal(state);
+    return { ok: true, team };
+  }
+
+  const supabase = getSupabase();
+  if (!supabase) return { ok: false, error: 'Supabase indisponible.' };
+
+  const { data: row, error: fetchErr } = await supabase
+    .from('teams')
+    .select('*')
+    .eq('id', teamId)
+    .single();
+  if (fetchErr || !row) {
+    return { ok: false, error: fetchErr?.message ?? 'Jumelo introuvable.' };
+  }
+  if ((row.capacity as number) > 2) {
+    return { ok: false, error: 'Seul un jumelo (binôme) peut être renommé ainsi.' };
+  }
+
+  const { data: members } = await supabase
+    .from('team_members')
+    .select('user_id')
+    .eq('team_id', teamId);
+  const memberIds = (members ?? []).map((m) => m.user_id as string);
+  if (!memberIds.includes(actorId) && row.owner_id !== actorId) {
+    return { ok: false, error: 'Tu n’es pas membre de ce jumelo.' };
+  }
+
+  const { data: updated, error } = await supabase
+    .from('teams')
+    .update({ name })
+    .eq('id', teamId)
+    .select('*')
+    .single();
+  if (error || !updated) {
+    return { ok: false, error: error?.message ?? 'Renommage impossible.' };
+  }
+
+  return { ok: true, team: mapDbTeam(updated, memberIds) };
 }
 
 export async function dissolveTeam(

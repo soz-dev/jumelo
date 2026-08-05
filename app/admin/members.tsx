@@ -57,7 +57,11 @@ export default function AdminMembersScreen() {
 
   return (
     <Screen>
-      <SettingsBackHeader title="Membres" subtitle="Recherche · modération" />
+      <SettingsBackHeader
+        title="Membres"
+        subtitle="Recherche · modération"
+        fallback="/admin"
+      />
       <View style={[styles.searchWrap, { backgroundColor: colors.white }]}>
         <Ionicons name="search" size={18} color={colors.inkFaint} />
         <TextInput

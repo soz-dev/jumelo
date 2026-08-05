@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import { mockUsers } from '../data/mock';
-import { isOfficialJumelage } from './matching';
+import { mockUsers, type UserProfile } from '../data/mock';
+import { isOfficialJumelage, MATCH_THRESHOLD, rankMatches } from './matching';
 
 const STORAGE_KEY = '@jumelo/likes';
 
@@ -208,7 +208,7 @@ export async function buildLikeActivity(myId: string): Promise<ActivityItem[]> {
     items.push({
       id: `like-${like.fromUserId}-${like.createdAt}`,
       kind: 'incoming_like',
-      text: `${name} veut jumeler`,
+      text: `${name} t’a proposé un jumelo`,
       time: relativeTime(like.createdAt),
       color: '#FF5A45',
       userId: like.fromUserId,
@@ -220,7 +220,7 @@ export async function buildLikeActivity(myId: string): Promise<ActivityItem[]> {
     if (match.userA !== myId && match.userB !== myId) continue;
     const peerId = match.userA === myId ? match.userB : match.userA;
     const peer = mockUsers.find((u) => u.id === peerId);
-    const name = peer?.name ?? 'ton duo';
+    const name = peer?.name ?? 'ton jumelo';
     const scoreBit = typeof match.score === 'number' ? ` à ${match.score}%` : '';
     items.push({
       id: `match-${peerId}-${match.createdAt}`,
@@ -262,7 +262,7 @@ export async function seedIncomingLikeFixture(myId: string): Promise<string> {
 }
 
 /**
- * Seed: Maya already liked the current user — like her back in Discover → mutual match.
+ * Seed: Maya already liked the current user — like her back / Jumelo du jour → mutual match.
  */
 export async function seedMutualLikeFixture(myId: string): Promise<string> {
   const fromId = 'u-maya';
@@ -282,13 +282,103 @@ export async function seedMutualLikeFixture(myId: string): Promise<string> {
   return fromId;
 }
 
+export type RandomMatchFixture = {
+  peerId: string;
+  score: number;
+  name: string;
+  forced: boolean;
+};
+
+function shuffleInPlace<T>(items: T[]): T[] {
+  for (let i = items.length - 1; i > 0; i -= 1) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [items[i], items[j]] = [items[j], items[i]];
+  }
+  return items;
+}
+
 /**
- * Ensure a first-run demo inbox isn’t empty for Léa / local demo ids.
- * Idempotent: only seeds Maxime if there are zero incoming likes.
+ * DEV: tire un participant aléatoire compatible (≥80%), crée un match mutuel,
+ * puis permet d’ouvrir l’écran « C’est un jumelage ! ».
+ * Si aucun score ≥ seuil, retente / force le meilleur candidat pour la démo.
+ */
+export async function seedRandomMatchFixture(
+  me: UserProfile,
+  candidates: UserProfile[] = mockUsers,
+): Promise<RandomMatchFixture | null> {
+  const myId = me.id;
+  const pool = candidates.filter((u) => u.id !== myId);
+  if (pool.length === 0) return null;
+
+  const ranked = rankMatches(me, pool);
+  const official = ranked.filter((m) => isOfficialJumelage(m.score));
+
+  let pick = shuffleInPlace([...official])[0];
+  let forced = false;
+
+  if (!pick) {
+    // Aucun ≥80 : forcer le meilleur score pour un setup démo cohérent.
+    pick = ranked[0];
+    forced = true;
+  }
+
+  const peerId = pick.user.id;
+  const score = forced ? Math.max(pick.score, MATCH_THRESHOLD) : pick.score;
+  const now = new Date().toISOString();
+
+  const state = await loadLikesState();
+  state.likes = state.likes.filter(
+    (l) =>
+      !(l.fromUserId === peerId && l.toUserId === myId) &&
+      !(l.fromUserId === myId && l.toUserId === peerId),
+  );
+  const [userA, userB] = orderedPair(myId, peerId);
+  state.matches = state.matches.filter((m) => !(m.userA === userA && m.userB === userB));
+
+  state.likes.push(
+    {
+      fromUserId: peerId,
+      toUserId: myId,
+      createdAt: now,
+      read: true,
+    },
+    {
+      fromUserId: myId,
+      toUserId: peerId,
+      createdAt: now,
+      read: true,
+    },
+  );
+  state.matches.push({
+    userA,
+    userB,
+    score,
+    createdAt: now,
+  });
+  await saveLikesState(state);
+
+  return {
+    peerId,
+    score,
+    name: pick.user.name,
+    forced,
+  };
+}
+
+/**
+ * Ancien flux Discover (likes entrants seedés).
+ * Avec Jumelo du jour, on ne fabrique plus d’invites Maxime fictives.
+ * On nettoie les seeds démo encore en mémoire locale.
  */
 export async function ensureDemoIncomingLikes(myId: string): Promise<void> {
-  if (!myId.startsWith('u-') && !myId.startsWith('fb-')) return;
-  const incoming = await listIncomingLikes(myId);
-  if (incoming.length > 0) return;
-  await seedIncomingLikeFixture(myId);
+  if (!myId) return;
+  const state = await loadLikesState();
+  const before = state.likes.length;
+  // Retirer les likes entrants provenant de personas mock (u-*).
+  state.likes = state.likes.filter(
+    (l) => !(l.toUserId === myId && l.fromUserId.startsWith('u-')),
+  );
+  if (state.likes.length !== before) {
+    await saveLikesState(state);
+  }
 }

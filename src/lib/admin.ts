@@ -44,3 +44,11 @@ export function getCurrentFirebaseUid(): string | null {
   if (!isFirebaseConfigured()) return null;
   return getFirebaseAuth()?.currentUser?.uid ?? null;
 }
+
+/**
+ * Messages / threads seedés (mock) — visibles uniquement pour le compte Firebase admin.
+ * Comptes démo AsyncStorage (`u-*`) et utilisateurs non-admin → false.
+ */
+export function canViewSeededDemoContent(): boolean {
+  return isAdminUid(getCurrentFirebaseUid());
+}

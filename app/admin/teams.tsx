@@ -73,7 +73,11 @@ export default function AdminTeamsScreen() {
 
   return (
     <Screen>
-      <SettingsBackHeader title="Équipes" subtitle="Modération des groupes" />
+      <SettingsBackHeader
+        title="Équipes"
+        subtitle="Modération des groupes"
+        fallback="/admin"
+      />
       {loading && teams.length === 0 ? (
         <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
       ) : (

@@ -1,9 +1,8 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useCallback, useState, type ReactNode } from 'react';
 import {
   Alert,
-  ImageBackground,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -12,7 +11,6 @@ import {
 } from 'react-native';
 import Animated, {
   FadeInDown,
-  FadeInRight,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -22,37 +20,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Atmosphere } from '../../src/components/Atmosphere';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
 import { BrandLogo } from '../../src/components/BrandLogo';
-import { JumeloLottie } from '../../src/components/JumeloLottie';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
-import { getCategory } from '../../src/constants/catalog';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTeams } from '../../src/context/TeamsContext';
 import { useTheme } from '../../src/context/ThemeContext';
-import { mockActivity, mockUsers, type UserProfile } from '../../src/data/mock';
+import { mockUsers } from '../../src/data/mock';
 import {
-  CategoryPill,
   Icon,
   ListRow,
-  ScoreBadge,
   SectionHeader,
   elevation,
   fonts,
   motion,
   radii,
   spacing,
+  themeBrandColors,
+  themeGradientAngles,
   typography,
 } from '../../src/design-system';
-import { listProfiles } from '../../src/lib/api/profiles';
 import {
-  buildLikeActivity,
-  countUnreadIncomingLikes,
+  listIncomingDailyAccepts,
+  seedIncomingDailyAccept,
+} from '../../src/lib/dailyJumelo';
+import {
   ensureDemoIncomingLikes,
-  seedIncomingLikeFixture,
-  seedMutualLikeFixture,
   type ActivityItem,
 } from '../../src/lib/likesStore';
-import { isOfficialJumelage, rankMatches } from '../../src/lib/matching';
 import { usePremiumAccess } from '../../src/lib/premiumStore';
+import { isDuoCapacity } from '../../src/lib/teamKind';
 
 const showDemoTools = typeof __DEV__ !== 'undefined' && __DEV__;
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
@@ -87,103 +82,62 @@ function ScalePressable({
 }
 
 export default function HomeScreen() {
-  const { user, usingSupabase } = useAuth();
+  const { user } = useAuth();
   const { myActiveTeams } = useTeams();
   const { colors } = useTheme();
   const { guard } = usePremiumAccess();
-  const [pool, setPool] = useState<UserProfile[]>(mockUsers);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
   const [unreadLikes, setUnreadLikes] = useState(0);
   const [seedHint, setSeedHint] = useState<string | null>(null);
 
-  const goLikes = () => {
+  const goDailyJumelo = () => {
     if (!guard()) return;
-    router.push('/likes');
+    router.push('/(tabs)/discover');
   };
 
-  const goLikedMe = (userId: string) => {
-    if (!guard()) return;
-    router.push(`/liked-me/${userId}`);
-  };
-
-  const goUserProfile = (userId: string) => {
-    if (!guard()) return;
-    router.push(`/user/${userId}`);
-  };
-
-  useEffect(() => {
-    let active = true;
-    if (!usingSupabase || !user || user.id.startsWith('u-') || user.id.startsWith('fb-')) {
-      setPool(mockUsers);
-      return;
-    }
-    (async () => {
-      const remote = await listProfiles(user.id);
-      if (active) setPool(remote.length ? remote : mockUsers);
-    })();
-    return () => {
-      active = false;
-    };
-  }, [usingSupabase, user]);
-
-  const refreshLikesUi = useCallback(async (userId: string) => {
+  const refreshActivity = useCallback(async (userId: string) => {
+    // Nettoie les anciennes invites Discover seedées (Maxime, etc.).
     await ensureDemoIncomingLikes(userId);
-    const [items, unread] = await Promise.all([
-      buildLikeActivity(userId),
-      countUnreadIncomingLikes(userId),
-    ]);
-    const fallback: ActivityItem[] = mockActivity.map((item) => ({
-      id: item.id,
-      kind: 'other' as const,
-      text: item.text,
-      time: item.time,
-      color: item.color,
-    }));
-    setActivity(items.length ? items : fallback);
-    setUnreadLikes(unread);
+    const incoming = await listIncomingDailyAccepts(userId);
+    const items: ActivityItem[] = incoming.map((row) => {
+      const peer = mockUsers.find((u) => u.id === row.fromUserId);
+      const name = peer?.name ?? 'Quelqu’un';
+      return {
+        id: `daily-${row.fromUserId}-${row.at}`,
+        kind: 'incoming_like' as const,
+        text: `${name} t’a proposé`,
+        time: 'aujourd’hui',
+        color: '#2F6BFF',
+        userId: row.fromUserId,
+        unread: true,
+      };
+    });
+    setActivity(items);
+    setUnreadLikes(items.length);
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
-      void refreshLikesUi(user.id);
-    }, [user, refreshLikesUi]),
-  );
-
-  const topMatches = useMemo(
-    () => (user ? rankMatches(user, pool).slice(0, 6) : []),
-    [user, pool],
+      void refreshActivity(user.id);
+    }, [user, refreshActivity]),
   );
 
   if (!user) return null;
 
-  const activeTeams = myActiveTeams.slice(0, 3);
+  const myDuos = myActiveTeams.filter((t) => isDuoCapacity(t.capacity)).slice(0, 3);
   const firstName = user.name?.split(' ')[0] ?? '';
 
   const onSeedIncoming = async () => {
-    const likerId = await seedIncomingLikeFixture(user.id);
-    await refreshLikesUi(user.id);
-    setSeedHint('Maxime veut jumeler — ouvre la notif ci-dessous');
+    await seedIncomingDailyAccept(user.id, 'u-maxime');
+    await refreshActivity(user.id);
+    setSeedHint('Maxime t’a accepté — ouvre Du jour');
     Alert.alert(
-      'Cas de test : invite reçue',
-      'Maxime veut jumeler. Tape la ligne dans Activité récente (ou le badge) pour ouvrir « Maxime veut jumeler avec toi ».',
+      'Cas de test : proposition reçue',
+      'Maxime t’a proposé. Ouvre l’onglet Du jour pour accepter ou refuser (match mutuel).',
       [
         { text: 'Plus tard', style: 'cancel' },
-        { text: 'Voir', onPress: () => goLikedMe(likerId) },
-      ],
-    );
-  };
-
-  const onSeedMutual = async () => {
-    const likerId = await seedMutualLikeFixture(user.id);
-    await refreshLikesUi(user.id);
-    setSeedHint('Maya veut déjà jumeler — jumelle aussi ou via Discover');
-    Alert.alert(
-      'Cas de test : jumelage mutuel',
-      'Maya veut déjà jumeler (≥80%). Réponds « Jumeler aussi » (sheet) ou trouve-la dans Discover (swipe droite) → « C’est un jumelage ! ».',
-      [
-        { text: 'Discover', onPress: () => router.push('/(tabs)/discover') },
-        { text: 'Jumeler Maya', onPress: () => goLikedMe(likerId) },
+        { text: 'Du jour', onPress: goDailyJumelo },
       ],
     );
   };
@@ -202,13 +156,13 @@ export default function HomeScreen() {
                 {firstName ? `Salut ${firstName}` : 'Bienvenue'}
               </Text>
               <Text style={[styles.headline, { color: colors.primaryDark }]}>
-                Trouve ton{'\n'}
-                <Text style={[styles.headlineAccent, { color: colors.primary }]}>Jumelo</Text>
+                Trouve{'\n'}
+                <Text style={[styles.headlineAccent, { color: colors.primary }]}>quelqu’un</Text>
               </Text>
             </View>
             <View style={styles.topActions}>
               <Pressable
-                onPress={goLikes}
+                onPress={goDailyJumelo}
                 style={[
                   styles.notifBtn,
                   { backgroundColor: 'rgba(255,255,255,0.72)', borderColor: colors.border },
@@ -237,14 +191,9 @@ export default function HomeScreen() {
                   style={[styles.demoBtn, { borderColor: colors.border }]}
                 >
                   <Icon name="pulse" size={14} color={colors.inkFaint} weight="bold" />
-                  <Text style={[styles.demoBtnText, { color: colors.inkFaint }]}>Invite reçue</Text>
-                </Pressable>
-                <Pressable
-                  onPress={onSeedMutual}
-                  style={[styles.demoBtn, { borderColor: colors.border }]}
-                >
-                  <Icon name="social" size={14} color={colors.inkFaint} weight="bold" />
-                  <Text style={[styles.demoBtnText, { color: colors.inkFaint }]}>Jumelage mutuel</Text>
+                  <Text style={[styles.demoBtnText, { color: colors.inkFaint }]}>
+                    Proposition reçue
+                  </Text>
                 </Pressable>
               </View>
               {seedHint ? (
@@ -253,170 +202,80 @@ export default function HomeScreen() {
             </Animated.View>
           ) : null}
 
-          <Animated.View entering={FadeInDown.delay(80).duration(360)}>
+          <Animated.View entering={FadeInDown.delay(80).duration(380)}>
             <ScalePressable
-              onPress={() => router.push('/maintenant')}
-              style={[styles.nowPress, elevation.glow(colors.primary)]}
+              onPress={() => router.push('/(tabs)/teams')}
+              style={[styles.entryPressFull, elevation.glow(colors.primary)]}
             >
               <LinearGradient
-                colors={[colors.primaryDark, colors.primary, colors.primary]}
-                locations={[0, 0.55, 1]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.nowCard}
+                colors={[...themeBrandColors(colors)]}
+                start={themeGradientAngles.brand.start}
+                end={themeGradientAngles.brand.end}
+                style={styles.entryCardFull}
               >
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.22)', 'transparent', 'rgba(255,255,255,0.08)']}
-                  locations={[0, 0.5, 1]}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={styles.nowLiveRow}>
-                  <View style={[styles.liveDot, { backgroundColor: '#fff' }]} />
-                  <Text style={styles.nowEyebrow}>En direct</Text>
+                <View style={styles.entryIconWrap}>
+                  <Icon name="social" size={26} color="#fff" weight="fill" />
                 </View>
-                <View style={styles.nowBody}>
-                  <View style={styles.nowCopy}>
-                    <Text style={styles.nowTitle}>Un partenaire{'\n'}maintenant</Text>
-                    <Text style={styles.nowSub}>Joueurs en ligne, dispo tout de suite</Text>
-                  </View>
-                  <View style={styles.nowIconWrap}>
-                    <Icon name="live" size={28} color="#fff" weight="bold" />
-                  </View>
-                </View>
-                <View style={styles.nowFooter}>
-                  <Text style={styles.nowCta}>Ouvrir le lobby live</Text>
-                  <Icon name="chevronRight" size={16} color="#fff" weight="bold" />
-                </View>
-              </LinearGradient>
-            </ScalePressable>
-          </Animated.View>
-
-          <Animated.View entering={FadeInDown.delay(140).duration(380)}>
-            <ScalePressable
-              onPress={() => router.push('/(tabs)/discover')}
-              style={[styles.dayPress, elevation.glow(colors.primary)]}
-            >
-              <LinearGradient
-                colors={[colors.primary, colors.primary, colors.primaryDark]}
-                locations={[0, 0.4, 1]}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.dayCard}
-              >
-                <LinearGradient
-                  colors={['rgba(255,255,255,0.2)', 'transparent', 'rgba(0,0,0,0.1)']}
-                  locations={[0, 0.45, 1]}
-                  start={{ x: 0.1, y: 0 }}
-                  end={{ x: 0.9, y: 1 }}
-                  style={StyleSheet.absoluteFill}
-                />
-                <View style={styles.dayDecor} pointerEvents="none">
-                  <JumeloLottie name="bolt" size={140} style={{ opacity: 0.22 }} />
-                </View>
-                <View style={[styles.dayAccentBar, { backgroundColor: 'rgba(255,255,255,0.7)' }]} />
-                <Text style={styles.dayEyebrow}>Jumelage du jour</Text>
-                <Text style={styles.dayTitle}>Découvre tes{'\n'}jumelages du jour</Text>
-                <Text style={styles.daySub}>Des coéquipiers compatibles t’attendent.</Text>
-                <View style={styles.dayBtn}>
-                  <Text style={[styles.dayBtnText, { color: colors.primaryDark }]}>
-                    Trouver mon duo
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.entryTitle}>Trouve ton jumelo</Text>
+                  <Text style={styles.entrySub}>
+                    Quelqu’un pour jouer, progresser ou s’amuser avec toi
                   </Text>
-                  <Icon name="chevronRight" size={16} color={colors.primaryDark} weight="bold" />
+                </View>
+                <View style={styles.entryCta}>
+                  <Text style={styles.entryCtaText}>Lobby</Text>
+                  <Icon name="chevronRight" size={14} color="#fff" weight="bold" />
                 </View>
               </LinearGradient>
             </ScalePressable>
           </Animated.View>
 
           <SectionHeader
-            title={`Top jumelages\ndu jour`}
-            actionLabel="Voir tout"
-            onAction={() => router.push('/(tabs)/discover')}
+            title="Aujourd’hui"
+            subtitle="1 proposition · 24 h · accepte ou refuse"
           />
 
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.matchRow}
+          <ScalePressable
+            onPress={() => {
+              if (!guard()) return;
+              router.push('/(tabs)/discover');
+            }}
           >
-            {topMatches.map((match, index) => {
-              const cat = getCategory(match.user.universes[0]);
-              return (
-                <Animated.View
-                  key={match.user.id}
-                  entering={FadeInRight.delay(160 + index * 50).duration(340)}
-                >
-                  <Pressable
-                    onPress={() => goUserProfile(match.user.id)}
-                    style={[styles.matchCard, elevation.lift]}
-                  >
-                    <ImageBackground
-                      source={{
-                        uri:
-                          match.user.photo ??
-                          `https://ui-avatars.com/api/?name=${encodeURIComponent(match.user.name)}&background=0F8F8A&color=fff&size=400`,
-                      }}
-                      style={styles.matchPhoto}
-                      imageStyle={{ borderRadius: radii.lg }}
-                    >
-                      <LinearGradient
-                        colors={[
-                          'rgba(18,33,43,0.15)',
-                          'transparent',
-                          'rgba(18,33,43,0.88)',
-                        ]}
-                        locations={[0, 0.35, 1]}
-                        style={styles.matchGradient}
-                      >
-                        <View style={styles.matchTop}>
-                          {cat ? (
-                            <CategoryPill
-                              universeId={cat.id}
-                              label={cat.shortLabel}
-                              color={cat.color}
-                            />
-                          ) : null}
-                          <View style={styles.scoreChip}>
-                            <ScoreBadge score={match.score} />
-                          </View>
-                        </View>
-                        <View style={styles.matchBottom}>
-                          <Text style={styles.matchName}>{match.user.name}</Text>
-                          <View style={styles.matchMeta}>
-                            <Icon name="city" size={12} color="rgba(255,255,255,0.85)" />
-                            <Text style={styles.matchCity}>{match.user.city}</Text>
-                          </View>
-                          {isOfficialJumelage(match.score) ? (
-                            <View style={styles.jumelageChip}>
-                              <Icon name="spark" size={11} color="#fff" weight="fill" />
-                              <Text style={styles.jumelageTag}>Jumelage</Text>
-                            </View>
-                          ) : null}
-                        </View>
-                      </LinearGradient>
-                    </ImageBackground>
-                  </Pressable>
-                </Animated.View>
-              );
-            })}
-          </ScrollView>
+            <LinearGradient
+              colors={[colors.primary, colors.primaryDark]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={[styles.dailyCta, elevation.lift]}
+            >
+              <View style={{ flex: 1, gap: 4 }}>
+                <Text style={styles.dailyCtaTitle}>Ta proposition</Text>
+                <Text style={styles.dailyCtaBody}>
+                  Accepte ou refuse — si c’est mutuel, vous avez 72 h pour former l’équipe.
+                </Text>
+              </View>
+              <View style={styles.entryCta}>
+                <Text style={styles.entryCtaText}>Voir</Text>
+                <Icon name="chevronRight" size={14} color="#fff" weight="bold" />
+              </View>
+            </LinearGradient>
+          </ScalePressable>
 
           <SectionHeader
-            title="Équipes actives"
-            actionLabel="Voir tout"
+            title="Tes partenaires"
+            subtitle="En cours en ce moment"
+            actionLabel="Lobby"
             onAction={() => router.push('/(tabs)/teams')}
           />
 
-          {activeTeams.length === 0 ? (
+          {myDuos.length === 0 ? (
             <ListRow
-              title="Aucune équipe pour l’instant"
-              subtitle="Rejoins un lobby — il apparaîtra ici en premier"
-              left={<Icon name="teams" size={20} color={colors.inkMuted} />}
-              onPress={() => router.push('/(tabs)/teams')}
+              title="Aucun partenaire pour l’instant"
+              subtitle="Crée le tien et invite quelqu’un"
+              left={<Icon name="social" size={20} color={colors.inkMuted} />}
+              onPress={() => router.push('/team/create')}
             />
           ) : (
-            activeTeams.map((team) => (
+            myDuos.map((team) => (
               <ListRow
                 key={team.id}
                 title={team.name}
@@ -424,7 +283,7 @@ export default function HomeScreen() {
                 left={<CategoryIcon universeId={team.universe} />}
                 right={
                   <View style={styles.members}>
-                    <Icon name="teams" size={14} color={colors.inkMuted} />
+                    <Icon name="social" size={14} color={colors.inkMuted} />
                     <Text style={{ color: colors.inkMuted, fontFamily: fonts.bodyMedium }}>
                       {team.membersCount}/{team.capacity}
                     </Text>
@@ -438,43 +297,45 @@ export default function HomeScreen() {
           <SectionHeader
             title="Activité récente"
             actionLabel={
-              unreadLikes > 0 ? `${unreadLikes} non lu${unreadLikes > 1 ? 's' : ''}` : 'Voir'
+              unreadLikes > 0 ? `${unreadLikes} en attente` : 'Du jour'
             }
-            onAction={goLikes}
+            onAction={goDailyJumelo}
           />
-          {activity.map((item) => (
+          {activity.length === 0 ? (
             <ListRow
-              key={item.id}
-              title={item.text}
-              subtitle={item.time}
-              left={
-                <View style={styles.dotWrap}>
-                  <View style={[styles.dot, { backgroundColor: item.color }]} />
-                  {item.unread ? (
-                    <View style={[styles.unreadRing, { borderColor: colors.accent }]} />
-                  ) : null}
-                </View>
-              }
-              chevron={item.kind === 'incoming_like' || item.kind === 'match'}
-              onPress={
-                item.userId
-                  ? () =>
-                      item.kind === 'incoming_like'
-                        ? goLikedMe(item.userId!)
-                        : goUserProfile(item.userId!)
-                  : undefined
-              }
+              title="Rien pour l’instant"
+              subtitle="Les propositions du jour apparaissent ici"
+              left={<Icon name="discover" size={20} color={colors.inkMuted} />}
+              onPress={goDailyJumelo}
             />
-          ))}
+          ) : (
+            activity.map((item) => (
+              <ListRow
+                key={item.id}
+                title={item.text}
+                subtitle={item.time}
+                left={
+                  <View style={styles.dotWrap}>
+                    <View style={[styles.dot, { backgroundColor: item.color }]} />
+                    {item.unread ? (
+                      <View style={[styles.unreadRing, { borderColor: colors.accent }]} />
+                    ) : null}
+                  </View>
+                }
+                chevron
+                onPress={goDailyJumelo}
+              />
+            ))
+          )}
 
           <ScalePressable
             onPress={() => router.push('/categories')}
             style={[styles.categoriesPress, elevation.glow(colors.primary)]}
           >
             <LinearGradient
-              colors={[colors.primary, colors.primaryDark]}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
+              colors={[...themeBrandColors(colors)]}
+              start={themeGradientAngles.brand.start}
+              end={themeGradientAngles.brand.end}
               style={styles.categoriesCta}
             >
               <View style={styles.categoriesIcon}>
@@ -565,6 +426,7 @@ const styles = StyleSheet.create({
   },
   demoRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 8,
   },
   demoBtn: {
@@ -585,190 +447,76 @@ const styles = StyleSheet.create({
     fontFamily: fonts.body,
     fontSize: 12,
   },
-  nowPress: {
-    marginBottom: spacing.md,
+  entryPressFull: {
     borderRadius: radii.xl,
+    marginBottom: spacing.xl,
   },
-  nowCard: {
+  entryCardFull: {
     borderRadius: radii.xl,
-    padding: spacing.lg,
+    padding: spacing.md,
     overflow: 'hidden',
-    minHeight: 168,
-  },
-  nowLiveRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginBottom: spacing.sm,
+    gap: 12,
+    minHeight: 108,
   },
-  liveDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-  },
-  nowEyebrow: {
-    color: 'rgba(255,255,255,0.72)',
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-  },
-  nowBody: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    justifyContent: 'space-between',
-    gap: spacing.md,
-    flex: 1,
-  },
-  nowCopy: { flex: 1 },
-  nowTitle: {
-    fontFamily: fonts.display,
-    fontSize: 26,
-    lineHeight: 30,
-    letterSpacing: -0.7,
-    color: '#fff',
-  },
-  nowSub: {
-    color: 'rgba(255,255,255,0.78)',
-    fontFamily: fonts.body,
-    fontSize: 14,
-    marginTop: 6,
-  },
-  nowIconWrap: {
-    width: 52,
-    height: 52,
-    borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.14)',
+  entryIconWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    marginBottom: 4,
   },
-  nowFooter: {
-    marginTop: spacing.md,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  nowCta: {
-    color: '#fff',
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-  },
-  dayPress: {
-    marginBottom: spacing.xl,
-    borderRadius: radii.xl,
-  },
-  dayCard: {
-    borderRadius: radii.xl,
-    padding: spacing.lg,
-    overflow: 'hidden',
-    minHeight: 200,
-    ...elevation.lift,
-  },
-  dayDecor: {
-    position: 'absolute',
-    right: -28,
-    top: -16,
-  },
-  dayAccentBar: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.55)',
-    marginBottom: spacing.sm,
-  },
-  dayEyebrow: {
-    color: 'rgba(255,255,255,0.72)',
-    fontFamily: fonts.bodyBold,
-    fontSize: 11,
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
-  },
-  dayTitle: {
-    color: '#fff',
+  entryTitle: {
     fontFamily: fonts.display,
-    fontSize: 30,
-    lineHeight: 34,
-    letterSpacing: -0.9,
-    marginTop: spacing.sm,
-  },
-  daySub: {
-    color: 'rgba(255,255,255,0.88)',
-    fontFamily: fonts.body,
-    marginTop: 8,
-    marginBottom: spacing.md,
-    maxWidth: '88%',
-  },
-  dayBtn: {
-    alignSelf: 'flex-start',
-    backgroundColor: '#fff',
-    borderRadius: radii.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  dayBtnText: { fontFamily: fonts.bodyBold },
-  matchRow: { gap: 14, paddingRight: spacing.sm },
-  matchCard: {
-    width: 172,
-    height: 248,
-    borderRadius: radii.lg,
-  },
-  matchPhoto: { flex: 1 },
-  matchGradient: {
-    flex: 1,
-    borderRadius: radii.lg,
-    justifyContent: 'space-between',
-    padding: 12,
-  },
-  matchTop: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    gap: 8,
-  },
-  scoreChip: {
-    borderRadius: 22,
-    backgroundColor: 'rgba(255,255,255,0.14)',
-    padding: 2,
-  },
-  matchBottom: {
-    gap: 2,
-  },
-  matchName: {
+    fontSize: 26,
+    letterSpacing: -0.6,
     color: '#fff',
-    fontFamily: fonts.displaySemi,
-    fontSize: 18,
-    letterSpacing: -0.3,
   },
-  matchMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginTop: 2,
-  },
-  matchCity: {
-    color: 'rgba(255,255,255,0.85)',
+  entrySub: {
     fontFamily: fonts.body,
     fontSize: 12,
+    lineHeight: 16,
+    color: 'rgba(255,255,255,0.85)',
+    marginBottom: 4,
+    flex: 1,
   },
-  jumelageChip: {
-    marginTop: 8,
-    alignSelf: 'flex-start',
+  entryCta: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(255,255,255,0.18)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.22)',
   },
-  jumelageTag: {
-    color: '#fff',
+  entryCtaText: {
     fontFamily: fonts.bodyBold,
-    fontSize: 10,
-    letterSpacing: 0.4,
+    fontSize: 12,
+    color: '#fff',
+  },
+  dailyCta: {
+    borderRadius: radii.xl,
+    padding: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    marginBottom: spacing.md,
+  },
+  dailyCtaTitle: {
+    fontFamily: fonts.display,
+    fontSize: 20,
+    color: '#fff',
+    letterSpacing: -0.4,
+  },
+  dailyCtaBody: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    color: 'rgba(255,255,255,0.88)',
   },
   members: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   dotWrap: { width: 16, height: 16, alignItems: 'center', justifyContent: 'center' },

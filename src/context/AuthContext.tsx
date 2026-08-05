@@ -35,6 +35,7 @@ import {
   signInWithProviderFirebase,
   signOutFirebase,
   subscribeFirebaseAuth,
+  updateFirebaseDisplayName,
 } from '../lib/firebaseAuth';
 import { isFirebaseConfigured } from '../lib/firebase';
 import { rememberProfile } from '../lib/profileDirectory';
@@ -94,7 +95,7 @@ function profileFromFirebaseLocal(user: FirebaseUser): UserProfile {
     objectives: [],
     reliability: 80,
     onboardingComplete: false,
-    themeId: 'coral',
+    themeId: 'blue',
   };
 }
 
@@ -108,6 +109,8 @@ export type OnboardingDraft = {
   name: string;
   city: string;
   bio: string;
+  /** Âge en années (13–100), critère de matching. */
+  age: string;
 };
 
 const emptyDraft = (): OnboardingDraft => ({
@@ -120,6 +123,7 @@ const emptyDraft = (): OnboardingDraft => ({
   name: '',
   city: '',
   bio: '',
+  age: '',
 });
 
 type AuthContextValue = {
@@ -214,7 +218,8 @@ async function resolveProfileAfterFirebase(params: {
         return {
           ...parsed,
           email: email || parsed.email,
-          name: name || parsed.name,
+          // Préférer le pseudo local (édité via updateProfile) ; Firebase en secours.
+          name: parsed.name?.trim() || name || parsed.name,
           photo: firebaseUser.photoURL ?? parsed.photo,
         };
       }
@@ -481,7 +486,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           objectives: [],
           reliability: 80,
           onboardingComplete: false,
-          themeId: 'coral',
+          themeId: 'blue',
         };
         setUser(next);
         await persistLocal(next);
@@ -579,11 +584,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const completeOnboarding = useCallback(async () => {
     if (!user) return;
+    const parsedAge = Number.parseInt((draft.age ?? '').trim(), 10);
+    const age =
+      Number.isFinite(parsedAge) && parsedAge >= 13 && parsedAge <= 100
+        ? parsedAge
+        : user.age;
     const next: UserProfile = {
       ...user,
       name: draft.name.trim() || user.name,
       city: draft.city.trim() || 'Lyon',
       bio: draft.bio.trim() || user.bio,
+      age,
       universes: draft.universes,
       interests: draft.interests,
       vibes: clampVibes(draft.vibes.length ? draft.vibes : ['social']),
@@ -624,6 +635,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         ...patch,
         vibes: clampVibes(patch.vibes ?? user.vibes),
       };
+      if (typeof patch.name === 'string') {
+        next.name = patch.name.trim();
+      }
       // Permet d’effacer photo / persona (JSON.stringify omettrait sinon le champ).
       if ('photo' in patch && !patch.photo) {
         delete next.photo;
@@ -633,6 +647,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       setUser(next);
       await persistLocal(next);
+      // Annuaire + Firebase Auth : le nouveau pseudo apparaît dans home / rosters.
+      if (typeof patch.name === 'string' && next.name) {
+        await updateFirebaseDisplayName(next.name).catch(() => undefined);
+      }
       if (canSyncSupabaseProfile(next.id)) {
         try {
           const keys = Object.keys(patch);

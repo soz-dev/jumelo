@@ -8,6 +8,7 @@ import {
   type ChatThread,
   type Team,
 } from '../../data/mock';
+import { canViewSeededDemoContent } from '../admin';
 
 const STORAGE_KEY = '@jumelo/team-chats';
 
@@ -28,6 +29,8 @@ export type TeamChatRecord = {
   avatarLetter?: string;
   avatarColor?: string;
   messages: StoredMessage[];
+  /** Curseur de lecture par userId (ISO). */
+  lastReadAtByUser?: Record<string, string>;
 };
 
 type TeamChatsState = {
@@ -66,7 +69,25 @@ export function teamChatIdFor(teamId: string): string {
   return seed?.id ?? `cg-${teamId}`;
 }
 
+/** Ids `m1`, `m2`… réservés aux payloads seedés mock. */
+function isMockSeedMessageId(id: string): boolean {
+  return /^m\d+$/.test(id);
+}
+
+function isSeededTeamChatId(chatId: string): boolean {
+  return mockChats.some((c) => c.isGroup && c.id === chatId);
+}
+
+/** Messages visibles : seeds mock uniquement pour le compte admin. */
+function visibleTeamMessages(chat: TeamChatRecord): StoredMessage[] {
+  if (canViewSeededDemoContent()) return chat.messages;
+  if (!isSeededTeamChatId(chat.id)) return chat.messages;
+  return chat.messages.filter((m) => !isMockSeedMessageId(m.id));
+}
+
 function seedMessagesFor(chatId: string, teamId: string): StoredMessage[] {
+  if (!canViewSeededDemoContent()) return [];
+
   const seedThread = mockChats.find((c) => c.id === chatId);
   const team = seedThread?.teamId === teamId ? seedThread : undefined;
   const ownerGuess =
@@ -120,10 +141,14 @@ function buildChatFromTeam(team: Team): TeamChatRecord {
   return {
     id,
     teamId: team.id,
-    name: seed?.name ?? `${team.name} · groupe`,
+    name:
+      seed?.name ??
+      `${team.name} · jumelo`,
     preview: last
       ? `${last.senderName}: ${last.text}`
-      : 'Chat privé de l’équipe — dis bonjour !',
+      : team.capacity <= 2
+        ? 'Chat privé du jumelo — dis bonjour !'
+        : 'Chat privé du groupe — dis bonjour !',
     updatedAt: last?.createdAt ?? new Date().toISOString(),
     avatarLetter: letter,
     avatarColor: seed?.avatarColor ?? '#A7F3D0',
@@ -148,7 +173,7 @@ function cloneSeed(): TeamChatsState {
         ownerId: '',
         memberIds: [],
         membersCount: 0,
-        capacity: 5,
+        capacity: 2,
         city: '',
         levelLabel: '',
         vibe: '',
@@ -185,15 +210,79 @@ async function saveLocal(state: TeamChatsState): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
-function toUiThread(chat: TeamChatRecord): ChatThread {
+function seedUnreadHint(chatId: string): number {
+  return mockChats.find((c) => c.id === chatId && c.isGroup)?.unread ?? 0;
+}
+
+function ensureMyReadCursor(chat: TeamChatRecord, myUserId: string): boolean {
+  if (chat.lastReadAtByUser?.[myUserId]) return false;
+
+  const incoming = chat.messages.filter((m) => m.senderId !== myUserId);
+  const hint = seedUnreadHint(chat.id);
+  let cursor: string;
+
+  if (hint > 0 && incoming.length > 0) {
+    const keepUnread = Math.min(hint, incoming.length);
+    if (keepUnread >= incoming.length) {
+      cursor = new Date(0).toISOString();
+    } else {
+      cursor = incoming[incoming.length - keepUnread - 1]!.createdAt;
+    }
+  } else {
+    const last = chat.messages[chat.messages.length - 1];
+    cursor = last?.createdAt ?? new Date().toISOString();
+  }
+
+  chat.lastReadAtByUser = {
+    ...(chat.lastReadAtByUser ?? {}),
+    [myUserId]: cursor,
+  };
+  return true;
+}
+
+function countUnread(chat: TeamChatRecord, myUserId: string): number {
+  ensureMyReadCursor(chat, myUserId);
+  const cursor = chat.lastReadAtByUser?.[myUserId];
+  if (!cursor) return 0;
+  return visibleTeamMessages(chat).filter(
+    (m) => m.senderId !== myUserId && m.createdAt > cursor,
+  ).length;
+}
+
+function resolveReadStatus(
+  chat: TeamChatRecord,
+  myUserId: string,
+): { lastFromMe: boolean; readStatus: 'vu' | 'envoye' | null } {
+  const messages = visibleTeamMessages(chat);
+  const last = messages[messages.length - 1];
+  if (!last) return { lastFromMe: false, readStatus: null };
+  const lastFromMe = last.senderId === myUserId;
+  if (!lastFromMe) return { lastFromMe: false, readStatus: null };
+
+  const others = Object.entries(chat.lastReadAtByUser ?? {}).filter(([uid]) => uid !== myUserId);
+  const someoneRead = others.some(([, at]) => at >= last.createdAt);
+  return { lastFromMe: true, readStatus: someoneRead ? 'vu' : 'envoye' };
+}
+
+function toUiThread(chat: TeamChatRecord, myUserId: string): ChatThread {
+  const { lastFromMe, readStatus } = resolveReadStatus(chat, myUserId);
+  const messages = visibleTeamMessages(chat);
+  const last = messages[messages.length - 1];
+  const preview = last
+    ? `${last.senderName}: ${last.text}`
+    : chat.preview.includes(':')
+      ? 'Chat privé — dis bonjour !'
+      : chat.preview;
   return {
     id: chat.id,
     teamId: chat.teamId,
     name: chat.name,
     isGroup: true,
-    preview: chat.preview,
-    updatedAt: formatThreadTime(chat.updatedAt),
-    unread: 0,
+    preview,
+    updatedAt: formatThreadTime(last?.createdAt ?? chat.updatedAt),
+    unread: countUnread(chat, myUserId),
+    lastFromMe,
+    readStatus,
     avatarLetter: chat.avatarLetter,
     avatarColor: chat.avatarColor,
   };
@@ -209,14 +298,21 @@ function toUiMessage(msg: StoredMessage, myUserId: string): ChatMessage {
   };
 }
 
-/** Crée le chat de groupe s’il n’existe pas encore. */
+/** Crée le chat jumelo/groupe s’il n’existe pas encore. */
 export async function ensureTeamChat(team: Team): Promise<TeamChatRecord> {
   const state = await loadLocal();
   const existing = state.chats.find((c) => c.teamId === team.id);
   if (existing) {
-    // Garde le nom à jour si l’équipe a été renommée
-    const expectedName = `${team.name} · groupe`;
-    if (!existing.name.includes(team.name)) {
+    // Garde le nom à jour si le jumelo/groupe a été renommé
+    const kind = team.capacity <= 2 ? 'jumelo' : 'groupe';
+    const expectedName = `${team.name} · ${kind}`;
+    const legacyDuo = `${team.name} · duo`;
+    if (
+      existing.name !== expectedName &&
+      (existing.name === legacyDuo ||
+        !existing.name.includes(team.name) ||
+        !existing.name.endsWith(` · ${kind}`))
+    ) {
       existing.name = expectedName;
       await saveLocal(state);
     }
@@ -237,12 +333,48 @@ export async function listTeamChatsForMember(
   const memberTeams = teams.filter(
     (t) => t.ownerId === userId || t.memberIds.includes(userId),
   );
+
+  // Assure l’existence de chaque chat
+  for (const team of memberTeams) {
+    await ensureTeamChat(team);
+  }
+
+  const state = await loadLocal();
+  let dirty = false;
   const threads: ChatThread[] = [];
   for (const team of memberTeams) {
-    const chat = await ensureTeamChat(team);
-    threads.push(toUiThread(chat));
+    const chat = state.chats.find((c) => c.teamId === team.id);
+    if (!chat) continue;
+    if (ensureMyReadCursor(chat, userId)) dirty = true;
+    threads.push(toUiThread(chat, userId));
   }
+  if (dirty) await saveLocal(state);
+
   return threads.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+}
+
+/** Marque le chat de groupe comme lu pour l’utilisateur. */
+export async function markTeamChatRead(chatId: string, myUserId: string): Promise<void> {
+  if (!chatId || !myUserId) return;
+  const state = await loadLocal();
+  const chat = state.chats.find((c) => c.id === chatId);
+  if (!chat) return;
+  const last = chat.messages[chat.messages.length - 1];
+  const at = last?.createdAt ?? new Date().toISOString();
+  chat.lastReadAtByUser = {
+    ...(chat.lastReadAtByUser ?? {}),
+    [myUserId]: at,
+  };
+  await saveLocal(state);
+}
+
+export async function countTeamChatsUnread(
+  userId: string | null | undefined,
+  teams: Team[],
+): Promise<number> {
+  if (!userId) return 0;
+  const threads = await listTeamChatsForMember(userId, teams);
+  return threads.reduce((sum, t) => sum + t.unread, 0);
 }
 
 export async function getTeamChatById(chatId: string): Promise<TeamChatRecord | null> {
@@ -266,7 +398,7 @@ export async function listTeamChatMessages(
 ): Promise<ChatMessage[]> {
   const chat = await getTeamChatById(chatId);
   if (!chat) return [];
-  return chat.messages.map((m) => toUiMessage(m, myUserId));
+  return visibleTeamMessages(chat).map((m) => toUiMessage(m, myUserId));
 }
 
 export async function sendTeamChatMessage(params: {
@@ -312,6 +444,10 @@ export async function sendTeamChatMessage(params: {
   chat.messages = [...chat.messages, msg];
   chat.preview = `${params.senderName}: ${text}`;
   chat.updatedAt = msg.createdAt;
+  chat.lastReadAtByUser = {
+    ...(chat.lastReadAtByUser ?? {}),
+    [params.senderId]: msg.createdAt,
+  };
   await saveLocal(state);
 
   try {

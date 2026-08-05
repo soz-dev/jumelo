@@ -41,7 +41,7 @@ export const leaProfile: UserProfile = {
   name: 'Léa',
   age: 23,
   city: 'Lyon',
-  bio: 'Valorant ranked le soir, muscu le matin. Toujours partante pour un duo chill.',
+  bio: 'Valorant ranked le soir, muscu le matin. Toujours partante pour un jumelo chill.',
   avatarColor: '#0F8F8A',
   photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800',
   universes: ['gaming', 'sports'],
@@ -66,7 +66,7 @@ export const mockUsers: UserProfile[] = [
     name: 'Maxime',
     age: 26,
     city: 'Lyon',
-    bio: 'Valorant ranked + muscu. Cherche un duo régulier le soir à Lyon.',
+    bio: 'Valorant ranked + muscu. Cherche un jumelo régulier le soir à Lyon.',
     avatarColor: '#F59E0B',
     photo: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=800',
     universes: ['gaming', 'sports'],
@@ -110,7 +110,7 @@ export const mockUsers: UserProfile[] = [
     name: 'Noah',
     age: 24,
     city: 'Lyon',
-    bio: 'Main duelist Valorant, cherche un duo regular ranked.',
+    bio: 'Main duelist Valorant, cherche un jumelo ranked régulier.',
     avatarColor: '#FF5A45',
     photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800',
     universes: ['gaming'],
@@ -192,6 +192,10 @@ export type Team = {
   name: string;
   universe: UniverseId;
   activity: string;
+  /** Id catalogue sous-catégorie (jeu / activité), si connu */
+  subCategoryId?: string | null;
+  /** Précisions CategoryPicker (plateforme, format, etc.) */
+  activityDetails?: Record<string, string | number | boolean | null>;
   /** Chef de l’équipe — seul à approuver / exclure / dissoudre */
   ownerId: string;
   memberIds: string[];
@@ -212,18 +216,18 @@ export type Team = {
 export const mockTeams: Team[] = [
   {
     id: 't-valorant',
-    name: 'Valorant Squad',
+    name: 'Jumelo Valorant Lyon',
     universe: 'gaming',
-    activity: 'Valorant ranked soir',
+    activity: 'Valorant ranked jumelo',
     ownerId: 'u-karim',
-    memberIds: ['u-karim', 'u-lea', 'u-noah'],
-    membersCount: 3,
-    capacity: 5,
+    memberIds: ['u-karim', 'u-lea'],
+    membersCount: 2,
+    capacity: 2,
     city: 'Lyon',
     levelLabel: 'avancé',
     vibe: 'competitif',
     nextSession: 'Ce soir · 21h',
-    blurb: 'Duo/team Valorant ranked, vibe competitive mais fair-play.',
+    blurb: 'Binôme ranked, vibe competitive mais fair-play.',
     locked: true,
   },
   {
@@ -239,55 +243,55 @@ export const mockTeams: Team[] = [
     levelLabel: 'tous niveaux',
     vibe: 'fun',
     nextSession: 'Mardi · 20h',
-    blurb: 'Foot en salle, ambiance bonne humeur.',
+    blurb: 'Groupe optionnel — foot en salle, bonne humeur.',
     locked: true,
   },
   {
     id: 't-revisons',
-    name: 'Révisons ensemble',
+    name: 'Jumelo révisions maths',
     universe: 'education',
     activity: 'Concours ingé',
     ownerId: 'u-sara',
     memberIds: ['u-sara'],
     membersCount: 1,
-    capacity: 4,
+    capacity: 2,
     city: 'Online',
     levelLabel: 'intermédiaire',
     vibe: 'serieux',
     nextSession: 'Demain · 18h',
-    blurb: 'Sessions de révision maths / physique.',
+    blurb: 'Binôme révision maths / physique — slots 1/2.',
     locked: true,
   },
   {
     id: 't-funk',
-    name: 'Duo Ranked Lyon',
+    name: 'Jumelo Ranked Lyon',
     universe: 'gaming',
-    activity: 'Valorant duo soir',
+    activity: 'Valorant jumelo soir',
     ownerId: 'u-maxime',
     memberIds: ['u-maxime'],
     membersCount: 1,
-    capacity: 5,
+    capacity: 2,
     city: 'Lyon',
     levelLabel: 'intermédiaire',
     vibe: 'fun',
-    nextSession: 'Jeudi · 21h',
-    blurb: 'Duo ranked chill, coms clean, pas de tilt.',
+    nextSession: 'Demain · 21h',
+    blurb: 'Jumelo ranked chill, coms clean, pas de tilt — cherche 1 partenaire.',
     locked: false,
   },
   {
     id: 't-run',
-    name: 'Run & Chill',
+    name: 'Jumelo Run Saône',
     universe: 'sports',
     activity: 'Running',
     ownerId: 'u-lea',
     memberIds: ['u-lea', 'u-maya'],
     membersCount: 2,
-    capacity: 8,
+    capacity: 2,
     city: 'Lyon',
     levelLabel: 'débutant',
     vibe: 'fun',
     nextSession: 'Samedi · 10h',
-    blurb: '10 km chill autour de la Saône.',
+    blurb: 'Binôme 10 km chill autour de la Saône — complet 2/2.',
     locked: false,
   },
 ];
@@ -304,6 +308,10 @@ export type ChatThread = {
   preview: string;
   updatedAt: string;
   unread: number;
+  /** Dernier message envoyé par moi (liste Messages). */
+  lastFromMe?: boolean;
+  /** « Vu » / « Envoyé » si lastFromMe. */
+  readStatus?: 'vu' | 'envoye' | null;
   avatarLetter?: string;
   avatarColor?: string;
 };
@@ -347,12 +355,12 @@ export const mockChats: ChatThread[] = [
   {
     id: 'c-funk',
     teamId: 't-funk',
-    name: 'Duo Ranked Lyon · groupe',
+    name: 'Jumelo Ranked Lyon · jumelo',
     isGroup: true,
     preview: 'Maxime: On lance une ranked ?',
     updatedAt: 'Lun',
     unread: 0,
-    avatarLetter: 'D',
+    avatarLetter: 'J',
     avatarColor: '#A7F3D0',
   },
 ];

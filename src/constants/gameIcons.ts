@@ -63,6 +63,8 @@ export const BRAND_ICONS: Record<string, BrandGlyph> = {
   // Jeux — glyphe Simple Icons dédié (fallback si pas d’artwork)
   valorant: toGlyph(siValorant),
   lol: toGlyph(siLeagueoflegends),
+  /** Même marque LoL — artwork distinct via gameArt */
+  'wild-rift': toGlyph(siLeagueoflegends),
   fortnite: toGlyph(siFortnite),
   cs2: toGlyph(siCounterstrike),
   roblox: toGlyph(siRoblox),

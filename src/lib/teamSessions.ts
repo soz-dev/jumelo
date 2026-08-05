@@ -341,3 +341,31 @@ export async function forceEndActiveSession(teamId: string): Promise<void> {
   });
   if (changed) await saveState(state);
 }
+
+/** Sessions + notes d’une équipe (pour score jumelo, stats, etc.). */
+export async function getTeamSessionBundle(teamId: string): Promise<{
+  sessions: TeamSession[];
+  ratings: SessionRating[];
+}> {
+  const state = await loadState();
+  return {
+    sessions: state.sessions.filter((s) => s.teamId === teamId),
+    ratings: state.ratings.filter((r) => r.teamId === teamId),
+  };
+}
+
+/** Bundle multi-équipes en un seul load AsyncStorage. */
+export async function getTeamSessionBundles(
+  teamIds: string[],
+): Promise<Map<string, { sessions: TeamSession[]; ratings: SessionRating[] }>> {
+  const ids = [...new Set(teamIds.filter(Boolean))];
+  const state = await loadState();
+  const map = new Map<string, { sessions: TeamSession[]; ratings: SessionRating[] }>();
+  for (const id of ids) {
+    map.set(id, {
+      sessions: state.sessions.filter((s) => s.teamId === id),
+      ratings: state.ratings.filter((r) => r.teamId === id),
+    });
+  }
+  return map;
+}

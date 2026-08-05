@@ -39,7 +39,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   },
   {
     id: 'trio-jumelo',
-    title: 'Duo régulier',
+    title: 'Jumelo régulier',
     description: 'Cumule 3 jumelages.',
     icon: 'social',
     target: 3,
@@ -53,15 +53,15 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   },
   {
     id: 'first-team',
-    title: 'Première équipe',
-    description: 'Crée ta première équipe.',
+    title: 'Premier jumelo',
+    description: 'Crée ton premier binôme.',
     icon: 'spark',
     target: 1,
   },
   {
     id: 'captain',
     title: 'Capitaine',
-    description: 'Crée 3 équipes.',
+    description: 'Crée 3 jumelos ou groupes.',
     icon: 'live',
     target: 3,
   },

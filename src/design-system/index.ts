@@ -34,8 +34,10 @@ export {
   mixHex,
   withHexAlpha,
   resolvePrimaryLight,
+  themeAtmosphereColors,
   themeWashColors,
   themeBrandColors,
+  themeHeroColors,
   themeGradientAngles,
 } from './themeGradients';
 export type { ThemeGradientSource } from './themeGradients';

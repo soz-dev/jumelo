@@ -6,8 +6,11 @@ import {
   mockUsers,
   type ChatMessage,
 } from '../data/mock';
+import { canViewSeededDemoContent } from './admin';
 
 const STORAGE_KEY = '@jumelo/dm-chats';
+
+export type ThreadReadStatus = 'vu' | 'envoye';
 
 export type LocalDmThread = {
   id: string;
@@ -18,6 +21,10 @@ export type LocalDmThread = {
   preview: string;
   updatedAt: string;
   unread: number;
+  /** Dernier message envoyé par moi. */
+  lastFromMe: boolean;
+  /** Present si lastFromMe : lu par le pair (« Vu ») ou seulement envoyé. */
+  readStatus: ThreadReadStatus | null;
 };
 
 type StoredMessage = {
@@ -36,9 +43,11 @@ export type LocalDmRecord = {
   preview: string;
   updatedAt: string;
   memberIds: string[];
-  /** Threads seedés depuis mockChats — visibles pour tout compte local. */
+  /** Threads seedés depuis mockChats — visibles uniquement pour le compte admin. */
   seeded?: boolean;
   messages: StoredMessage[];
+  /** Curseur de lecture par userId (ISO). */
+  lastReadAtByUser?: Record<string, string>;
 };
 
 type DmState = {
@@ -109,6 +118,11 @@ function buildSeedChat(thread: (typeof mockChats)[number]): LocalDmRecord | null
   const meta = peerMeta(thread.peerId);
   const messages = seedMessagesFor(thread.id, thread.peerId);
   const last = messages[messages.length - 1];
+  const lastReadAtByUser: Record<string, string> = {};
+  // Si le dernier msg seed est de moi, le pair l’a déjà « vu »
+  if (last && last.senderId === '__me__') {
+    lastReadAtByUser[thread.peerId] = last.createdAt;
+  }
   return {
     id: thread.id,
     peerId: thread.peerId,
@@ -120,6 +134,7 @@ function buildSeedChat(thread: (typeof mockChats)[number]): LocalDmRecord | null
     memberIds: [thread.peerId],
     seeded: true,
     messages,
+    lastReadAtByUser,
   };
 }
 
@@ -156,17 +171,81 @@ async function saveLocal(state: DmState): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 }
 
+function isFromMe(msg: StoredMessage, myUserId: string): boolean {
+  return msg.senderId === myUserId || msg.senderId === '__me__';
+}
+
 function toUiMessage(msg: StoredMessage, myUserId: string): ChatMessage {
-  const fromMe = msg.senderId === myUserId || msg.senderId === '__me__';
   return {
     id: msg.id,
-    fromMe,
+    fromMe: isFromMe(msg, myUserId),
     text: msg.text,
     at: formatAt(msg.createdAt),
   };
 }
 
-function toThread(chat: LocalDmRecord): LocalDmThread {
+function seedUnreadHint(chatId: string): number {
+  return mockChats.find((c) => c.id === chatId && !c.isGroup)?.unread ?? 0;
+}
+
+/** Initialise le curseur une fois (seed unread ou tout lu). */
+function ensureMyReadCursor(chat: LocalDmRecord, myUserId: string): boolean {
+  if (chat.lastReadAtByUser?.[myUserId]) return false;
+
+  const incoming = chat.messages.filter((m) => !isFromMe(m, myUserId));
+  const hint = chat.seeded ? seedUnreadHint(chat.id) : 0;
+  let cursor: string;
+
+  if (hint > 0 && incoming.length > 0) {
+    const keepUnread = Math.min(hint, incoming.length);
+    if (keepUnread >= incoming.length) {
+      cursor = new Date(0).toISOString();
+    } else {
+      cursor = incoming[incoming.length - keepUnread - 1]!.createdAt;
+    }
+  } else {
+    const last = chat.messages[chat.messages.length - 1];
+    cursor = last?.createdAt ?? new Date().toISOString();
+  }
+
+  chat.lastReadAtByUser = {
+    ...(chat.lastReadAtByUser ?? {}),
+    [myUserId]: cursor,
+  };
+  return true;
+}
+
+function countUnread(chat: LocalDmRecord, myUserId: string): number {
+  ensureMyReadCursor(chat, myUserId);
+  const cursor = chat.lastReadAtByUser?.[myUserId];
+  if (!cursor) return 0;
+  return chat.messages.filter((m) => !isFromMe(m, myUserId) && m.createdAt > cursor).length;
+}
+
+function resolveReadStatus(
+  chat: LocalDmRecord,
+  myUserId: string,
+): { lastFromMe: boolean; readStatus: ThreadReadStatus | null } {
+  const last = chat.messages[chat.messages.length - 1];
+  if (!last) return { lastFromMe: false, readStatus: null };
+  const lastFromMe = isFromMe(last, myUserId);
+  if (!lastFromMe) return { lastFromMe: false, readStatus: null };
+
+  const peerId =
+    chat.peerId && chat.peerId !== myUserId
+      ? chat.peerId
+      : chat.memberIds.find((id) => id !== myUserId);
+  if (!peerId) return { lastFromMe: true, readStatus: 'envoye' };
+
+  const peerRead = chat.lastReadAtByUser?.[peerId];
+  if (peerRead && peerRead >= last.createdAt) {
+    return { lastFromMe: true, readStatus: 'vu' };
+  }
+  return { lastFromMe: true, readStatus: 'envoye' };
+}
+
+function toThread(chat: LocalDmRecord, myUserId: string): LocalDmThread {
+  const { lastFromMe, readStatus } = resolveReadStatus(chat, myUserId);
   return {
     id: chat.id,
     peerId: chat.peerId,
@@ -175,8 +254,39 @@ function toThread(chat: LocalDmRecord): LocalDmThread {
     peerAvatarColor: chat.peerAvatarColor,
     preview: chat.preview,
     updatedAt: formatThreadTime(chat.updatedAt),
-    unread: 0,
+    unread: countUnread(chat, myUserId),
+    lastFromMe,
+    readStatus,
   };
+}
+
+/** MVP : les pairs « online » marquent le DM comme lu après un court délai. */
+function schedulePeerReadSimulation(
+  conversationId: string,
+  peerId: string,
+  messageCreatedAt: string,
+): void {
+  const peer = mockUsers.find((u) => u.id === peerId);
+  if (!peer?.online) return;
+
+  setTimeout(() => {
+    void (async () => {
+      try {
+        const state = await loadLocal();
+        const chat = state.chats.find((c) => c.id === conversationId);
+        if (!chat) return;
+        const last = chat.messages[chat.messages.length - 1];
+        if (!last || last.createdAt !== messageCreatedAt) return;
+        chat.lastReadAtByUser = {
+          ...(chat.lastReadAtByUser ?? {}),
+          [peerId]: messageCreatedAt,
+        };
+        await saveLocal(state);
+      } catch {
+        // best-effort
+      }
+    })();
+  }, 2200);
 }
 
 /** Crée ou retrouve un DM local (ids `c-*` seedés ou `dm-*`). */
@@ -201,7 +311,7 @@ export async function getOrCreateLocalDm(
   }
 
   const seedHit = mockChats.find((c) => !c.isGroup && c.peerId === peerId);
-  if (seedHit) {
+  if (seedHit && canViewSeededDemoContent()) {
     const built = buildSeedChat(seedHit);
     if (built) {
       built.memberIds = [myId, peerId];
@@ -241,13 +351,56 @@ export async function getOrCreateLocalDm(
 export async function listLocalDmThreads(myId: string): Promise<LocalDmThread[]> {
   if (!myId) return [];
   const state = await loadLocal();
-  const visible = state.chats.filter(
-    (c) => c.seeded || c.memberIds.includes(myId) || c.peerId === myId,
-  );
+  const allowSeeded = canViewSeededDemoContent();
+  const visible = state.chats.filter((c) => {
+    if (c.seeded) return allowSeeded;
+    return c.memberIds.includes(myId) || c.peerId === myId;
+  });
+  let dirty = false;
+  for (const chat of visible) {
+    if (ensureMyReadCursor(chat, myId)) dirty = true;
+  }
+  if (dirty) await saveLocal(state);
+
   return visible
     .slice()
     .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
-    .map(toThread);
+    .map((c) => toThread(c, myId));
+}
+
+/** Marque la conversation comme lue pour l’utilisateur (curseur = dernier message). */
+export async function markLocalDmRead(
+  conversationId: string,
+  myUserId: string,
+): Promise<void> {
+  if (!conversationId || !myUserId) return;
+  const state = await loadLocal();
+  let chat = state.chats.find((c) => c.id === conversationId);
+  if (!chat && canViewSeededDemoContent()) {
+    const seed = mockChats.find((c) => c.id === conversationId && !c.isGroup);
+    if (seed) {
+      const built = buildSeedChat(seed);
+      if (built) {
+        state.chats = [built, ...state.chats];
+        chat = built;
+      }
+    }
+  }
+  if (!chat || (chat.seeded && !canViewSeededDemoContent())) return;
+
+  const last = chat.messages[chat.messages.length - 1];
+  const at = last?.createdAt ?? new Date().toISOString();
+  chat.lastReadAtByUser = {
+    ...(chat.lastReadAtByUser ?? {}),
+    [myUserId]: at,
+  };
+  await saveLocal(state);
+}
+
+export async function countLocalDmUnread(myId: string): Promise<number> {
+  if (!myId) return 0;
+  const threads = await listLocalDmThreads(myId);
+  return threads.reduce((sum, t) => sum + t.unread, 0);
 }
 
 export async function listLocalDmMessages(
@@ -256,7 +409,7 @@ export async function listLocalDmMessages(
 ): Promise<ChatMessage[]> {
   const state = await loadLocal();
   let chat = state.chats.find((c) => c.id === conversationId);
-  if (!chat) {
+  if (!chat && canViewSeededDemoContent()) {
     const seed = mockChats.find((c) => c.id === conversationId && !c.isGroup);
     if (seed) {
       const built = buildSeedChat(seed);
@@ -267,7 +420,7 @@ export async function listLocalDmMessages(
       }
     }
   }
-  if (!chat) return [];
+  if (!chat || (chat.seeded && !canViewSeededDemoContent())) return [];
   return chat.messages.map((m) => toUiMessage(m, myUserId));
 }
 
@@ -281,7 +434,7 @@ export async function sendLocalDmMessage(params: {
 
   const state = await loadLocal();
   let chat = state.chats.find((c) => c.id === params.conversationId);
-  if (!chat) {
+  if (!chat && canViewSeededDemoContent()) {
     const seed = mockChats.find((c) => c.id === params.conversationId && !c.isGroup);
     if (seed) {
       const built = buildSeedChat(seed);
@@ -292,7 +445,7 @@ export async function sendLocalDmMessage(params: {
       }
     }
   }
-  if (!chat) return null;
+  if (!chat || (chat.seeded && !canViewSeededDemoContent())) return null;
 
   if (!chat.memberIds.includes(params.senderId)) {
     chat.memberIds = [...chat.memberIds, params.senderId];
@@ -307,6 +460,11 @@ export async function sendLocalDmMessage(params: {
   chat.messages = [...chat.messages, msg];
   chat.preview = text;
   chat.updatedAt = msg.createdAt;
+  // L’expéditeur a « lu » jusqu’à son propre message
+  chat.lastReadAtByUser = {
+    ...(chat.lastReadAtByUser ?? {}),
+    [params.senderId]: msg.createdAt,
+  };
   await saveLocal(state);
 
   const peerId =
@@ -314,6 +472,7 @@ export async function sendLocalDmMessage(params: {
       ? chat.peerId
       : chat.memberIds.find((id) => id !== params.senderId);
   if (peerId) {
+    schedulePeerReadSimulation(chat.id, peerId, msg.createdAt);
     try {
       const { notifyUser } = await import('./notifications');
       const { getCachedProfile } = await import('./profileDirectory');
@@ -345,9 +504,11 @@ export async function getLocalDmPeerId(
   const state = await loadLocal();
   const chat = state.chats.find((c) => c.id === conversationId);
   if (!chat) {
+    if (!canViewSeededDemoContent()) return null;
     const seed = mockChats.find((c) => c.id === conversationId && !c.isGroup);
     return seed?.peerId ?? null;
   }
+  if (chat.seeded && !canViewSeededDemoContent()) return null;
   if (chat.peerId && chat.peerId !== myId) return chat.peerId;
   return chat.memberIds.find((id) => id !== myId) ?? null;
 }

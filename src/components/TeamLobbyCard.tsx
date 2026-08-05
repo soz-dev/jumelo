@@ -7,27 +7,35 @@ import {
   View,
 } from 'react-native';
 
-import { CategoryIcon } from './CategoryIcon';
-import { getCategory } from '../constants/catalog';
+import { ActivityArtImage } from './ActivityArtImage';
+import { GameArtImage } from './GameArtImage';
+import { findCatalogInText, getCategory } from '../constants/catalog';
 import type { Team } from '../data/mock';
 import { useTheme } from '../context/ThemeContext';
 import {
   Icon,
   elevation,
   fonts,
-  radii,
+  mixHex,
   spacing,
-  typography,
+  themeBrandColors,
+  themeGradientAngles,
+  universeIcon,
   withHexAlpha,
 } from '../design-system';
 import type { TeamMembershipState } from '../lib/api/teams';
+import type { DuoRankSnapshot } from '../lib/duoPoints';
 
-export function joinLabel(state: TeamMembershipState, locked: boolean): string {
+export function joinLabel(
+  state: TeamMembershipState,
+  locked: boolean,
+  _capacity = 2,
+): string {
   switch (state) {
     case 'owner':
       return 'Gérer';
     case 'member':
-      return 'Chat groupe';
+      return 'Ouvrir le chat';
     case 'pending':
       return 'En attente';
     case 'rejected':
@@ -43,296 +51,480 @@ type Props = {
   busy: boolean;
   onJoin: () => void;
   onDetails: () => void;
+  duoRank?: DuoRankSnapshot | null;
 };
 
-export function TeamLobbyCard({ team, state, busy, onJoin, onDetails }: Props) {
+const ART_H = 148;
+const SHEET_OVERLAP = 22;
+
+function CardArt({
+  team,
+  accent,
+}: {
+  team: Team;
+  accent: string;
+}) {
+  const match = findCatalogInText(
+    `${team.name} ${team.activity}`,
+    team.universe,
+  );
+  const catalogId = match?.id;
+  const isGaming = team.universe === 'gaming';
+
+  if (isGaming && catalogId) {
+    return (
+      <GameArtImage
+        catalogId={catalogId}
+        size={420}
+        height={ART_H}
+        color={accent}
+        brandedFallback
+        resizeMode="cover"
+        borderRadius={0}
+        style={styles.artImage}
+      />
+    );
+  }
+
+  if (catalogId) {
+    return (
+      <View style={[styles.artFallback, { backgroundColor: withHexAlpha(accent, 0.12) }]}>
+        <ActivityArtImage
+          catalogId={catalogId}
+          size={120}
+          color={accent}
+          backgroundColor="transparent"
+        />
+      </View>
+    );
+  }
+
+  return (
+    <View style={[styles.artFallback, { backgroundColor: withHexAlpha(accent, 0.14) }]}>
+      <Icon
+        name={universeIcon(team.universe)}
+        size={72}
+        color={accent}
+        weight="fill"
+      />
+    </View>
+  );
+}
+
+export function TeamLobbyCard({
+  team,
+  state,
+  busy,
+  onJoin,
+  onDetails,
+  duoRank = null,
+}: Props) {
   const { colors } = useTheme();
   const cat = getCategory(team.universe);
   const accent = cat?.color ?? colors.primary;
-  const progress = team.membersCount / team.capacity;
-  const label = joinLabel(state, team.locked);
+  const progress = Math.min(1, team.membersCount / team.capacity);
+  const slotsLeft = Math.max(0, team.capacity - team.membersCount);
+  const label = joinLabel(state, team.locked, team.capacity);
   const joinDisabled = state === 'pending' || busy;
-  const joinBg =
-    state === 'pending'
-      ? colors.inkFaint
-      : state === 'member' || state === 'owner'
-        ? colors.primarySoft
-        : colors.primary;
-  const joinTextColor =
-    state === 'member' || state === 'owner' ? colors.primaryDark : '#fff';
 
-  const washTop = withHexAlpha(accent, team.locked ? 0.07 : 0.14);
-  const washEnd = withHexAlpha(accent, team.locked ? 0.02 : 0.04);
-  const borderColor = team.locked
-    ? withHexAlpha(accent, 0.22)
-    : withHexAlpha(accent, 0.48);
-  const accessBg = team.locked
-    ? withHexAlpha(colors.ink, 0.08)
-    : withHexAlpha(colors.success, 0.14);
-  const accessFg = team.locked ? colors.inkMuted : colors.success;
+  /**
+   * Panneau harmonisé charte bleue :
+   * primaryDark approfondi → lift soft (dégradé, pas de plaque plate).
+   */
+  const sheet = mixHex(colors.primaryDark, '#061428', 0.42);
+  const sheetMid = mixHex(sheet, colors.primary, 0.22);
+  const sheetLift = mixHex(sheet, colors.primarySoft, 0.18);
+  const onSheet = colors.cream;
+  const onSheetMuted = withHexAlpha(colors.cream, 0.68);
+  const onSheetFaint = withHexAlpha(colors.cream, 0.42);
+  const brand = themeBrandColors(colors);
+  const brandAngle = themeGradientAngles.brand;
+
+  const primaryPending = state === 'pending';
+  const primaryFg = primaryPending ? onSheetMuted : '#fff';
 
   return (
-    <View style={[styles.cardShell, elevation.soft]}>
-      <View
-        style={[
-          styles.card,
-          {
-            borderColor,
-            borderWidth: team.locked ? 1 : 1.5,
-          },
-        ]}
-      >
-      <LinearGradient
-        colors={[washTop, washEnd, colors.white]}
-        locations={[0, 0.45, 1]}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
+    <View style={[styles.shell, elevation.soft]}>
+      <View style={styles.card}>
+        {/* Header media — inchangé (top) */}
+        <View style={styles.media}>
+          <CardArt team={team} accent={accent} />
+          <LinearGradient
+            colors={['transparent', 'rgba(15,18,24,0.55)']}
+            locations={[0.35, 1]}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={styles.mediaTop}>
+            <View style={styles.mediaChip}>
+              <Icon
+                name={team.locked ? 'lock' : 'lock-open'}
+                size={11}
+                color="#fff"
+                weight="bold"
+              />
+              <Text style={styles.mediaChipText}>
+                {team.locked ? 'Sur demande' : 'Ouvert'}
+              </Text>
+            </View>
+            {team.vibe ? (
+              <View style={styles.mediaChipMuted}>
+                <Text style={styles.mediaChipText}>{team.vibe}</Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.mediaActivity} numberOfLines={1}>
+            {team.activity}
+          </Text>
+        </View>
 
-      <View style={[styles.sideAccent, { backgroundColor: accent }]} />
-      <View style={[styles.topBar, { backgroundColor: accent }]} />
+        {/* Sheet qui remonte sur l’art */}
+        <View style={styles.sheet}>
+          <LinearGradient
+            colors={[sheet, sheetMid, sheetLift]}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+            pointerEvents="none"
+          />
+          <View style={[styles.grip, { backgroundColor: withHexAlpha(onSheet, 0.22) }]} />
+          <View style={[styles.accentRail, { backgroundColor: accent }]} />
 
-      <View style={styles.cardBody}>
-        <View style={styles.cardTop}>
-          <View>
-            <CategoryIcon universeId={team.universe} size={44} />
+          <View style={styles.sheetTop}>
+            <View style={styles.sheetMain}>
+              <Text style={[styles.title, { color: onSheet }]} numberOfLines={2}>
+                {team.name}
+              </Text>
+
+              {duoRank ? (
+                <View style={styles.rankLine}>
+                  <View style={[styles.rankDot, { backgroundColor: duoRank.color }]} />
+                  <Text style={[styles.rankName, { color: duoRank.color }]}>
+                    {duoRank.displayName}
+                  </Text>
+                  <Text style={[styles.rankMeta, { color: onSheetFaint }]}>
+                    Nv.{duoRank.level}
+                  </Text>
+                  <Text style={[styles.rankMeta, { color: onSheetFaint }]}>·</Text>
+                  <Text
+                    style={[styles.rankMeta, { color: onSheetMuted, flex: 1 }]}
+                    numberOfLines={1}
+                  >
+                    {duoRank.title}
+                  </Text>
+                </View>
+              ) : (
+                <Text style={[styles.rankMeta, { color: onSheetMuted }]}>
+                  Niveau · {team.levelLabel}
+                </Text>
+              )}
+
+              <View style={styles.placeRow}>
+                <Icon name="city" size={13} color={onSheetFaint} />
+                <Text style={[styles.placeCity, { color: onSheetMuted }]}>
+                  {team.city}
+                </Text>
+                {team.nextSession && team.nextSession !== 'À définir' ? (
+                  <>
+                    <Text style={{ color: onSheetFaint }}>·</Text>
+                    <Text
+                      style={[styles.placeCity, { color: onSheetFaint, flex: 1 }]}
+                      numberOfLines={1}
+                    >
+                      {team.nextSession}
+                    </Text>
+                  </>
+                ) : null}
+              </View>
+            </View>
+
+            {/* Compteur places type “dial” */}
             <View
               style={[
-                styles.lockGlyph,
+                styles.slotDial,
                 {
-                  backgroundColor: team.locked ? colors.ink : colors.success,
-                  borderColor: colors.white,
+                  borderColor: withHexAlpha(accent, 0.55),
+                  backgroundColor: sheetLift,
                 },
               ]}
             >
-              <Icon
-                name={team.locked ? 'lock' : 'lock-open'}
-                size={10}
-                color="#fff"
-                weight="bold"
+              <Text style={[styles.slotDialNum, { color: onSheet }]}>
+                {team.membersCount}
+                <Text style={{ color: onSheetFaint, fontSize: 13 }}>
+                  /{team.capacity}
+                </Text>
+              </Text>
+              <Text style={[styles.slotDialHint, { color: onSheetFaint }]}>
+                {slotsLeft === 0 ? 'plein' : slotsLeft === 1 ? '1 place' : `${slotsLeft} pl.`}
+              </Text>
+            </View>
+          </View>
+
+          <View style={styles.trackRow}>
+            <View
+              style={[
+                styles.track,
+                { backgroundColor: withHexAlpha(onSheet, 0.12) },
+              ]}
+            >
+              <LinearGradient
+                colors={[accent, colors.primary]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={[styles.fill, { width: `${Math.max(progress * 100, 6)}%` }]}
               />
             </View>
           </View>
 
-          <View style={{ flex: 1 }}>
-            <Text style={[styles.name, { color: colors.ink }]} numberOfLines={1}>
-              {team.name}
+          {state === 'pending' ? (
+            <Text style={[styles.pending, { color: colors.primaryLight }]}>
+              Demande envoyée — en attente du chef
             </Text>
-            <Text
-              style={{ color: colors.inkMuted, fontFamily: fonts.body, fontSize: 14 }}
-              numberOfLines={1}
+          ) : null}
+
+          <View style={styles.actions}>
+            <Pressable
+              style={[
+                styles.primaryBtn,
+                primaryPending
+                  ? { backgroundColor: withHexAlpha(colors.cream, 0.14) }
+                  : { backgroundColor: 'transparent', overflow: 'hidden' },
+              ]}
+              disabled={joinDisabled && state === 'pending'}
+              onPress={onJoin}
             >
-              {team.activity}
-            </Text>
-            <View style={styles.tagRow}>
-              <View style={[styles.catTag, { backgroundColor: withHexAlpha(accent, 0.16) }]}>
-                <Icon name={team.universe} size={11} color={accent} weight="bold" />
-                <Text style={[styles.catTagText, { color: accent }]}>
-                  {cat?.shortLabel ?? team.universe}
-                </Text>
-              </View>
-              <View style={[styles.accessBadge, { backgroundColor: accessBg }]}>
-                <Icon
-                  name={team.locked ? 'lock' : 'lock-open'}
-                  size={11}
-                  color={accessFg}
-                  weight="bold"
+              {!primaryPending ? (
+                <LinearGradient
+                  colors={[...brand]}
+                  start={brandAngle.start}
+                  end={brandAngle.end}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
                 />
-                <Text style={[styles.accessText, { color: accessFg }]}>
-                  {team.locked ? 'Sur demande' : 'Entrée libre'}
+              ) : null}
+              {busy ? (
+                <ActivityIndicator color={primaryFg} />
+              ) : (
+                <Text style={[styles.primaryBtnText, { color: primaryFg }]}>
+                  {label}
                 </Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={[styles.vibe, { backgroundColor: withHexAlpha(accent, 0.14) }]}>
-            <Text style={{ color: accent, fontFamily: fonts.bodyMedium, fontSize: 12 }}>
-              {team.vibe}
-            </Text>
-          </View>
-        </View>
-
-        <View style={styles.metaRow}>
-          <Icon name="city" size={14} color={colors.inkMuted} />
-          <Text style={[styles.meta, { color: colors.inkMuted }]}>{team.city}</Text>
-          <Icon name="teams" size={14} color={colors.inkMuted} />
-          <Text style={[styles.meta, { color: colors.inkMuted }]}>
-            {team.membersCount}/{team.capacity}
-          </Text>
-          <Text style={[styles.meta, { color: colors.inkMuted }]}>
-            · Niveau: {team.levelLabel}
-          </Text>
-        </View>
-
-        {state === 'pending' ? (
-          <View style={[styles.pendingBanner, { backgroundColor: colors.primarySoft }]}>
-            <Icon name="flexible" size={16} color={colors.primaryDark} />
-            <Text
-              style={{
-                color: colors.primaryDark,
-                fontFamily: fonts.bodyMedium,
-                fontSize: 13,
-                flex: 1,
-              }}
+              )}
+            </Pressable>
+            <Pressable
+              style={[
+                styles.ghostBtn,
+                {
+                  borderColor: withHexAlpha(onSheet, 0.2),
+                  backgroundColor: sheetLift,
+                },
+              ]}
+              onPress={onDetails}
+              accessibilityLabel="Détails"
             >
-              En attente d’approbation
-            </Text>
+              <Icon name="chevronRight" size={18} color={onSheet} weight="bold" />
+            </Pressable>
           </View>
-        ) : null}
-
-        <View style={[styles.progressTrack, { backgroundColor: withHexAlpha(accent, 0.15) }]}>
-          <View
-            style={[
-              styles.progressFill,
-              {
-                width: `${Math.min(progress, 1) * 100}%`,
-                backgroundColor: accent,
-              },
-            ]}
-          />
         </View>
-
-        <View style={styles.rowBtns}>
-          <Pressable
-            style={[
-              styles.join,
-              { backgroundColor: joinBg },
-              state !== 'pending' && state !== 'member' && state !== 'owner'
-                ? elevation.glow(joinBg)
-                : null,
-            ]}
-            disabled={joinDisabled && state === 'pending'}
-            onPress={onJoin}
-          >
-            {busy ? (
-              <ActivityIndicator color={joinTextColor} />
-            ) : (
-              <Text style={[styles.joinText, { color: joinTextColor }]}>{label}</Text>
-            )}
-          </Pressable>
-          <Pressable
-            style={[
-              styles.details,
-              {
-                borderColor: withHexAlpha(accent, 0.35),
-                backgroundColor: withHexAlpha(colors.white, 0.55),
-              },
-            ]}
-            onPress={onDetails}
-          >
-            <Text style={{ color: colors.ink, fontFamily: fonts.bodyMedium }}>Détails</Text>
-          </Pressable>
-        </View>
-      </View>
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  cardShell: {
-    borderRadius: radii.xl,
+  shell: {
+    borderRadius: 22,
     marginBottom: spacing.md,
   },
   card: {
-    borderRadius: radii.xl,
+    borderRadius: 22,
     overflow: 'hidden',
-    position: 'relative',
+    backgroundColor: '#12151A',
   },
-  sideAccent: {
-    position: 'absolute',
-    left: 0,
-    top: 0,
-    bottom: 0,
-    width: 5,
-    zIndex: 1,
+  media: {
+    height: ART_H,
+    backgroundColor: '#12151A',
+    justifyContent: 'flex-end',
   },
-  topBar: { height: 4 },
-  cardBody: { padding: spacing.md, paddingLeft: spacing.md + 4 },
-  cardTop: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
-  name: { ...typography.section, fontSize: 17, letterSpacing: -0.3 },
-  lockGlyph: {
-    position: 'absolute',
-    right: -3,
-    bottom: -3,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+  artImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    borderRadius: 0,
+  },
+  artFallback: {
+    ...StyleSheet.absoluteFillObject,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
   },
-  tagRow: {
+  mediaTop: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    right: 12,
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 6,
-  },
-  catTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: radii.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  catTagText: { fontFamily: fonts.bodyBold, fontSize: 11 },
-  accessBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    borderRadius: radii.pill,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-  },
-  accessText: { fontFamily: fonts.bodyMedium, fontSize: 11 },
-  vibe: {
-    borderRadius: radii.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    alignSelf: 'flex-start',
-  },
-  metaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    gap: 4,
-    marginTop: spacing.md,
-  },
-  meta: { fontFamily: fonts.body, fontSize: 13 },
-  pendingBanner: {
-    marginTop: spacing.sm,
-    borderRadius: radii.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
+    justifyContent: 'space-between',
     gap: 8,
   },
-  progressTrack: {
-    height: 6,
-    borderRadius: 999,
-    marginTop: spacing.sm,
+  mediaChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.45)',
+  },
+  mediaChipMuted: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  mediaChipText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    color: '#fff',
+    letterSpacing: 0.2,
+  },
+  mediaActivity: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.92)',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+    paddingHorizontal: 16,
+    paddingBottom: 12 + SHEET_OVERLAP * 0.35,
+  },
+  sheet: {
+    marginTop: -SHEET_OVERLAP,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 14,
+    gap: 12,
+    position: 'relative',
     overflow: 'hidden',
   },
-  progressFill: { height: '100%' },
-  rowBtns: { flexDirection: 'row', gap: 10, marginTop: spacing.md },
-  join: {
-    flex: 1,
-    borderRadius: radii.pill,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 13,
-    minHeight: 48,
+  grip: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: 2,
   },
-  joinText: { fontFamily: fonts.bodyBold, fontSize: 15, letterSpacing: 0.1 },
-  details: {
-    borderWidth: 1.5,
-    borderRadius: radii.pill,
-    paddingHorizontal: 18,
+  accentRail: {
+    position: 'absolute',
+    left: 0,
+    top: 28,
+    bottom: 14,
+    width: 3,
+    borderTopRightRadius: 2,
+    borderBottomRightRadius: 2,
+  },
+  sheetTop: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    paddingLeft: 6,
+  },
+  sheetMain: {
+    flex: 1,
+    gap: 8,
+    minWidth: 0,
+  },
+  title: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    letterSpacing: -0.6,
+    lineHeight: 26,
+  },
+  rankLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 7,
+  },
+  rankDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+  },
+  rankName: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+  },
+  rankMeta: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+  },
+  placeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
+  placeCity: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+  },
+  slotDial: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
+    gap: 1,
+  },
+  slotDialNum: {
+    fontFamily: fonts.displaySemi,
+    fontSize: 18,
+    letterSpacing: -0.4,
+    lineHeight: 20,
+  },
+  slotDialHint: {
+    fontFamily: fonts.body,
+    fontSize: 10,
+  },
+  trackRow: {
+    paddingLeft: 6,
+  },
+  track: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  fill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  pending: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    paddingLeft: 6,
+  },
+  actions: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingLeft: 6,
+  },
+  primaryBtn: {
+    flex: 1,
+    height: 46,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  primaryBtnText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+  },
+  ghostBtn: {
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

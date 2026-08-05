@@ -128,6 +128,10 @@ export async function saveProfile(profile: UserProfile): Promise<void> {
       theme_id: profile.themeId ?? 'teal',
       onboarding_complete: profile.onboardingComplete,
       languages: profile.languages ?? [],
+      age:
+        typeof profile.age === 'number' && Number.isFinite(profile.age)
+          ? Math.round(profile.age)
+          : null,
     },
     { onConflict: 'id' },
   );
@@ -185,6 +189,7 @@ export async function patchProfileFields(
     theme_id: string;
     onboarding_complete: boolean;
     languages: string[];
+    age: number | null;
   }>,
 ): Promise<void> {
   const supabase = getSupabase();

@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import React from 'react';
 import {
   ActivityIndicator,
@@ -16,6 +17,11 @@ import Animated, {
 
 import { useTheme } from '../context/ThemeContext';
 import { elevation, fonts, iconSizes, motion, radii, spacing } from './tokens';
+import {
+  mixHex,
+  themeBrandColors,
+  themeGradientAngles,
+} from './themeGradients';
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
 
@@ -41,17 +47,13 @@ export function Button({
   const { colors } = useTheme();
   const scale = useSharedValue(1);
   const isDisabled = disabled || loading;
+  const brand = themeBrandColors(colors);
+  const brandAngle = themeGradientAngles.brand;
 
-  const bg =
-    variant === 'primary'
-      ? colors.primary
-      : variant === 'accent'
-        ? colors.accent
-        : variant === 'secondary'
-          ? colors.white
-          : 'transparent';
+  const isGradient = variant === 'primary' || variant === 'accent';
   const textColor =
     variant === 'secondary' || variant === 'ghost' ? colors.primary : colors.white;
+  const glowColor = variant === 'accent' ? colors.accent : colors.primary;
 
   const animStyle = useAnimatedStyle(() => ({
     transform: [{ scale: scale.value }],
@@ -70,18 +72,39 @@ export function Button({
       style={[
         styles.btn,
         {
-          backgroundColor: bg,
+          backgroundColor: isGradient
+            ? 'transparent'
+            : variant === 'secondary'
+              ? colors.white
+              : 'transparent',
           borderColor: variant === 'secondary' ? colors.primary : 'transparent',
           borderWidth: variant === 'secondary' ? 1.5 : 0,
-          ...(variant === 'primary' || variant === 'accent'
-            ? elevation.glow(bg)
-            : {}),
+          overflow: 'hidden',
+          ...(isGradient ? elevation.glow(glowColor) : {}),
         },
         isDisabled && { opacity: 0.5 },
         animStyle,
         style,
       ]}
     >
+      {variant === 'primary' ? (
+        <LinearGradient
+          colors={[...brand]}
+          start={brandAngle.start}
+          end={brandAngle.end}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : null}
+      {variant === 'accent' ? (
+        <LinearGradient
+          colors={[colors.accent, mixHex(colors.accent, colors.primaryDark, 0.45)]}
+          start={brandAngle.start}
+          end={brandAngle.end}
+          style={StyleSheet.absoluteFill}
+          pointerEvents="none"
+        />
+      ) : null}
       {loading ? (
         <ActivityIndicator color={textColor} />
       ) : (

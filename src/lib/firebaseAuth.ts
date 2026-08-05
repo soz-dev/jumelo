@@ -18,11 +18,12 @@ import {
   signOut as firebaseSignOut,
   updateProfile,
 } from 'firebase/auth';
-import { Alert, Platform } from 'react-native';
+import { Platform } from 'react-native';
 
 import {
   GOOGLE_WEB_STABLE_REDIRECT,
   completeAuthSessionIfNeeded,
+  isWebOAuthCallbackUrl,
 } from './completeAuthSession';
 import {
   getFirebaseAuth,
@@ -89,9 +90,17 @@ export const APPLE_FIREBASE_EXPO_GO_MESSAGE =
   'Sous Expo Go : utilise Google (après fix redirect URI).\n' +
   'Pour Apple : installe un development build (eas build --profile development --platform ios) — voir FIREBASE_AUTH.md.';
 
-/** Alerte avant Google — comptes Workspace / pro bloquent souvent les apps non vérifiées. */
+/** Hint UI (pas de modal avant OAuth — ça casse le geste utilisateur / popup web). */
 export const GOOGLE_WORKSPACE_HINT_FR =
   'N’utilise pas ton compte pro / Workspace — choisis un Gmail personnel. Les comptes entreprise bloquent souvent Jumelo (app non vérifiée).';
+
+/** sessionStorage : reprise après redirect Google (web, sans popup). */
+const GOOGLE_WEB_OAUTH_STORAGE_KEY = 'jumelo.google.oauth.v1';
+
+type PendingGoogleWebOAuth = {
+  state: string;
+  nonce: string;
+};
 
 function resolveExpoOwner(): string | undefined {
   const fromEnv = process.env.EXPO_PUBLIC_EXPO_OWNER?.trim().replace(/^@/, '');
@@ -207,27 +216,65 @@ function resolveGoogleRedirect(): {
   };
 }
 
-/** En __DEV__, affiche l’URI exacte envoyée à Google (diagnostic redirect_uri_mismatch). */
+/** En __DEV__, log l’URI Google — jamais d’Alert/confirm (casse le geste → popup bloquée). */
 function notifyGoogleRedirectUri(redirectUri: string, clientId: string): void {
   const shortClient = `${clientId.slice(0, 18)}…${clientId.slice(-12)}`;
-  const message =
-    `Coller EXACTEMENT cette URI dans Google Cloud\n` +
-    `→ APIs & Services → Credentials → client OAuth Web → Authorized redirect URIs → Save\n\n` +
-    `${redirectUri}\n\n` +
-    `Client ID : ${shortClient}`;
   console.log('[jumelo] ======= GOOGLE redirect_uri (COLLER TEL QUEL) =======');
   console.log(redirectUri);
+  console.log('[jumelo] Client ID :', shortClient);
   console.log('[jumelo] =====================================================');
-  if (typeof __DEV__ === 'undefined' || !__DEV__) return;
-  if (Platform.OS === 'web' && typeof window !== 'undefined' && typeof window.alert === 'function') {
-    window.alert(message);
-    return;
+}
+
+function mapEmailAuthFailure(raw: string, code?: string): string {
+  const key = `${code ?? ''} ${raw}`.toLowerCase();
+  if (key.includes('auth/operation-not-allowed')) {
+    // Message public : jamais d’instructions console Firebase en prod.
+    if (typeof __DEV__ !== 'undefined' && __DEV__) {
+      return (
+        '[DEV] Email/Password désactivé sur Firebase.\n' +
+        'Console → Authentication → Sign-in method → Email/Password → Enable.'
+      );
+    }
+    return 'Inscription indisponible pour le moment. Réessaie plus tard ou utilise Google.';
   }
-  Alert.alert('Google redirect_uri', message);
+  if (key.includes('auth/invalid-email')) {
+    return 'Adresse email invalide.';
+  }
+  if (key.includes('auth/user-not-found') || key.includes('auth/invalid-credential')) {
+    return 'Email ou mot de passe incorrect.';
+  }
+  if (key.includes('auth/wrong-password')) {
+    return 'Mot de passe incorrect.';
+  }
+  if (key.includes('auth/email-already-in-use')) {
+    return 'Un compte existe déjà avec cet email. Connecte-toi plutôt.';
+  }
+  if (key.includes('auth/weak-password')) {
+    return 'Mot de passe trop faible (8 caractères minimum).';
+  }
+  if (key.includes('auth/too-many-requests')) {
+    return 'Trop de tentatives. Réessaie dans quelques minutes.';
+  }
+  if (key.includes('auth/network-request-failed')) {
+    return 'Problème réseau. Vérifie ta connexion puis réessaie.';
+  }
+  return raw || 'Connexion impossible.';
 }
 
 function mapGoogleAuthFailure(raw: string): string {
   const lower = raw.toLowerCase();
+  if (
+    lower.includes('err_web_browser_blocked') ||
+    lower.includes('popup window was blocked') ||
+    lower.includes('window.open()')
+  ) {
+    return (
+      'La fenêtre Google a été bloquée par le navigateur.\n\n' +
+      'Sur mobile / WebView, les popups OAuth sont souvent refusées. ' +
+      'Réessaie : Jumelo utilise maintenant une redirection (pas de popup). ' +
+      'Si ça bloque encore, autorise les popups pour ce site ou teste sur ordinateur.'
+    );
+  }
   if (
     lower.includes('access_denied') ||
     lower.includes('org_internal') ||
@@ -256,7 +303,96 @@ function mapGoogleAuthFailure(raw: string): string {
       'Puis `npx expo start -c`. Voir aussi `npm run google:redirects`.'
     );
   }
+  if (lower.includes('network') || lower.includes('failed to fetch')) {
+    return 'Impossible de joindre Google. Vérifie ta connexion puis réessaie.';
+  }
   return raw;
+}
+
+function readPendingGoogleWebOAuth(): PendingGoogleWebOAuth | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = window.sessionStorage.getItem(GOOGLE_WEB_OAUTH_STORAGE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingGoogleWebOAuth;
+    if (!parsed?.state || !parsed?.nonce) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writePendingGoogleWebOAuth(pending: PendingGoogleWebOAuth): void {
+  if (typeof window === 'undefined') return;
+  window.sessionStorage.setItem(GOOGLE_WEB_OAUTH_STORAGE_KEY, JSON.stringify(pending));
+}
+
+function clearPendingGoogleWebOAuth(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.sessionStorage.removeItem(GOOGLE_WEB_OAUTH_STORAGE_KEY);
+  } catch {
+    /* private mode */
+  }
+}
+
+/** Parse hash + query du retour Google (`response_type=id_token` → fragment). */
+function parseOAuthReturnParams(href: string): Record<string, string> {
+  try {
+    const url = new URL(href);
+    const out: Record<string, string> = {};
+    url.searchParams.forEach((value, key) => {
+      out[key] = value;
+    });
+    const hash = url.hash.startsWith('#') ? url.hash.slice(1) : url.hash;
+    if (hash) {
+      new URLSearchParams(hash).forEach((value, key) => {
+        out[key] = value;
+      });
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+async function buildGoogleAuthRequest(webClientId: string, redirectUri: string, nonce: string) {
+  const request = new AuthRequest({
+    clientId: webClientId,
+    redirectUri,
+    scopes: ['openid', 'profile', 'email'],
+    responseType: ResponseType.IdToken,
+    usePKCE: false,
+    prompt: Prompt.SelectAccount,
+    extraParams: {
+      nonce,
+    },
+  });
+
+  const authUrl = await request.makeAuthUrlAsync(googleDiscovery);
+  let authUrlSafe = authUrl;
+  try {
+    const parsed = new URL(authUrl);
+    parsed.searchParams.delete('hd');
+    parsed.searchParams.delete('login_hint');
+    const sentRedirect = parsed.searchParams.get('redirect_uri');
+    if (sentRedirect !== redirectUri) {
+      console.warn(
+        '[jumelo] AuthSession a modifié redirect_uri — on force la valeur stable.',
+        { sentRedirect, redirectUri },
+      );
+      parsed.searchParams.set('redirect_uri', redirectUri);
+    }
+    authUrlSafe = parsed.toString();
+    console.log(
+      '[jumelo] Google OAuth redirect_uri DANS authUrl →',
+      parsed.searchParams.get('redirect_uri'),
+    );
+  } catch {
+    /* URL opaque — laisser tel quel */
+  }
+
+  return { request, authUrlSafe };
 }
 
 export type AuthProviderId = 'google' | 'apple';
@@ -326,6 +462,16 @@ export function displayNameFromFirebase(user: FirebaseUser): string | undefined 
   return undefined;
 }
 
+/** Met à jour le displayName Firebase Auth (session courante). */
+export async function updateFirebaseDisplayName(name: string): Promise<void> {
+  const auth = getFirebaseAuth();
+  const user = auth?.currentUser;
+  if (!user) return;
+  const trimmed = name.trim();
+  if (!trimmed || user.displayName === trimmed) return;
+  await updateProfile(user, { displayName: trimmed });
+}
+
 export function subscribeFirebaseAuth(callback: (user: FirebaseUser | null) => void) {
   const auth = getFirebaseAuth();
   if (!auth) return () => undefined;
@@ -352,10 +498,12 @@ export async function signInEmailFirebase(
     const cred = await signInWithEmailAndPassword(auth, email, password);
     return { ok: true, firebaseUser: cred.user };
   } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : 'Connexion Firebase impossible.',
-    };
+    const code =
+      e && typeof e === 'object' && 'code' in e
+        ? String((e as { code?: string }).code)
+        : undefined;
+    const raw = e instanceof Error ? e.message : 'Connexion Firebase impossible.';
+    return { ok: false, error: mapEmailAuthFailure(raw, code) };
   }
 }
 
@@ -377,10 +525,12 @@ export async function registerEmailFirebase(
     }
     return { ok: true, firebaseUser: cred.user };
   } catch (e) {
-    return {
-      ok: false,
-      error: e instanceof Error ? e.message : 'Inscription Firebase impossible.',
-    };
+    const code =
+      e && typeof e === 'object' && 'code' in e
+        ? String((e as { code?: string }).code)
+        : undefined;
+    const raw = e instanceof Error ? e.message : 'Inscription Firebase impossible.';
+    return { ok: false, error: mapEmailAuthFailure(raw, code) };
   }
 }
 

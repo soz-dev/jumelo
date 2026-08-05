@@ -6,8 +6,14 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeInDown } from 'react-native-reanimated';
 
 import { AchievementsSection } from '../../src/components/AchievementsSection';
-import { CategoryIcon } from '../../src/components/CategoryIcon';
+import { InterestTile } from '../../src/components/InterestTile';
 import { ProfileAvatarEditor } from '../../src/components/ProfileAvatarEditor';
+import { ProfileNameEditor } from '../../src/components/ProfileNameEditor';
+import {
+  ProfileQuickEditor,
+  type ProfileQuickSection,
+} from '../../src/components/ProfileQuickEditor';
+import { ProfileDuosSection } from '../../src/components/ProfileDuosSection';
 import { ProfileStatsCard } from '../../src/components/ProfileStatsCard';
 import { TeammateRatingsCard } from '../../src/components/TeammateRatingsCard';
 import { BrandLogo } from '../../src/components/BrandLogo';
@@ -23,10 +29,13 @@ import {
   fonts,
   radii,
   spacing,
+  themeBrandColors,
+  themeGradientAngles,
   typography,
   withHexAlpha,
 } from '../../src/design-system';
-import { getCategory } from '../../src/constants/catalog';
+import { getCategory, levels, vibes } from '../../src/constants/catalog';
+import { CategoryIcon } from '../../src/components/CategoryIcon';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTeams } from '../../src/context/TeamsContext';
 import { useTheme } from '../../src/context/ThemeContext';
@@ -36,8 +45,18 @@ export default function ProfileScreen() {
   const { colors } = useTheme();
   const { myActiveTeams } = useTeams();
   const [avatarOpen, setAvatarOpen] = useState(false);
+  const [nameOpen, setNameOpen] = useState(false);
+  const [quickOpen, setQuickOpen] = useState(false);
+  const [quickSection, setQuickSection] =
+    useState<ProfileQuickSection>('univers');
   if (!user) return null;
-  const profileTeams = myActiveTeams.slice(0, 4);
+
+  const openQuick = (section: ProfileQuickSection) => {
+    setQuickSection(section);
+    setQuickOpen(true);
+  };
+  const levelLabel =
+    levels.find((l) => l.id === user.level)?.label ?? user.level;
 
   const onLogout = async () => {
     await logout();
@@ -68,11 +87,18 @@ export default function ProfileScreen() {
 
         <Animated.View entering={FadeInDown.duration(380)}>
           <LinearGradient
-            colors={[colors.primary, colors.primaryDark]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
+            colors={[...themeBrandColors(colors)]}
+            start={themeGradientAngles.brand.start}
+            end={themeGradientAngles.brand.end}
             style={[styles.hero, elevation.glow(colors.primary)]}
           >
+            <LinearGradient
+              colors={['rgba(255,255,255,0.2)', 'transparent', 'rgba(255,255,255,0.06)']}
+              locations={[0, 0.45, 1]}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={StyleSheet.absoluteFill}
+            />
             <Pressable
               onPress={() => setAvatarOpen(true)}
               accessibilityRole="button"
@@ -94,22 +120,43 @@ export default function ProfileScreen() {
                 <Text style={styles.relBadgeText}>{user.reliability}</Text>
               </View>
             </Pressable>
-            <Text style={styles.name}>{user.name}</Text>
+            <Pressable
+              onPress={() => setNameOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Modifier le pseudo"
+              hitSlop={8}
+              style={styles.nameTap}
+            >
+              <Text style={styles.name}>{user.name}</Text>
+              <Ionicons name="pencil" size={16} color="rgba(255,255,255,0.85)" />
+            </Pressable>
             <View style={styles.cityRow}>
               <Icon name="city" size={14} color="rgba(255,255,255,0.85)" />
-              <Text style={styles.city}>{user.city || '—'}</Text>
+              <Text style={styles.city}>
+                {[user.age ? `${user.age} ans` : null, user.city || null]
+                  .filter(Boolean)
+                  .join(' · ') || '—'}
+              </Text>
             </View>
             <Text style={styles.tagline}>
               {user.bio || 'Nouveau sur Jumelo — compléter mon profil !'}
             </Text>
             <Pressable
               style={styles.completeBtn}
-              onPress={() => router.push('/(onboarding)/univers')}
+              onPress={() => openQuick('univers')}
             >
               <Ionicons name="pencil" size={16} color={colors.primary} />
               <Text style={[styles.completeText, { color: colors.primary }]}>
-                Compléter mon profil
+                Éditer mon profil
               </Text>
+            </Pressable>
+            <Pressable
+              style={styles.avatarHintBtn}
+              onPress={() => setNameOpen(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Modifier le pseudo"
+            >
+              <Text style={styles.avatarHintText}>Modifier le pseudo</Text>
             </Pressable>
             <Pressable
               style={styles.avatarHintBtn}
@@ -122,78 +169,121 @@ export default function ProfileScreen() {
 
         <ProfileStatsCard userId={user.id} />
 
-        <Text style={[styles.section, { color: colors.ink }]}>Univers</Text>
+        <ProfileDuosSection userId={user.id} teams={myActiveTeams} />
+
+        <Pressable
+          onPress={() => openQuick('univers')}
+          accessibilityRole="button"
+          accessibilityLabel="modifier les univers"
+          style={styles.sectionTap}
+        >
+          <Text style={[styles.section, styles.sectionInTap, { color: colors.ink }]}>
+            Univers
+          </Text>
+          <Ionicons name="pencil" size={16} color={colors.inkMuted} />
+        </Pressable>
         <View style={styles.wrap}>
-          {user.universes.map((id) => {
-            const cat = getCategory(id);
+          {user.universes.length === 0 ? (
+            <Chip
+              label="Ajouter"
+              tone="outline"
+              onPress={() => openQuick('univers')}
+            />
+          ) : (
+            user.universes.map((id) => {
+              const cat = getCategory(id);
+              return (
+                <Chip
+                  key={id}
+                  name={id}
+                  label={cat?.shortLabel ?? id}
+                  selected
+                  onPress={() => openQuick('univers')}
+                />
+              );
+            })
+          )}
+        </View>
+
+        <Pressable
+          onPress={() => openQuick('interests')}
+          accessibilityRole="button"
+          accessibilityLabel="Modifier intérêts et niveau"
+          style={styles.sectionTap}
+        >
+          <Text style={[styles.section, styles.sectionInTap, { color: colors.ink }]}>
+            Intérêts & niveau
+          </Text>
+          <Ionicons name="pencil" size={16} color={colors.inkMuted} />
+        </Pressable>
+        {user.interests.length === 0 ? (
+          <ListRow
+            title="Aucun intérêt"
+            subtitle="Ajoute tes jeux et activités"
+            left={<Icon name="interest" size={20} color={colors.inkMuted} />}
+            onPress={() => openQuick('interests')}
+          />
+        ) : (
+          <Pressable onPress={() => openQuick('interests')}>
+            {user.interests.map((interest) => (
+              <InterestTile
+                key={interest}
+                interest={interest}
+                levelLabel={levelLabel}
+              />
+            ))}
+          </Pressable>
+        )}
+        <View style={styles.wrap}>
+          <Chip
+            label={levelLabel}
+            selected
+            onPress={() => openQuick('level')}
+          />
+        </View>
+
+        <Pressable
+          onPress={() => openQuick('vibes')}
+          accessibilityRole="button"
+          accessibilityLabel="Modifier vibes et objectifs"
+          style={styles.sectionTap}
+        >
+          <Text style={[styles.section, styles.sectionInTap, { color: colors.ink }]}>
+            Vibe & objectifs
+          </Text>
+          <Ionicons name="pencil" size={16} color={colors.inkMuted} />
+        </Pressable>
+        <View style={styles.wrap}>
+          {user.vibes.map((vibe) => {
+            const vibeOpt = vibes.find((v) => v.id === vibe);
             return (
               <Chip
-                key={id}
-                name={id}
-                label={cat?.shortLabel ?? id}
+                key={vibe}
+                name={vibe}
+                label={vibeOpt?.label ?? vibe}
                 selected
+                onPress={() => openQuick('vibes')}
               />
             );
           })}
-        </View>
-
-        <Text style={[styles.section, { color: colors.ink }]}>Intérêts & niveau</Text>
-        {user.interests.map((interest) => (
-          <ListRow
-            key={interest}
-            title={interest}
-            right={
-              <View style={[styles.levelPill, { backgroundColor: colors.primarySoft }]}>
-                <Text style={{ fontFamily: fonts.bodyMedium, color: colors.primaryDark }}>
-                  {user.level}
-                </Text>
-              </View>
-            }
-          />
-        ))}
-
-        <Text style={[styles.section, { color: colors.ink }]}>Vibe & objectifs</Text>
-        <View style={styles.wrap}>
-          {user.vibes.map((vibe) => (
-            <Chip key={vibe} name={vibe} label={vibe} selected />
-          ))}
           {user.objectives.map((o) => (
-            <Chip key={o} label={o} />
+            <Chip
+              key={o}
+              label={o}
+              tone="outline"
+              onPress={() => openQuick('objectives')}
+            />
           ))}
+          {user.vibes.length === 0 && user.objectives.length === 0 ? (
+            <Chip
+              label="Ajouter"
+              tone="outline"
+              onPress={() => openQuick('vibes')}
+            />
+          ) : null}
         </View>
 
         <TeammateRatingsCard userId={user.id} compact />
-
-        <Text style={[styles.section, { color: colors.ink }]}>Équipes actives</Text>
-        {profileTeams.length === 0 ? (
-          <ListRow
-            title="Aucune équipe"
-            subtitle="Rejoins un lobby pour le voir ici"
-            left={<Ionicons name="people-outline" size={20} color={colors.inkMuted} />}
-            onPress={() => router.push('/(tabs)/teams')}
-          />
-        ) : (
-          profileTeams.map((team) => (
-            <ListRow
-              key={team.id}
-              title={team.name}
-              subtitle={team.activity}
-              left={<CategoryIcon universeId={team.universe} />}
-              right={
-                <Text
-                  style={{
-                    fontFamily: fonts.bodyMedium,
-                    color: colors.inkMuted,
-                    fontSize: 13,
-                  }}
-                >
-                  {team.membersCount}/{team.capacity}
-                </Text>
-              }
-              onPress={() => router.push(`/team/${team.id}`)}
-            />
-          ))
-        )}
 
         <AchievementsSection userId={user.id} reliability={user.reliability} />
 
@@ -243,8 +333,14 @@ export default function ProfileScreen() {
 
         <View style={{ marginTop: spacing.lg }}>
           <ListRow
-            title="Modifier mes intérêts"
+            title="Édition rapide du profil"
+            subtitle="Univers, intérêts, niveau, vibes, objectifs"
             left={<Ionicons name="layers-outline" size={20} color={colors.ink} />}
+            onPress={() => openQuick('univers')}
+          />
+          <ListRow
+            title="Parcourir le catalogue"
+            left={<Ionicons name="grid-outline" size={20} color={colors.ink} />}
             onPress={() => router.push('/categories')}
           />
           <ListRow
@@ -261,11 +357,17 @@ export default function ProfileScreen() {
         </View>
 
         <Text style={[styles.footer, { color: colors.inkFaint }]}>
-          Jumelo · Trouve ton Jumelo
+          Jumelo · Trouve ton partenaire
         </Text>
       </ScrollView>
 
       <ProfileAvatarEditor visible={avatarOpen} onClose={() => setAvatarOpen(false)} />
+      <ProfileNameEditor visible={nameOpen} onClose={() => setNameOpen(false)} />
+      <ProfileQuickEditor
+        visible={quickOpen}
+        onClose={() => setQuickOpen(false)}
+        initialSection={quickSection}
+      />
     </Screen>
   );
 }
@@ -315,11 +417,16 @@ const styles = StyleSheet.create({
     borderColor: '#fff',
   },
   relBadgeText: { color: '#fff', fontFamily: fonts.bodyBold, fontSize: 12 },
+  nameTap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: spacing.sm,
+  },
   name: {
     fontFamily: fonts.displaySemi,
     fontSize: 28,
     letterSpacing: -0.5,
-    marginTop: spacing.sm,
     color: '#fff',
   },
   cityRow: {
@@ -364,12 +471,26 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
     ...typography.section,
   },
-  wrap: { flexDirection: 'row', flexWrap: 'wrap' },
-  levelPill: {
-    borderRadius: radii.pill,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  sectionHint: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    marginTop: -4,
+    marginBottom: spacing.sm,
   },
+  sectionTap: {
+    marginTop: spacing.xl,
+    marginBottom: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  sectionInTap: {
+    marginTop: 0,
+    marginBottom: 0,
+    flex: 1,
+  },
+  wrap: { flexDirection: 'row', flexWrap: 'wrap' },
   reliability: {
     marginTop: spacing.xl,
     flexDirection: 'row',

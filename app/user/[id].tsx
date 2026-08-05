@@ -22,6 +22,8 @@ import { AchievementsSection } from '../../src/components/AchievementsSection';
 import { Atmosphere } from '../../src/components/Atmosphere';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
 import { CommonPointsBlock } from '../../src/components/CommonPointsBlock';
+import { InterestTile } from '../../src/components/InterestTile';
+import { ProfileDuosSection } from '../../src/components/ProfileDuosSection';
 import { ProfileStatsCard } from '../../src/components/ProfileStatsCard';
 import { TeammateRatingsCard } from '../../src/components/TeammateRatingsCard';
 import { Button, Chip, ScoreBadge } from '../../src/components/ui';
@@ -239,6 +241,12 @@ export default function PublicProfileScreen() {
 
           <ProfileStatsCard userId={profile.id} />
 
+          <ProfileDuosSection
+            userId={profile.id}
+            title={isSelf ? 'Tes jumelos' : 'Jumelos'}
+            possessive={isSelf}
+          />
+
           {!isSelf && match ? (
             <>
               <CommonPointsBlock
@@ -277,17 +285,19 @@ export default function PublicProfileScreen() {
           </View>
 
           <SectionHeader title="Intérêts" />
-          <View style={styles.wrap}>
-            {profile.interests.length === 0 ? (
-              <Text style={{ fontFamily: fonts.body, color: colors.inkMuted }}>
-                Aucun intérêt renseigné
-              </Text>
-            ) : (
-              profile.interests.map((interest) => (
-                <Chip key={interest} label={interest} tone="outline" />
-              ))
-            )}
-          </View>
+          {profile.interests.length === 0 ? (
+            <Text style={{ fontFamily: fonts.body, color: colors.inkMuted }}>
+              Aucun intérêt renseigné
+            </Text>
+          ) : (
+            profile.interests.map((interest) => (
+              <InterestTile
+                key={interest}
+                interest={interest}
+                levelLabel={levelLabel}
+              />
+            ))
+          )}
 
           <SectionHeader title="Profil" subtitle="Vibe, niveau et créneaux" />
           <ListRow

@@ -67,7 +67,7 @@ export default function AdminMemberDetailScreen() {
   if (!member) {
     return (
       <Screen>
-        <SettingsBackHeader title="Membre" />
+        <SettingsBackHeader title="Membre" fallback="/admin/members" />
         <Text style={{ padding: spacing.lg, color: colors.inkMuted }}>Chargement…</Text>
       </Screen>
     );
@@ -142,8 +142,11 @@ export default function AdminMemberDetailScreen() {
 
   return (
     <Screen>
-      <SettingsBackHeader title={member.name} subtitle={member.email} />
-      <ScrollView contentContainerStyle={styles.content}>
+      <SettingsBackHeader
+        title={member.name}
+        subtitle={member.email}
+        fallback="/admin/members"
+      />      <ScrollView contentContainerStyle={styles.content}>
         <View style={styles.hero}>
           <Avatar
             name={member.name}

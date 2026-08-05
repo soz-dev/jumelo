@@ -2,17 +2,24 @@
  * Artwork store / CDN pour les tuiles catalogue gaming.
  *
  * Préférence : jaquettes Steam (`library_600x900`) quand un AppID existe.
- * Hors Steam : icônes App Store (iTunes), médias officiels ou Wikimedia.
+ * Hors Steam : icônes App Store (iTunes), médias officiels, Wikimedia, ou asset local.
  * Voir LEGAL.md — hotlink MVP démo uniquement.
  */
 
-export type GameArtSource = 'steam' | 'other';
+import type { ImageSourcePropType } from 'react-native';
+
+export type GameArtSource = 'steam' | 'other' | 'local';
 
 export type GameArt = {
-  imageUrl: string;
+  /** URL distante (Steam / store / CDN) */
+  imageUrl?: string;
+  /** Asset local (ex. logo mark Valorant) */
+  localSource?: ImageSourcePropType;
   source: GameArtSource;
   /** AppID Steam si source === 'steam' */
   steamAppId?: number;
+  /** `contain` pour logos mark carrés ; `cover` (défaut) pour jaquettes */
+  resizeMode?: 'cover' | 'contain';
 };
 
 const STEAM_CDN = 'https://cdn.cloudflare.steamstatic.com/steam/apps';
@@ -59,13 +66,20 @@ export const GAME_ART: Record<string, GameArt> = {
   overcooked: steamLibrary(728880),
   minecraft: steamLibrary(3049290),
 
-  // —— Hors Steam (store / médias publics) ——
-  /** Key art carré Riot CMS */
-  valorant: other(
-    'https://cmsassets.rgpub.io/sanity/images/dsfx7636/news/1d62a3751be9d7abfce84da8ca89be7d79f07fed-1232x1232.png?w=256&h=256&fit=crop',
-  ),
-  /** Icône App Store Wild Rift (marque LoL) */
-  lol: other(
+  // —— Hors Steam (store / médias publics / local) ——
+  /**
+   * Logo mark Valorant simple (V stylisé) — asset local dérivé Simple Icons CC0.
+   * Pas la jaquette Twitch/IGDB box art.
+   */
+  valorant: {
+    localSource: require('../../assets/icons/games/valorant-logo.png'),
+    source: 'local',
+    resizeMode: 'contain',
+  },
+  /** League of Legends PC — jaquette Twitch/IGDB (client PC) */
+  lol: other('https://static-cdn.jtvnw.net/ttv-boxart/21779-285x380.jpg'),
+  /** Wild Rift — icône App Store (mobile) */
+  'wild-rift': other(
     'https://is1-ssl.mzstatic.com/image/thumb/Purple211/v4/1a/50/14/1a501478-b78d-19d0-076f-fd0a4828b642/AppIcon-0-0-1x_U007emarketing-0-8-0-85-220.png/512x512bb.jpg',
   ),
   fortnite: other(

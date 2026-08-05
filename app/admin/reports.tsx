@@ -53,7 +53,11 @@ export default function AdminReportsScreen() {
 
   return (
     <Screen>
-      <SettingsBackHeader title="Signalements" subtitle="File de modération MVP" />
+      <SettingsBackHeader
+        title="Signalements"
+        subtitle="File de modération MVP"
+        fallback="/admin"
+      />
       <View style={styles.topActions}>
         <Button
           label="Seed démo"

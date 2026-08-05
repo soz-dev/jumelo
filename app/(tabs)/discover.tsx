@@ -1,12 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { router, useFocusEffect } from 'expo-router';
+import { useCallback, useEffect, useState } from 'react';
 import {
-  Animated,
+  ActivityIndicator,
   Dimensions,
   ImageBackground,
-  PanResponder,
   Pressable,
   StyleSheet,
   Text,
@@ -15,7 +14,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
-import { BrandLogo } from '../../src/components/BrandLogo';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { getCategory } from '../../src/constants/catalog';
 import { useAuth } from '../../src/context/AuthContext';
@@ -23,499 +21,606 @@ import { useTheme } from '../../src/context/ThemeContext';
 import { mockUsers, type UserProfile } from '../../src/data/mock';
 import {
   CategoryPill,
-  HeaderRow,
-  Icon,
   elevation,
   fonts,
   radii,
   spacing,
-  themeBrandColors,
-  themeGradientAngles,
+  withHexAlpha,
 } from '../../src/design-system';
-import { createLike } from '../../src/lib/api/likes';
 import { listProfiles } from '../../src/lib/api/profiles';
 import { getCommonPoints } from '../../src/lib/commonPoints';
-import { shouldCelebrateMatch } from '../../src/lib/demoMatch';
-import { recordDemoMatch } from '../../src/lib/likesStore';
-import { isOfficialJumelage, MatchResult, rankMatches } from '../../src/lib/matching';
+import {
+  acceptDailyJumelo,
+  dismissDailyOutcome,
+  formatRemaining,
+  getDailyJumeloView,
+  refuseDailyJumelo,
+  type DailyViewModel,
+} from '../../src/lib/dailyJumelo';
+import { openChatWithUser } from '../../src/lib/users';
 
-const { width } = Dimensions.get('window');
-const SWIPE_THRESHOLD = width * 0.28;
+const { height: SCREEN_H } = Dimensions.get('window');
 
 export default function DiscoverScreen() {
   const { user, usingSupabase } = useAuth();
   const { colors } = useTheme();
   const [pool, setPool] = useState<UserProfile[]>(mockUsers);
+  const [view, setView] = useState<DailyViewModel | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
+  const [tick, setTick] = useState(0);
+  /** Peer figé juste après refus (pour le stamp avant reload). */
+  const [refusedFlash, setRefusedFlash] = useState<UserProfile | null>(null);
 
-  useEffect(() => {
-    let active = true;
+  const loadPool = useCallback(async () => {
     if (!usingSupabase || !user || user.id.startsWith('u-') || user.id.startsWith('fb-')) {
       setPool(mockUsers);
-      return;
+      return mockUsers;
     }
-    (async () => {
-      const remote = await listProfiles(user.id);
-      if (active) setPool(remote.length ? remote : mockUsers);
-    })();
-    return () => {
-      active = false;
-    };
+    const remote = await listProfiles(user.id);
+    const next = remote.length ? remote : mockUsers;
+    setPool(next);
+    return next;
   }, [usingSupabase, user]);
 
-  const allMatches = useMemo(
-    () => (user ? rankMatches(user, pool) : []),
-    [user, pool],
+  const refresh = useCallback(async () => {
+    if (!user) {
+      setView(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    try {
+      const p = await loadPool();
+      const v = await getDailyJumeloView(user, p);
+      setView(v);
+      if (v.mode === 'card' || v.mode === 'empty') {
+        setRefusedFlash(null);
+      }
+    } finally {
+      setLoading(false);
+    }
+  }, [user, loadPool]);
+
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
+      (async () => {
+        await refresh();
+        if (!active) return;
+      })();
+      return () => {
+        active = false;
+      };
+    }, [refresh]),
   );
-  const [index, setIndex] = useState(0);
-  const [liked, setLiked] = useState<string[]>([]);
-  const [passed, setPassed] = useState<string[]>([]);
-  const [likeToast, setLikeToast] = useState<string | null>(null);
-  const position = useRef(new Animated.ValueXY()).current;
-  const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
-    setIndex(0);
-  }, [pool]);
+    if (!view) return;
+    if (view.mode !== 'cooldown' && view.mode !== 'trial') return;
+    const id = setInterval(() => setTick((n) => n + 1), 30_000);
+    return () => clearInterval(id);
+  }, [view?.mode]);
 
-  useEffect(() => {
-    return () => {
-      if (toastTimer.current) clearTimeout(toastTimer.current);
-    };
-  }, []);
+  void tick;
 
-  const current: MatchResult | undefined = allMatches[index];
-  const remaining = Math.max(0, allMatches.length - index);
-  const currentRef = useRef(current);
-  currentRef.current = current;
-
-  const showToast = (message: string) => {
-    if (toastTimer.current) clearTimeout(toastTimer.current);
-    setLikeToast(message);
-    toastTimer.current = setTimeout(() => setLikeToast(null), 2200);
+  const onRefuse = async () => {
+    if (!user || busy || !view?.peer) return;
+    setBusy(true);
+    const peerSnapshot = view.peer;
+    setRefusedFlash(peerSnapshot);
+    try {
+      await refuseDailyJumelo(user.id);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const advance = (direction: 'left' | 'right') => {
-    const match = currentRef.current;
-    if (!match || !user) return;
-    const previousLikeCount = liked.length;
-    const peerId = match.user.id;
-    const score = match.score;
-
-    if (direction === 'right') {
-      setLiked((prev) => [...prev, peerId]);
-    } else {
-      setPassed((prev) => [...prev, peerId]);
-    }
-
-    Animated.timing(position, {
-      toValue: { x: direction === 'right' ? width * 1.2 : -width * 1.2, y: 0 },
-      duration: 220,
-      useNativeDriver: false,
-    }).start(async () => {
-      position.setValue({ x: 0, y: 0 });
-      setIndex((i) => i + 1);
-
-      if (direction !== 'right') return;
-
-      const likeResult = await createLike(user.id, peerId, score);
-      const celebrate = await shouldCelebrateMatch({
-        myId: user.id,
-        likedUserId: peerId,
-        previousLikeCount,
-        score,
-        mutualFromLike: likeResult.mutual,
-      });
-
-      if (celebrate) {
-        if (!likeResult.mutual && !likeResult.alreadyMatched) {
-          await recordDemoMatch(user.id, peerId, score);
-        }
-        router.push(`/match-success/${peerId}`);
+  const onAccept = async () => {
+    if (!user || busy) return;
+    setBusy(true);
+    setRefusedFlash(null);
+    try {
+      const p = pool.length ? pool : await loadPool();
+      const result = await acceptDailyJumelo(user, p);
+      if (result.mutual && result.conversationId) {
+        router.push(`/chat/${result.conversationId}`);
         return;
       }
-
-      showToast(
-        likeResult.mutual
-          ? 'C’est un jumelage !'
-          : isOfficialJumelage(score)
-            ? 'Invite envoyée'
-            : `Pas encore un jumelage (score ${score}%)`,
-      );
-    });
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const advanceRef = useRef(advance);
-  advanceRef.current = advance;
+  const onOpenChat = async () => {
+    if (!user || !view?.peer || busy) return;
+    setBusy(true);
+    try {
+      if (view.trial?.conversationId) {
+        router.push(`/chat/${view.trial.conversationId}`);
+        return;
+      }
+      const path = await openChatWithUser(user.id, view.peer.id);
+      router.push(path);
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const panResponder = useRef(
-    PanResponder.create({
-      onMoveShouldSetPanResponder: (_, g) => Math.abs(g.dx) > 8,
-      onPanResponderMove: Animated.event([null, { dx: position.x, dy: position.y }], {
-        useNativeDriver: false,
-      }),
-      onPanResponderRelease: (_, g) => {
-        if (g.dx > SWIPE_THRESHOLD) {
-          advanceRef.current('right');
-        } else if (g.dx < -SWIPE_THRESHOLD) {
-          advanceRef.current('left');
-        } else {
-          Animated.spring(position, {
-            toValue: { x: 0, y: 0 },
-            useNativeDriver: false,
-          }).start();
-        }
-      },
-    }),
-  ).current;
+  const onDismissOutcome = async () => {
+    if (!user || busy) return;
+    setBusy(true);
+    try {
+      await dismissDailyOutcome(user.id);
+      setRefusedFlash(null);
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
 
-  const rotate = position.x.interpolate({
-    inputRange: [-width / 2, 0, width / 2],
-    outputRange: ['-10deg', '0deg', '10deg'],
-    extrapolate: 'clamp',
-  });
+  const peer = refusedFlash ?? view?.peer ?? null;
+  const common = user && peer && view?.mode === 'card' ? getCommonPoints(user, peer).slice(0, 4) : [];
+  const cooldownLabel = formatRemaining(
+    view?.cooldownUntil
+      ? Math.max(0, new Date(view.cooldownUntil).getTime() - Date.now())
+      : view?.msUntilCooldownEnd ?? 0,
+  );
+  const trialLabel = formatRemaining(
+    view?.trial
+      ? Math.max(0, new Date(view.trial.endsAt).getTime() - Date.now())
+      : view?.msUntilTrialEnd ?? 0,
+  );
 
-  const likeOpacity = position.x.interpolate({
-    inputRange: [0, SWIPE_THRESHOLD],
-    outputRange: [0, 1],
-    extrapolate: 'clamp',
-  });
-
-  const nopeOpacity = position.x.interpolate({
-    inputRange: [-SWIPE_THRESHOLD, 0],
-    outputRange: [1, 0],
-    extrapolate: 'clamp',
-  });
-
-  if (!user) return null;
+  const showRefused =
+    view?.mode === 'cooldown' || Boolean(refusedFlash && view?.mode !== 'card');
 
   return (
-    <Atmosphere>
-      <SafeAreaView style={[styles.safe, { backgroundColor: 'transparent' }]} edges={['top']}>
-      <View style={styles.header}>
-        <HeaderRow
-          title="Discover ⚡"
-          subtitle={`${remaining} profils · vibe joueur`}
-          right={
-            <View style={styles.headerActions}>
-              <BrandLogo size={34} />
-              <ThemeSwitcherButton />
-              <Pressable
-                style={[styles.filterBtn, { backgroundColor: colors.white, borderColor: colors.border }]}
-                onPress={() => router.push('/categories')}
-              >
-                <Ionicons name="options-outline" size={20} color={colors.ink} />
-              </Pressable>
-            </View>
-          }
-        />
-      </View>
-
-      <View style={styles.deck}>
-        {!current ? (
-          <View style={[styles.empty, { backgroundColor: colors.white }]}>
-            <Text style={[styles.emptyTitle, { color: colors.ink }]}>Plus de profils</Text>
-            <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, textAlign: 'center' }}>
-              Jumelés : {liked.length} · Passés : {passed.length}
+    <Atmosphere variant="bold">
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={styles.topBar}>
+          <View style={{ flex: 1 }}>
+            <Text style={[styles.title, { color: colors.ink }]}>Aujourd’hui</Text>
+            <Text style={[styles.subtitle, { color: colors.inkMuted }]}>
+              {view?.mode === 'cooldown'
+                ? `Prochaine proposition dans ${cooldownLabel}`
+                : view?.mode === 'trial'
+                  ? `${trialLabel} pour former l’équipe`
+                  : view?.mode === 'waiting_peer'
+                    ? 'En attente de sa réponse'
+                    : 'Une proposition · 24 h · accepte ou refuse'}
             </Text>
+          </View>
+          <ThemeSwitcherButton />
+        </View>
+
+        {loading || !view ? (
+          <View style={styles.center}>
+            <ActivityIndicator color={colors.primary} />
+          </View>
+        ) : view.mode === 'empty' ? (
+          <View style={styles.centerPad}>
+            <StatusBlock
+              colors={colors}
+              icon="compass-outline"
+              title="Personne pour l’instant"
+              body="Élargis tes intérêts — on te propose quelqu’un dès qu’il y a un bon match."
+            />
+          </View>
+        ) : view.mode === 'formed' && peer ? (
+          <View style={styles.centerPad}>
+            <StatusBlock
+              colors={colors}
+              icon="checkmark-circle"
+              title="C’est validé"
+              body={`Toi et ${peer.name.split(' ')[0]} avez confirmé ensemble.`}
+            />
             <Pressable
-              style={[styles.resetBtn, { backgroundColor: colors.primary }]}
-              onPress={() => {
-                setIndex(0);
-                setLiked([]);
-                setPassed([]);
-              }}
+              onPress={onDismissOutcome}
+              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
             >
-              <Text style={{ color: '#fff', fontFamily: fonts.bodyBold }}>Recommencer</Text>
+              <Text style={styles.primaryLabel}>Continuer</Text>
             </Pressable>
           </View>
-        ) : (
-          <Animated.View
-            style={[
-              styles.card,
-              elevation.soft,
-              {
-                backgroundColor: colors.white,
-                transform: [{ translateX: position.x }, { translateY: position.y }, { rotate }],
-              },
-            ]}
-            {...panResponder.panHandlers}
-          >
+        ) : view.mode === 'rejected' ? (
+          <View style={styles.centerPad}>
+            <StatusBlock
+              colors={colors}
+              icon="close-circle-outline"
+              title="Tentative terminée"
+              body="Les 72 h sont passées sans double validation."
+            />
             <Pressable
-              style={styles.photo}
-              onPress={() => router.push(`/user/${current.user.id}`)}
+              onPress={onDismissOutcome}
+              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
             >
-            <ImageBackground
-              source={{
-                uri:
-                  current.user.photo ??
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(current.user.name)}&size=800`,
-              }}
-              style={styles.photo}
-            >
-              <Animated.View style={[styles.stamp, styles.likeStamp, { opacity: likeOpacity }]}>
-                <Text style={styles.stampText}>JUMELER</Text>
-              </Animated.View>
-              <Animated.View style={[styles.stamp, styles.nopeStamp, { opacity: nopeOpacity }]}>
-                <Text style={styles.stampText}>PASSER</Text>
-              </Animated.View>
-
-              <View style={styles.topBadges}>
-                {(() => {
-                  const cat = getCategory(current.user.universes[0]);
-                  return cat ? (
-                    <CategoryPill universeId={cat.id} label={cat.shortLabel} color={cat.color} />
-                  ) : null;
-                })()}
-                <View style={styles.scoreCircle}>
-                  <Text style={styles.scoreNum}>{current.score}%</Text>
-                </View>
-              </View>
-
-              <LinearGradient colors={['transparent', 'rgba(0,0,0,0.85)']} style={styles.overlay}>
-                <Text style={styles.name}>
-                  {current.user.name}
-                  {current.user.age ? ` ${current.user.age}` : ''}
-                </Text>
-                <View style={styles.cityRow}>
-                  <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.9)" />
-                  <Text style={styles.city}>{current.user.city}</Text>
-                </View>
-                <Text style={styles.bio} numberOfLines={2}>
-                  {current.user.bio}
-                </Text>
-                {(() => {
-                  const commons = user
-                    ? getCommonPoints(user, current.user).slice(0, 4)
-                    : [];
-                  if (commons.length > 0) {
-                    const brand = themeBrandColors(colors);
-                    const brandAngle = themeGradientAngles.brand;
-                    return (
-                      <View style={styles.tags}>
-                        <LinearGradient
-                          colors={[...brand]}
-                          start={brandAngle.start}
-                          end={brandAngle.end}
-                          style={[styles.tag, styles.tagCommon]}
-                        >
-                          <Icon name="common" size={12} color="#fff" weight="bold" />
-                          <Text style={styles.tagText}>En commun</Text>
-                        </LinearGradient>
-                        {commons.map((point) => (
-                          <View
-                            key={point.key}
-                            style={[styles.tag, { flexDirection: 'row', alignItems: 'center', gap: 4 }]}
-                          >
-                            {point.icon ? (
-                              <Icon name={point.icon} size={11} color="#fff" weight="bold" />
-                            ) : null}
-                            <Text style={styles.tagText}>{point.label}</Text>
-                          </View>
-                        ))}
-                      </View>
-                    );
-                  }
-                  return (
-                    <View style={styles.tags}>
-                      {current.user.interests.slice(0, 3).map((interest) => (
-                        <View key={interest} style={styles.tag}>
-                          <Text style={styles.tagText}>{interest}</Text>
-                        </View>
-                      ))}
-                      <View
-                        style={[
-                          styles.tag,
-                          { backgroundColor: '#F59E0B', flexDirection: 'row', alignItems: 'center', gap: 4 },
-                        ]}
-                      >
-                        <Icon name="vibe" size={12} color="#fff" weight="bold" />
-                        <Text style={styles.tagText}>{current.user.vibes.join(' · ')}</Text>
-                      </View>
-                    </View>
-                  );
-                })()}
-              </LinearGradient>
-            </ImageBackground>
+              <Text style={styles.primaryLabel}>Ok, plus tard</Text>
             </Pressable>
+          </View>
+        ) : peer ? (
+          <View style={styles.stage}>
+            <PeerCard
+              peer={peer}
+              score={view.score}
+              colors={colors}
+              common={common}
+              refused={showRefused || view.mode === 'cooldown'}
+              onOpenProfile={
+                view.mode === 'card'
+                  ? () => router.push(`/user/${peer.id}`)
+                  : undefined
+              }
+            />
 
-            <View style={styles.actions}>
+            {view.mode === 'card' && !showRefused ? (
+              <View style={styles.actions}>
+                <Pressable
+                  onPress={onRefuse}
+                  disabled={busy}
+                  style={[styles.roundBtn, styles.refuseBtn]}
+                  accessibilityLabel="Refuser"
+                >
+                  <Ionicons name="close" size={32} color="#EF4444" />
+                </Pressable>
+                <Pressable
+                  onPress={onAccept}
+                  disabled={busy}
+                  style={[styles.roundBtn, styles.acceptBtn, { backgroundColor: colors.primary }]}
+                  accessibilityLabel="Accepter"
+                >
+                  {busy ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Ionicons name="heart" size={30} color="#fff" />
+                  )}
+                </Pressable>
+              </View>
+            ) : null}
+
+            {view.mode === 'waiting_peer' ? (
+              <Text style={[styles.footerHint, { color: colors.inkMuted }]}>
+                {peer.name.split(' ')[0]} doit aussi accepter pour ouvrir le chat.
+              </Text>
+            ) : null}
+
+            {view.mode === 'trial' ? (
               <Pressable
-                style={[styles.roundBtn, { borderColor: colors.border }]}
-                onPress={() => advance('left')}
+                onPress={onOpenChat}
+                disabled={busy}
+                style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
               >
-                <Ionicons name="close" size={28} color={colors.inkMuted} />
+                <Text style={styles.primaryLabel}>Ouvrir le chat · {trialLabel}</Text>
               </Pressable>
-              <Pressable
-                style={[styles.whyBtn, { backgroundColor: colors.accent }]}
-                onPress={() => router.push(`/user/${current.user.id}`)}
-              >
-                <Ionicons name="eye" size={18} color="#fff" />
-                <Text style={styles.whyText}>Voir le profil</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.roundBtn, { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                onPress={() => advance('right')}
-              >
-                <Ionicons name="people" size={24} color="#fff" />
-              </Pressable>
-            </View>
-          </Animated.View>
+            ) : null}
+
+            {view.mode === 'cooldown' ? (
+              <Text style={[styles.footerHint, { color: colors.inkMuted }]}>
+                Non retenu — prochaine proposition dans {cooldownLabel}.
+              </Text>
+            ) : null}
+          </View>
+        ) : (
+          <View style={styles.centerPad}>
+            <StatusBlock
+              colors={colors}
+              icon="time-outline"
+              title="Prochaine proposition"
+              body={`Reviens dans ${cooldownLabel}.`}
+            />
+          </View>
         )}
-      </View>
-
-      <Text style={[styles.hint, { color: colors.inkFaint }]}>
-        Swipe droite = jumeler · swipe gauche = passer · jumelage dès 80%
-      </Text>
-
-      {likeToast ? (
-        <View style={[styles.toast, { backgroundColor: colors.ink }]}>
-          <Ionicons name="people-outline" size={16} color="#fff" />
-          <Text style={styles.toastText}>{likeToast}</Text>
-        </View>
-      ) : null}
-    </SafeAreaView>
+      </SafeAreaView>
     </Atmosphere>
   );
 }
 
+function StatusBlock({
+  colors,
+  icon,
+  title,
+  body,
+}: {
+  colors: { primary: string; ink: string; inkMuted: string; white: string };
+  icon: keyof typeof Ionicons.glyphMap;
+  title: string;
+  body: string;
+}) {
+  return (
+    <View
+      style={[
+        styles.statusCard,
+        {
+          backgroundColor: colors.white,
+          borderColor: withHexAlpha(colors.primary, 0.12),
+        },
+        elevation.soft,
+      ]}
+    >
+      <Ionicons name={icon} size={28} color={colors.primary} />
+      <Text style={[styles.statusTitle, { color: colors.ink }]}>{title}</Text>
+      <Text style={[styles.statusBody, { color: colors.inkMuted }]}>{body}</Text>
+    </View>
+  );
+}
+
+function PeerCard({
+  peer,
+  score,
+  colors,
+  common,
+  refused,
+  onOpenProfile,
+}: {
+  peer: UserProfile;
+  score: number;
+  colors: {
+    primary: string;
+    primaryDark: string;
+    ink: string;
+    inkMuted: string;
+    white: string;
+  };
+  common: ReturnType<typeof getCommonPoints>;
+  refused?: boolean;
+  onOpenProfile?: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onOpenProfile}
+      disabled={!onOpenProfile}
+      style={[styles.card, elevation.lift, refused ? styles.cardRefused : null]}
+    >
+      <ImageBackground
+        source={{
+          uri:
+            peer.photo ??
+            `https://ui-avatars.com/api/?name=${encodeURIComponent(peer.name)}&background=2F6BFF&color=fff&size=800`,
+        }}
+        style={styles.photo}
+        imageStyle={refused ? { opacity: 0.45 } : undefined}
+      >
+        {refused ? <View style={styles.greyWash} pointerEvents="none" /> : null}
+
+        {refused ? (
+          <View style={styles.nopeStamp}>
+            <Text style={styles.nopeStampText}>NON RETENU</Text>
+          </View>
+        ) : null}
+
+        {!refused ? (
+          <View style={[styles.scorePill, { backgroundColor: colors.primary }]}>
+            <Text style={styles.scoreText}>{Math.round(score)}%</Text>
+          </View>
+        ) : null}
+
+        <LinearGradient
+          colors={['transparent', 'rgba(10,20,40,0.92)']}
+          locations={[0.35, 1]}
+          style={styles.photoGrad}
+        >
+          <Text style={[styles.photoName, refused ? styles.photoNameMuted : null]}>
+            {peer.name}
+            {peer.age ? `, ${peer.age}` : ''}
+          </Text>
+          <Text style={styles.photoMeta}>
+            {[peer.city, peer.level].filter(Boolean).join(' · ')}
+          </Text>
+
+          {peer.bio && !refused ? (
+            <Text style={styles.bioOnPhoto} numberOfLines={2}>
+              {peer.bio}
+            </Text>
+          ) : null}
+
+          {!refused && peer.universes?.length ? (
+            <View style={styles.pills}>
+              {peer.universes.slice(0, 3).map((u) => {
+                const cat = getCategory(u);
+                return (
+                  <CategoryPill
+                    key={u}
+                    universeId={u}
+                    label={cat?.shortLabel ?? u}
+                    color={cat?.color ?? colors.primary}
+                  />
+                );
+              })}
+            </View>
+          ) : null}
+
+          {!refused && common.length ? (
+            <Text style={styles.commonLine} numberOfLines={1}>
+              En commun · {common.map((c) => c.label).join(' · ')}
+            </Text>
+          ) : null}
+        </LinearGradient>
+      </ImageBackground>
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
-  safe: { flex: 1 },
-  header: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm },
-  headerActions: { flexDirection: 'row', gap: 8 },
-  filterBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  deck: {
-    flex: 1,
+  safe: { flex: 1, backgroundColor: 'transparent' },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.md,
-    justifyContent: 'center',
-  },
-  card: {
-    borderRadius: radii.lg,
-    overflow: 'hidden',
-    height: '88%',
-  },
-  photo: { flex: 1 },
-  topBadges: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-  },
-  scoreCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderWidth: 2,
-    borderColor: '#fff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  scoreNum: { color: '#fff', fontFamily: fonts.bodyBold, fontSize: 14 },
-  overlay: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    padding: spacing.md,
-    paddingBottom: 90,
-  },
-  name: { color: '#fff', fontFamily: fonts.displaySemi, fontSize: 28 },
-  cityRow: { flexDirection: 'row', alignItems: 'center', gap: 4, marginTop: 2 },
-  city: { color: 'rgba(255,255,255,0.9)', fontFamily: fonts.body },
-  bio: { color: 'rgba(255,255,255,0.9)', fontFamily: fonts.body, marginTop: 8, lineHeight: 20 },
-  tags: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 10 },
-  tag: {
-    backgroundColor: 'rgba(40,40,40,0.75)',
-    borderRadius: radii.pill,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-  },
-  tagCommon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    backgroundColor: 'transparent',
-    overflow: 'hidden',
-  },
-  tagText: { color: '#fff', fontFamily: fonts.bodyMedium, fontSize: 12 },
-  actions: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: spacing.md,
-    backgroundColor: '#fff',
-  },
-  roundBtn: {
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    borderWidth: 1.5,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  whyBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderRadius: radii.pill,
-    paddingHorizontal: 18,
-    paddingVertical: 14,
-  },
-  whyText: { color: '#fff', fontFamily: fonts.bodyBold },
-  stamp: {
-    position: 'absolute',
-    top: 40,
-    zIndex: 5,
-    borderWidth: 3,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  likeStamp: { left: 20, borderColor: '#22C55E', transform: [{ rotate: '-15deg' }] },
-  nopeStamp: { right: 20, borderColor: '#EF4444', transform: [{ rotate: '15deg' }] },
-  stampText: { fontFamily: fonts.display, fontSize: 22, color: '#fff' },
-  empty: {
-    borderRadius: radii.lg,
-    padding: spacing.xl,
-    alignItems: 'center',
+    paddingTop: spacing.sm,
+    paddingBottom: spacing.sm,
     gap: spacing.md,
   },
-  emptyTitle: { fontFamily: fonts.displaySemi, fontSize: 22 },
-  resetBtn: {
-    marginTop: spacing.md,
-    borderRadius: radii.pill,
-    paddingHorizontal: 20,
-    paddingVertical: 12,
+  title: {
+    fontFamily: fonts.display,
+    fontSize: 28,
+    letterSpacing: -0.6,
   },
-  hint: {
-    textAlign: 'center',
+  subtitle: {
     fontFamily: fonts.body,
-    fontSize: 12,
-    marginBottom: spacing.sm,
+    fontSize: 13,
+    marginTop: 2,
   },
-  toast: {
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  centerPad: {
+    flex: 1,
+    paddingHorizontal: spacing.lg,
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  stage: {
+    flex: 1,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
+  },
+  card: {
+    flex: 1,
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    backgroundColor: '#12151A',
+    minHeight: Math.min(SCREEN_H * 0.62, 560),
+  },
+  cardRefused: {
+    opacity: 0.95,
+  },
+  photo: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: '#1B2A4A',
+  },
+  greyWash: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(40,45,55,0.55)',
+  },
+  nopeStamp: {
     position: 'absolute',
-    left: spacing.lg,
-    right: spacing.lg,
-    bottom: 56,
-    borderRadius: radii.pill,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    flexDirection: 'row',
+    top: '38%',
+    alignSelf: 'center',
+    left: 28,
+    right: 28,
+    zIndex: 5,
+    borderWidth: 4,
+    borderColor: '#EF4444',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    transform: [{ rotate: '-12deg' }],
+    backgroundColor: 'rgba(0,0,0,0.25)',
     alignItems: 'center',
-    gap: 8,
-    zIndex: 20,
   },
-  toastText: { color: '#fff', fontFamily: fonts.bodyMedium, fontSize: 13, flex: 1 },
+  nopeStampText: {
+    fontFamily: fonts.display,
+    fontSize: 28,
+    letterSpacing: 1.2,
+    color: '#EF4444',
+  },
+  photoGrad: {
+    padding: spacing.lg,
+    paddingTop: 100,
+    gap: 6,
+  },
+  photoName: {
+    color: '#fff',
+    fontFamily: fonts.display,
+    fontSize: 30,
+    letterSpacing: -0.5,
+  },
+  photoNameMuted: {
+    color: 'rgba(255,255,255,0.7)',
+  },
+  photoMeta: {
+    color: 'rgba(255,255,255,0.85)',
+    fontFamily: fonts.body,
+    fontSize: 14,
+  },
+  bioOnPhoto: {
+    color: 'rgba(255,255,255,0.88)',
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+  scorePill: {
+    position: 'absolute',
+    top: spacing.md,
+    right: spacing.md,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: radii.pill,
+    zIndex: 2,
+  },
+  scoreText: {
+    color: '#fff',
+    fontFamily: fonts.bodyBold,
+    fontSize: 14,
+  },
+  pills: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  commonLine: {
+    color: 'rgba(255,255,255,0.75)',
+    fontFamily: fonts.bodyMedium,
+    fontSize: 12,
+    marginTop: 4,
+  },
+  actions: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 28,
+    paddingVertical: 4,
+  },
+  roundBtn: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  refuseBtn: {
+    backgroundColor: '#fff',
+    borderWidth: 2,
+    borderColor: 'rgba(239,68,68,0.35)',
+  },
+  acceptBtn: {},
+  primaryBtn: {
+    borderRadius: radii.lg,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryLabel: {
+    color: '#fff',
+    fontFamily: fonts.bodyBold,
+    fontSize: 16,
+  },
+  footerHint: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: spacing.md,
+  },
+  statusCard: {
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  statusTitle: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 18,
+    textAlign: 'center',
+  },
+  statusBody: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
 });

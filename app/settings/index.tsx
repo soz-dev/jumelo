@@ -1,8 +1,10 @@
 import Constants from 'expo-constants';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ProfileNameEditor } from '../../src/components/ProfileNameEditor';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import {
   SettingsBackHeader,
@@ -19,6 +21,7 @@ export default function SettingsHubScreen() {
   const { user, logout } = useAuth();
   const { colors, palette } = useTheme();
   const isAdmin = useIsAdmin();
+  const [nameOpen, setNameOpen] = useState(false);
   const appVersion =
     Constants.expoConfig?.version ?? Constants.nativeAppVersion ?? '1.0.0';
 
@@ -35,7 +38,13 @@ export default function SettingsHubScreen() {
         <SettingsRow
           icon="person-outline"
           label={user?.name ?? 'Mon compte'}
-          hint={user?.email ?? 'Profil connecté'}
+          hint="Modifier le pseudo"
+          onPress={() => setNameOpen(true)}
+        />
+        <SettingsRow
+          icon="mail-outline"
+          label={user?.email ?? 'Email'}
+          hint="Profil connecté"
         />
         <SettingsRow
           icon="color-palette-outline"
@@ -124,6 +133,8 @@ export default function SettingsHubScreen() {
           </Text>
         </View>
       </ScrollView>
+
+      <ProfileNameEditor visible={nameOpen} onClose={() => setNameOpen(false)} />
     </SafeAreaView>
   );
 }

@@ -41,8 +41,8 @@ const SLIDES: Slide[] = [
     key: 'why',
     lottie: 'spark',
     eyebrow: 'Pas une app de dating',
-    title: 'Des coéquipiers,\npas des crushs',
-    body: 'Jumelo te jumèle avec des partenaires gaming, sport, études ou musique — pour jouer, progresser et s’amuser ensemble.',
+    title: 'Des jumelos,\npas des crushs',
+    body: 'Jumelo te connecte à quelqu’un — gaming, sport, études ou musique — pour jouer, progresser et s’amuser à deux.',
   },
   {
     key: 'profil',
@@ -61,16 +61,16 @@ const SLIDES: Slide[] = [
   {
     key: 'teams',
     lottie: 'confetti',
-    eyebrow: 'Équipes & sessions',
-    title: 'Du binôme\nà la session',
-    body: 'Crée une équipe, planifie une session, discute dans le chat — le match devient un vrai moment de jeu.',
+    eyebrow: 'Jumelo & session',
+    title: 'Ton jumelo,\npuis la session',
+    body: 'Crée un jumelo, planifie une session, discutez dans le chat — tout est pensé pour vous deux.',
   },
   {
     key: 'go',
     lottie: 'spark',
     eyebrow: 'C’est parti',
-    title: 'Prêt à trouver\nton Jumelo ?',
-    body: 'Connecte-toi, complète ton profil, et commence à jumeler avec des coéquipiers qui te ressemblent.',
+    title: 'Prêt à trouver\nton jumelo ?',
+    body: 'Connecte-toi, complète ton profil, et trouve quelqu’un qui te ressemble.',
   },
 ];
 

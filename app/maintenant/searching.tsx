@@ -77,7 +77,7 @@ export default function SearchingScreen() {
           <JumeloLottie name="loading" size={180} />
           <Text style={[styles.status, { color: colors.ink }]}>Recherche en cours...</Text>
           <Text style={[styles.context, { color: colors.inkMuted }]}>
-            On cherche des partenaires {label} dispo maintenant
+            On cherche ton jumelo {label} — jumelage 1:1 dispo maintenant
           </Text>
           <Text style={[styles.timer, { color: colors.primary }]}>{seconds}s</Text>
 
@@ -87,7 +87,7 @@ export default function SearchingScreen() {
           >
             <Ionicons name="play" size={16} color={colors.primary} />
             <Text style={{ color: colors.primary, fontFamily: fonts.bodyBold }}>
-              Voir un jumelage démo
+              Voir un jumelo démo
             </Text>
           </Pressable>
         </View>

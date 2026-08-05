@@ -4,6 +4,7 @@ import { Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-nati
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ScoreBadge } from '../../src/components/ui';
+import { safeBack } from '../../src/lib/navigation';
 import {
   UniverseId,
   getCategory,
@@ -105,7 +106,9 @@ export default function MaintenantResultsScreen() {
       <View style={styles.top}>
         <Pressable
           style={[styles.back, { backgroundColor: colors.white, borderColor: colors.border }]}
-          onPress={() => router.replace('/maintenant')}
+          onPress={() => safeBack('/maintenant')}
+          accessibilityRole="button"
+          accessibilityLabel="Retour"
         >
           <Ionicons name="arrow-back" size={20} color={colors.ink} />
         </Pressable>
@@ -115,15 +118,15 @@ export default function MaintenantResultsScreen() {
         <View style={[styles.icon, { backgroundColor: colors.primary }]}>
           <Ionicons name="flash" size={28} color="#fff" />
         </View>
-        <Text style={[styles.title, { color: colors.ink }]}>Maintenant</Text>
+        <Text style={[styles.title, { color: colors.ink }]}>Jumelo maintenant</Text>
         <Text style={[styles.sub, { color: colors.inkMuted }]}>
-          Trouve un partenaire dispo tout de suite
+          Choisis ton binôme — jumelage 1:1, pas une grosse team
         </Text>
 
         <View style={styles.resultHeader}>
           <View style={{ flex: 1 }}>
             <Text style={[styles.count, { color: colors.ink }]}>
-              {results.length} partenaire{results.length > 1 ? 's' : ''} trouvé
+              {results.length} jumelo{results.length > 1 ? 's' : ''} possible
               {results.length > 1 ? 's' : ''}
             </Text>
             <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, fontSize: 13 }}>
@@ -243,7 +246,7 @@ export default function MaintenantResultsScreen() {
         <View style={[styles.hint, { backgroundColor: colors.primarySoft }]}>
           <Ionicons name="pulse" size={16} color={colors.primaryDark} />
           <Text style={{ flex: 1, color: colors.primaryDark, fontFamily: fonts.body }}>
-            Cas de test MVP : un partenaire en ligne est toujours proposé. Jumelage officiel dès{' '}
+            Cas de test MVP : un jumelo possible est toujours proposé. Jumelage officiel dès{' '}
             {MATCH_THRESHOLD}%.
           </Text>
         </View>

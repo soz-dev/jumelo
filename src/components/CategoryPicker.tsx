@@ -1,8 +1,32 @@
-import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { type Href } from 'expo-router';
+import React, { useCallback, useEffect, type ReactNode } from 'react';
+import {
+  BackHandler,
+  Dimensions,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  type ViewStyle,
+} from 'react-native';
+import Animated, {
+  FadeInDown,
+  useAnimatedStyle,
+  useSharedValue,
+  withSpring,
+} from 'react-native-reanimated';
 
+import { ActivityArtImage } from './ActivityArtImage';
 import { GameArtImage } from './GameArtImage';
-import { Chip } from './ui';
+import { TornBleedGameArt } from './TornBleedGameArt';
+import {
+  ActivityDetails,
+  DetailField,
+  emptyActivityDetails,
+  getActivityDetailFields,
+  platformFromDetails,
+} from '../constants/activityDetails';
 import {
   Category,
   PlatformId,
@@ -12,22 +36,355 @@ import {
   getCategory,
   getSubCategory,
 } from '../constants/catalog';
-import { fonts, radii, spacing, withHexAlpha } from '../constants/theme';
+import { fonts, mixHex, radii, spacing, withHexAlpha } from '../constants/theme';
 import { useTheme } from '../context/ThemeContext';
-import { Icon, resolveCatalogIcon, universeIcon } from '../design-system';
+import {
+  Icon,
+  elevation,
+  motion,
+  resolveCatalogIcon,
+  universeIcon,
+} from '../design-system';
+import { safeBack } from '../lib/navigation';
+
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
+/** Extrémité sombre du dégradé par univers (identité catalogue). */
+const UNIVERSE_DARK: Record<UniverseId, string> = {
+  gaming: '#5B3FD4',
+  sports: '#0A6B67',
+  education: '#1D4ED8',
+  music: '#D97706',
+  hobbies: '#BE185D',
+};
+
+const SCREEN_PAD = spacing.lg * 2;
+const GRID_GAP = 12;
+const GAME_COLS = 2;
+const GAME_COVER_W = Math.floor(
+  (Dimensions.get('window').width - SCREEN_PAD - GRID_GAP) / GAME_COLS,
+);
+const GAME_COVER_H = Math.round(GAME_COVER_W * 1.48);
+
+function ScalePressable({
+  onPress,
+  style,
+  children,
+}: {
+  onPress: () => void;
+  style?: ViewStyle | ViewStyle[];
+  children: ReactNode;
+}) {
+  const scale = useSharedValue(1);
+  const animStyle = useAnimatedStyle(() => ({
+    transform: [{ scale: scale.value }],
+  }));
+  return (
+    <AnimatedPressable
+      onPress={onPress}
+      onPressIn={() => {
+        scale.value = withSpring(0.97, motion.spring);
+      }}
+      onPressOut={() => {
+        scale.value = withSpring(1, motion.spring);
+      }}
+      style={[style, animStyle]}
+    >
+      {children}
+    </AnimatedPressable>
+  );
+}
+
+/**
+ * Option Précisions — surface claire teintée par univers (pas de slab gradient).
+ * Selected = bordure accent + fill discret / glass.
+ */
+function SoftOption({
+  accent,
+  selected,
+  onPress,
+  layout = 'tile',
+  icon,
+  branded,
+  label,
+}: {
+  accent: string;
+  selected?: boolean;
+  onPress: () => void;
+  layout?: 'tile' | 'row' | 'bool' | 'scale' | 'year';
+  icon?: string;
+  branded?: boolean;
+  label: string;
+}) {
+  const { colors } = useTheme();
+  const outerStyle =
+    layout === 'row'
+      ? styles.optionOuterFull
+      : layout === 'bool'
+        ? styles.boolOuter
+        : layout === 'tile'
+          ? styles.optionOuter
+          : undefined;
+
+  return (
+    <ScalePressable onPress={onPress} style={outerStyle}>
+      <View
+        style={[
+          layout === 'row'
+            ? styles.optionTileRow
+            : layout === 'bool'
+              ? styles.boolTile
+              : layout === 'scale'
+                ? styles.scaleChip
+                : layout === 'year'
+                  ? styles.yearChip
+                  : styles.optionTile,
+          elevation.soft,
+          {
+            backgroundColor: colors.white,
+            borderColor: selected ? accent : withHexAlpha(accent, 0.2),
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.optionWash,
+            {
+              backgroundColor: withHexAlpha(accent, selected ? 0.14 : 0.06),
+            },
+          ]}
+          pointerEvents="none"
+        />
+        {layout === 'row' && icon ? (
+          <View
+            style={[
+              styles.optionIconWrap,
+              {
+                backgroundColor: selected
+                  ? withHexAlpha(accent, 0.2)
+                  : withHexAlpha(accent, 0.1),
+              },
+            ]}
+          >
+            <Icon
+              name={resolveCatalogIcon(icon)}
+              size={22}
+              color={accent}
+              weight={selected ? 'fill' : 'bold'}
+              branded={branded}
+            />
+          </View>
+        ) : null}
+        <Text
+          style={[
+            layout === 'scale' || layout === 'year'
+              ? styles.scaleChipText
+              : styles.optionLabel,
+            {
+              color: selected ? accent : colors.ink,
+              fontFamily: selected ? fonts.bodyBold : fonts.bodyMedium,
+            },
+          ]}
+          numberOfLines={1}
+        >
+          {label}
+        </Text>
+      </View>
+    </ScalePressable>
+  );
+}
+
+function UniverseTile({
+  cat,
+  hero,
+  onPress,
+}: {
+  cat: Category;
+  hero?: boolean;
+  onPress: () => void;
+}) {
+  const dark = UNIVERSE_DARK[cat.id];
+  const soft = mixHex(cat.color, '#FFFFFF', 0.28);
+  const count = cat.subCategories.length;
+
+  return (
+    <ScalePressable
+      onPress={onPress}
+      style={[styles.universeGlow, elevation.glow(cat.color)]}
+    >
+      <LinearGradient
+        colors={[soft, cat.color, dark]}
+        locations={[0, 0.48, 1]}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={[styles.universeTile, hero ? styles.universeTileHero : null]}
+      >
+        <LinearGradient
+          colors={[
+            'rgba(255,255,255,0.3)',
+            'transparent',
+            'rgba(0,0,0,0.14)',
+          ]}
+          locations={[0, 0.45, 1]}
+          start={{ x: 0.1, y: 0 }}
+          end={{ x: 0.9, y: 1 }}
+          style={StyleSheet.absoluteFill}
+        />
+
+        <View
+          style={[
+            styles.orbTL,
+            hero ? styles.orbTLHero : null,
+            { backgroundColor: withHexAlpha('#fff', 0.16) },
+          ]}
+          pointerEvents="none"
+        />
+        <View
+          style={[
+            styles.orbBR,
+            hero ? styles.orbBRHero : null,
+            { backgroundColor: withHexAlpha(dark, 0.45) },
+          ]}
+          pointerEvents="none"
+        />
+
+        <View style={styles.watermark} pointerEvents="none">
+          <Icon
+            name={universeIcon(cat.id)}
+            size={hero ? 108 : 78}
+            color="rgba(255,255,255,0.14)"
+            weight="fill"
+          />
+        </View>
+
+        {!hero ? (
+          <View style={styles.universeCountPill} pointerEvents="none">
+            <Text style={styles.universeCountText}>{count}</Text>
+          </View>
+        ) : null}
+
+        <View style={hero ? styles.universeHeroRow : styles.universeBody}>
+          <View
+            style={[
+              styles.universeIconGlass,
+              hero ? styles.universeIconGlassHero : null,
+            ]}
+          >
+            <Icon
+              name={universeIcon(cat.id)}
+              size={hero ? 30 : 26}
+              color="#fff"
+              weight="bold"
+            />
+          </View>
+
+          <View style={hero ? styles.universeHeroCopy : styles.universeCopy}>
+            <Text
+              style={[styles.universeTitle, hero ? styles.universeTitleHero : null]}
+              numberOfLines={2}
+            >
+              {cat.shortLabel || cat.label}
+            </Text>
+            <Text style={styles.universeMeta} numberOfLines={hero ? 2 : 2}>
+              {cat.description}
+            </Text>
+          </View>
+
+          {hero ? (
+            <View style={styles.universeCta}>
+              <Text style={styles.universeCtaText}>{count}</Text>
+              <Icon name="chevronRight" size={14} color="#fff" weight="bold" />
+            </View>
+          ) : null}
+        </View>
+      </LinearGradient>
+    </ScalePressable>
+  );
+}
 
 export type CategoryPath = {
   universeId: UniverseId | null;
   subCategoryId: string | null;
+  /** Rétrocompat — synchronisé depuis activityDetails.platform */
   platformId: PlatformId | null;
+  activityDetails: ActivityDetails;
 };
 
 type Props = {
   value: CategoryPath;
   onChange: (next: CategoryPath) => void;
-  /** Si true, force le drill-down jusqu'à la plateforme quand disponible */
+  /** Si true, les champs requis des précisions doivent être remplis (écran catégories) */
+  requireDetails?: boolean;
+  /** @deprecated alias de requireDetails */
   requirePlatform?: boolean;
 };
+
+export function emptyCategoryPath(
+  overrides?: Partial<CategoryPath>,
+): CategoryPath {
+  return {
+    universeId: null,
+    subCategoryId: null,
+    platformId: null,
+    activityDetails: emptyActivityDetails(),
+    ...overrides,
+  };
+}
+
+function hasFilledDetails(details: ActivityDetails): boolean {
+  return Object.values(details).some((value) => value != null && value !== '');
+}
+
+/**
+ * Remonte d’un cran le drill-down.
+ * Ordre : précisions → activités → univers → `null` (sortir de l’écran).
+ */
+export function popCategoryPath(path: CategoryPath): CategoryPath | null {
+  if (
+    path.subCategoryId != null ||
+    path.platformId != null ||
+    hasFilledDetails(path.activityDetails)
+  ) {
+    return emptyCategoryPath(
+      path.universeId != null ? { universeId: path.universeId } : undefined,
+    );
+  }
+  if (path.universeId != null) {
+    return emptyCategoryPath();
+  }
+  return null;
+}
+
+/** Back header / hardware : déstacke le path local, sinon `safeBack`. */
+export function useCategoryPathBack(
+  path: CategoryPath,
+  setPath: (next: CategoryPath) => void,
+  fallback: Href = '/(tabs)/home',
+) {
+  const onBack = useCallback(() => {
+    const prev = popCategoryPath(path);
+    if (prev) {
+      setPath(prev);
+      return;
+    }
+    safeBack(fallback);
+  }, [fallback, path, setPath]);
+
+  useEffect(() => {
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      const prev = popCategoryPath(path);
+      if (prev) {
+        setPath(prev);
+        return true;
+      }
+      safeBack(fallback);
+      return true;
+    });
+    return () => sub.remove();
+  }, [fallback, path, setPath]);
+
+  return onBack;
+}
 
 function tileAccent(universeId: UniverseId | undefined, index: number): string {
   const palette =
@@ -39,8 +396,28 @@ function tileAccent(universeId: UniverseId | undefined, index: number): string {
   return palette[index % palette.length];
 }
 
-export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
+function yearsChoices(min = 0, max = 40): number[] {
+  const early = [0, 1, 2, 3, 5, 7, 10, 15, 20];
+  return early.filter((n) => n >= min && n <= max).concat(max > 20 ? [max] : []);
+}
+
+function patchDetails(
+  value: CategoryPath,
+  fieldId: string,
+  nextValue: string | number | boolean | null,
+): CategoryPath {
+  const activityDetails = { ...value.activityDetails, [fieldId]: nextValue };
+  return {
+    universeId: value.universeId,
+    subCategoryId: value.subCategoryId,
+    platformId: platformFromDetails(activityDetails),
+    activityDetails,
+  };
+}
+
+export function CategoryPicker({ value, onChange, requireDetails, requirePlatform }: Props) {
   const { colors } = useTheme();
+  const mustFill = requireDetails ?? requirePlatform ?? false;
   const category: Category | undefined = value.universeId
     ? getCategory(value.universeId)
     : undefined;
@@ -50,15 +427,19 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
       : undefined;
 
   const isGamingGrid = value.universeId === 'gaming';
+  const detailFields: DetailField[] =
+    value.universeId && value.subCategoryId
+      ? getActivityDetailFields(value.universeId, value.subCategoryId)
+      : [];
+
+  const accent = category?.color ?? colors.primary;
+  const accentDark =
+    (category ? UNIVERSE_DARK[category.id] : undefined) ?? colors.primaryDark;
 
   return (
     <View style={styles.wrap}>
       <View style={styles.crumbs}>
-        <Pressable
-          onPress={() =>
-            onChange({ universeId: null, subCategoryId: null, platformId: null })
-          }
-        >
+        <Pressable onPress={() => onChange(emptyCategoryPath())}>
           <Text style={[styles.crumb, { color: colors.primary }]}>Catégories</Text>
         </Pressable>
         {category ? (
@@ -66,65 +447,57 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
             <Text style={{ color: colors.inkFaint }}> › </Text>
             <Pressable
               onPress={() =>
-                onChange({
-                  universeId: category.id,
-                  subCategoryId: null,
-                  platformId: null,
-                })
+                onChange(
+                  emptyCategoryPath({
+                    universeId: category.id,
+                  }),
+                )
               }
               style={styles.crumbRow}
             >
               <Icon
                 name={universeIcon(category.id)}
                 size={14}
-                color={colors.primary}
+                color={accent}
                 weight="bold"
               />
-              <Text style={[styles.crumb, { color: colors.primary }]}>
+              <Text style={[styles.crumb, { color: accent }]}>
                 {category.shortLabel}
               </Text>
             </Pressable>
           </>
         ) : null}
-        {/* Pas le nom du jeu ici : il est mis en avant dans le hero plateforme */}
       </View>
 
       {!value.universeId ? (
         <View>
           <Text style={[styles.section, { color: colors.ink }]}>Choisis ton univers</Text>
           <Text style={[styles.sectionHint, { color: colors.inkMuted }]}>
-            Tuiles — même esprit que les jeux
+            Chaque univers a sa couleur — tape pour explorer
           </Text>
           <View style={styles.universeGrid}>
-            {categories.map((cat) => (
-              <Pressable
-                key={cat.id}
-                onPress={() =>
-                  onChange({
-                    universeId: cat.id,
-                    subCategoryId: null,
-                    platformId: null,
-                  })
-                }
-                style={[
-                  styles.universeTile,
-                  {
-                    backgroundColor: withHexAlpha(colors.primarySoft, 0.9),
-                    borderColor: withHexAlpha(colors.primary, 0.14),
-                  },
-                ]}
-              >
-                <View style={[styles.universeIcon, { backgroundColor: cat.color }]}>
-                  <Icon name={universeIcon(cat.id)} size={28} color="#fff" weight="bold" />
-                </View>
-                <Text style={[styles.universeTitle, { color: colors.ink }]} numberOfLines={2}>
-                  {cat.shortLabel || cat.label}
-                </Text>
-                <Text style={[styles.universeMeta, { color: colors.inkMuted }]} numberOfLines={2}>
-                  {cat.subCategories.length} choix
-                </Text>
-              </Pressable>
-            ))}
+            {categories.map((cat, index) => {
+              const hero = index === 0;
+              return (
+                <Animated.View
+                  key={cat.id}
+                  entering={FadeInDown.delay(40 + index * 55).duration(340)}
+                  style={hero ? styles.universeHeroOuter : styles.universeOuter}
+                >
+                  <UniverseTile
+                    cat={cat}
+                    hero={hero}
+                    onPress={() =>
+                      onChange(
+                        emptyCategoryPath({
+                          universeId: cat.id,
+                        }),
+                      )
+                    }
+                  />
+                </Animated.View>
+              );
+            })}
           </View>
         </View>
       ) : null}
@@ -136,52 +509,98 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
           </Text>
           <Text style={[styles.sectionHint, { color: colors.inkMuted }]}>
             {isGamingGrid
-              ? 'Tuiles joueur — jaquettes store si dispo, sinon Phosphor'
-              : `${category.subCategories.length} options`}
+              ? 'Grille store — jaquettes portrait'
+              : `${category.subCategories.length} options — illustrations colorées`}
           </Text>
           <View style={isGamingGrid ? styles.gameGrid : styles.activityGrid}>
             {category.subCategories.map((item, index) => {
-              const accent = tileAccent(category.id, index);
+              const itemAccent = tileAccent(category.id, index);
               return (
-                <Pressable
+                <Animated.View
                   key={item.id}
-                  onPress={() =>
-                    onChange({
-                      universeId: category.id,
-                      subCategoryId: item.id,
-                      platformId: null,
-                    })
-                  }
-                  style={[
-                    isGamingGrid ? styles.gameTile : styles.activityTile,
-                    {
-                      backgroundColor: withHexAlpha(colors.primarySoft, 0.9),
-                      borderColor: withHexAlpha(colors.primary, 0.14),
-                    },
-                  ]}
+                  entering={FadeInDown.delay(30 + index * 40).duration(320)}
+                  style={isGamingGrid ? styles.gameTile : styles.activityOuter}
                 >
-                  {isGamingGrid ? (
-                    <GameArtImage
-                      catalogId={item.id}
-                      size={44}
-                      color={accent}
-                      brandedFallback
-                    />
-                  ) : (
-                    <Icon
-                      name={resolveCatalogIcon(item.id)}
-                      size={22}
-                      color={accent}
-                      weight="bold"
-                    />
-                  )}
-                  <Text
-                    style={[styles.gameLabel, { color: colors.ink }]}
-                    numberOfLines={2}
+                  <ScalePressable
+                    onPress={() =>
+                      onChange(
+                        emptyCategoryPath({
+                          universeId: category.id,
+                          subCategoryId: item.id,
+                        }),
+                      )
+                    }
+                    style={isGamingGrid ? styles.gamePress : undefined}
                   >
-                    {item.label}
-                  </Text>
-                </Pressable>
+                    {isGamingGrid ? (
+                      <>
+                        <View
+                          style={[
+                            styles.gameCoverFrame,
+                            elevation.lift,
+                            {
+                              width: GAME_COVER_W,
+                              height: GAME_COVER_H,
+                              borderColor: withHexAlpha(accent, 0.18),
+                              shadowColor: accentDark,
+                            },
+                          ]}
+                        >
+                          <GameArtImage
+                            catalogId={item.id}
+                            size={GAME_COVER_W}
+                            height={GAME_COVER_H}
+                            color={accent}
+                            brandedFallback
+                          />
+                          <LinearGradient
+                            colors={['transparent', 'rgba(18,33,43,0.55)']}
+                            locations={[0.55, 1]}
+                            style={styles.gameCoverFade}
+                            pointerEvents="none"
+                          />
+                        </View>
+                        <Text
+                          style={[styles.gameLabel, { color: colors.ink }]}
+                          numberOfLines={2}
+                        >
+                          {item.label}
+                        </Text>
+                      </>
+                    ) : (
+                      <View
+                        style={[
+                          styles.activityTile,
+                          elevation.soft,
+                          {
+                            backgroundColor: colors.white,
+                            borderColor: withHexAlpha(accent, 0.2),
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.activityWash,
+                            { backgroundColor: withHexAlpha(accent, 0.08) },
+                          ]}
+                          pointerEvents="none"
+                        />
+                        <ActivityArtImage
+                          catalogId={item.id}
+                          size={44}
+                          color={itemAccent}
+                          backgroundColor={withHexAlpha(accent, 0.12)}
+                        />
+                        <Text
+                          style={[styles.activityLabel, { color: colors.ink }]}
+                          numberOfLines={2}
+                        >
+                          {item.label}
+                        </Text>
+                      </View>
+                    )}
+                  </ScalePressable>
+                </Animated.View>
               );
             })}
           </View>
@@ -189,126 +608,173 @@ export function CategoryPicker({ value, onChange, requirePlatform }: Props) {
       ) : null}
 
       {value.universeId && value.subCategoryId && sub ? (
-        <View style={styles.platformStep}>
-          <View
-            style={[
-              styles.hero,
-              {
-                backgroundColor: withHexAlpha(colors.primarySoft, 0.95),
-                borderColor: withHexAlpha(colors.primary, 0.18),
-              },
-            ]}
-          >
-            {isGamingGrid ? (
-              <GameArtImage
-                catalogId={sub.id}
-                size={96}
-                color={category?.color ?? colors.primary}
-                brandedFallback
-              />
-            ) : (
-              <View
-                style={[
-                  styles.heroIcon,
-                  { backgroundColor: category?.color ?? colors.primary },
+        <View style={styles.detailsStep}>
+          <Animated.View entering={FadeInDown.duration(320)}>
+            <View style={[styles.heroOuter, elevation.glow(accent)]}>
+              <LinearGradient
+                colors={[
+                  mixHex(accent, '#FFFFFF', 0.22),
+                  accent,
+                  accentDark,
                 ]}
+                locations={[0, 0.5, 1]}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.hero}
               >
-                <Icon
-                  name={resolveCatalogIcon(sub.id)}
-                  size={40}
-                  color="#fff"
-                  weight="bold"
+                {isGamingGrid ? (
+                  <TornBleedGameArt
+                    catalogId={sub.id}
+                    opacity={0.4}
+                    color={accent}
+                  />
+                ) : null}
+                <LinearGradient
+                  colors={[
+                    'rgba(255,255,255,0.22)',
+                    'transparent',
+                    'rgba(0,0,0,0.28)',
+                  ]}
+                  locations={[0, 0.4, 1]}
+                  style={StyleSheet.absoluteFill}
+                  pointerEvents="none"
                 />
-              </View>
-            )}
-            <Text style={[styles.heroTitle, { color: colors.ink }]}>{sub.label}</Text>
-            {category ? (
-              <View style={[styles.heroBadge, { backgroundColor: colors.primarySoft }]}>
-                <Icon
-                  name={universeIcon(category.id)}
-                  size={14}
-                  color={colors.primaryDark}
-                  weight="bold"
-                />
-                <Text style={[styles.heroBadgeText, { color: colors.primaryDark }]}>
-                  {category.shortLabel}
-                </Text>
-              </View>
-            ) : null}
-          </View>
+                {isGamingGrid ? null : (
+                  <ActivityArtImage
+                    catalogId={sub.id}
+                    size={96}
+                    color={accent}
+                    backgroundColor="rgba(255,255,255,0.92)"
+                  />
+                )}
+                <View style={styles.heroCopy}>
+                  <Text style={styles.heroTitle}>{sub.label}</Text>
+                  {category ? (
+                    <View style={styles.heroBadge}>
+                      <Icon
+                        name={universeIcon(category.id)}
+                        size={14}
+                        color="#fff"
+                        weight="bold"
+                      />
+                      <Text style={styles.heroBadgeText}>{category.shortLabel}</Text>
+                    </View>
+                  ) : null}
+                </View>
+              </LinearGradient>
+            </View>
+          </Animated.View>
 
           <Text style={[styles.section, { color: colors.ink }]}>
-            {sub.platforms?.length
-              ? requirePlatform
-                ? 'Sur quelle plateforme ?'
-                : 'Plateforme (optionnel)'
-              : 'Aucune plateforme pour cette activité'}
+            {mustFill ? 'Précisions' : 'Précisions (optionnel)'}
           </Text>
           <Text style={[styles.sectionHint, { color: colors.inkMuted }]}>
-            Choisis où tu joues pour trouver un partenaire au bon endroit
+            Quelques infos pour un meilleur match
           </Text>
-          <View style={styles.platformGrid}>
-            {(sub.platforms ?? []).map((platform) => {
-              const selected = value.platformId === platform.id;
-              return (
-                <Pressable
-                  key={platform.id}
-                  onPress={() =>
-                    onChange({
-                      universeId: value.universeId,
-                      subCategoryId: value.subCategoryId,
-                      platformId: selected ? null : platform.id,
-                    })
-                  }
-                  style={[
-                    styles.platformTileLarge,
-                    {
-                      backgroundColor: selected
-                        ? withHexAlpha(colors.primary, 0.16)
-                        : withHexAlpha(colors.primarySoft, 0.9),
-                      borderColor: selected
-                        ? colors.primary
-                        : withHexAlpha(colors.primary, 0.14),
-                    },
-                  ]}
-                >
-                  <View
-                    style={[
-                      styles.platformIconWrap,
-                      {
-                        backgroundColor: selected ? colors.primary : withHexAlpha(colors.primary, 0.12),
-                      },
-                    ]}
-                  >
-                    <Icon
-                      name={resolveCatalogIcon(platform.id)}
-                      size={22}
-                      color={selected ? '#fff' : colors.primaryDark}
-                      weight="bold"
-                    />
-                  </View>
-                  <Text
-                    style={[
-                      styles.platformLabelLarge,
-                      { color: selected ? colors.primaryDark : colors.ink },
-                    ]}
-                  >
-                    {platform.label}
-                  </Text>
-                </Pressable>
-              );
-            })}
-          </View>
-          {!requirePlatform && !sub.platforms?.length ? (
-            <View style={styles.wrapChips}>
-              <Chip
-                name="check"
-                label="Continuer sans plateforme"
-                selected
-                onPress={() => undefined}
-              />
+
+          {detailFields.map((field) => (
+            <View key={field.id} style={styles.fieldBlock}>
+              <Text style={[styles.fieldLabel, { color: colors.ink }]}>
+                {field.label}
+                {field.required && mustFill ? ' *' : ''}
+              </Text>
+              {field.hint ? (
+                <Text style={[styles.fieldHint, { color: colors.inkMuted }]}>{field.hint}</Text>
+              ) : null}
+
+              {field.type === 'select' ? (
+                <View style={styles.optionGrid}>
+                  {(field.options ?? []).map((option) => {
+                    const selected = value.activityDetails[field.id] === option.id;
+                    const isPlatform = field.id === 'platform';
+                    return (
+                      <SoftOption
+                        key={option.id}
+                        accent={accent}
+                        selected={selected}
+                        layout={isPlatform ? 'row' : 'tile'}
+                        icon={isPlatform ? option.id : undefined}
+                        branded={isPlatform}
+                        label={option.label}
+                        onPress={() =>
+                          onChange(
+                            patchDetails(
+                              value,
+                              field.id,
+                              selected ? null : option.id,
+                            ),
+                          )
+                        }
+                      />
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {field.type === 'boolean' ? (
+                <View style={styles.boolRow}>
+                  {[
+                    { id: true, label: 'Oui' },
+                    { id: false, label: 'Non' },
+                  ].map((option) => {
+                    const selected = value.activityDetails[field.id] === option.id;
+                    return (
+                      <SoftOption
+                        key={String(option.id)}
+                        accent={accent}
+                        selected={selected}
+                        layout="bool"
+                        label={option.label}
+                        onPress={() =>
+                          onChange(patchDetails(value, field.id, option.id))
+                        }
+                      />
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {field.type === 'scale' ? (
+                <View style={styles.scaleRow}>
+                  {Array.from(
+                    { length: (field.max ?? 10) - (field.min ?? 1) + 1 },
+                    (_, i) => (field.min ?? 1) + i,
+                  ).map((n) => {
+                    const selected = value.activityDetails[field.id] === n;
+                    return (
+                      <SoftOption
+                        key={n}
+                        accent={accent}
+                        selected={selected}
+                        layout="scale"
+                        label={String(n)}
+                        onPress={() => onChange(patchDetails(value, field.id, n))}
+                      />
+                    );
+                  })}
+                </View>
+              ) : null}
+
+              {field.type === 'years' ? (
+                <View style={styles.scaleRow}>
+                  {yearsChoices(field.min, field.max).map((n) => {
+                    const selected = value.activityDetails[field.id] === n;
+                    const label = n === 0 ? 'Début' : n >= 40 ? '40+' : `${n}`;
+                    return (
+                      <SoftOption
+                        key={n}
+                        accent={accent}
+                        selected={selected}
+                        layout="year"
+                        label={label}
+                        onPress={() => onChange(patchDetails(value, field.id, n))}
+                      />
+                    );
+                  })}
+                </View>
+              ) : null}
             </View>
-          ) : null}
+          ))}
         </View>
       ) : null}
     </View>
@@ -332,45 +798,162 @@ const styles = StyleSheet.create({
     fontFamily: fonts.bodyMedium,
     fontSize: 14,
   },
-  crumbCurrent: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 14,
-  },
   universeGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: GRID_GAP,
   },
-  universeTile: {
+  universeHeroOuter: {
+    width: '100%',
+  },
+  universeOuter: {
     width: '47%',
     flexGrow: 1,
     minWidth: 140,
     maxWidth: '48.5%',
-    borderWidth: 1.5,
-    borderRadius: 16,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    gap: 8,
   },
-  universeIcon: {
-    width: 56,
-    height: 56,
-    borderRadius: 18,
+  universeGlow: {
+    borderRadius: 22,
+  },
+  universeTile: {
+    borderRadius: 22,
+    paddingVertical: 18,
+    paddingHorizontal: 14,
+    minHeight: 148,
+    overflow: 'hidden',
+    justifyContent: 'flex-end',
+  },
+  universeTileHero: {
+    minHeight: 132,
+    paddingVertical: 20,
+    paddingHorizontal: 18,
+    justifyContent: 'center',
+  },
+  orbTL: {
+    position: 'absolute',
+    top: -28,
+    left: -20,
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+  },
+  orbTLHero: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    top: -36,
+    left: -28,
+  },
+  orbBR: {
+    position: 'absolute',
+    bottom: -36,
+    right: -24,
+    width: 110,
+    height: 110,
+    borderRadius: 55,
+  },
+  orbBRHero: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    bottom: -48,
+    right: -32,
+  },
+  watermark: {
+    position: 'absolute',
+    right: -4,
+    bottom: -8,
+    opacity: 1,
+  },
+  universeBody: {
+    alignItems: 'flex-start',
+    gap: 10,
+    zIndex: 1,
+  },
+  universeHeroRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    zIndex: 1,
+  },
+  universeIconGlass: {
+    width: 52,
+    height: 52,
+    borderRadius: 16,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 2,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  universeIconGlassHero: {
+    width: 58,
+    height: 58,
+    borderRadius: 18,
+  },
+  universeCopy: {
+    gap: 2,
+    width: '100%',
+    paddingRight: 28,
+  },
+  universeHeroCopy: {
+    flex: 1,
+    minWidth: 0,
+    gap: 3,
   },
   universeTitle: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 20,
+    fontFamily: fonts.displaySemi,
+    fontSize: 17,
+    letterSpacing: -0.3,
+    lineHeight: 22,
+    color: '#fff',
+  },
+  universeTitleHero: {
+    fontSize: 22,
+    lineHeight: 26,
+    letterSpacing: -0.5,
   },
   universeMeta: {
     fontFamily: fonts.body,
     fontSize: 12,
-    textAlign: 'center',
+    lineHeight: 16,
+    color: 'rgba(255,255,255,0.82)',
+  },
+  universeCountPill: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    zIndex: 2,
+    minWidth: 28,
+    height: 22,
+    paddingHorizontal: 8,
+    borderRadius: radii.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.3)',
+  },
+  universeCountText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    color: '#fff',
+  },
+  universeCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.35)',
+  },
+  universeCtaText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    color: '#fff',
   },
   section: {
     fontFamily: fonts.displaySemi,
@@ -385,7 +968,7 @@ const styles = StyleSheet.create({
   gameGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: GRID_GAP,
   },
   activityGrid: {
     flexDirection: 'row',
@@ -393,52 +976,73 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   gameTile: {
-    width: '30%',
-    flexGrow: 1,
-    minWidth: 96,
-    maxWidth: '32%',
-    borderWidth: 1.5,
-    borderRadius: 16,
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    alignItems: 'center',
-    gap: 8,
+    width: GAME_COVER_W,
   },
-  activityTile: {
+  gamePress: {
+    width: GAME_COVER_W,
+    gap: 10,
+  },
+  gameCoverFrame: {
+    borderRadius: 18,
+    overflow: 'hidden',
+    borderWidth: 1,
+    backgroundColor: '#12212B',
+  },
+  gameCoverFade: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  gameLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 13,
+    textAlign: 'left',
+    lineHeight: 17,
+    letterSpacing: -0.15,
+    paddingHorizontal: 2,
+    width: GAME_COVER_W,
+  },
+  activityOuter: {
     width: '47%',
     flexGrow: 1,
-    borderWidth: 1.5,
-    borderRadius: 16,
+  },
+  activityTile: {
+    borderRadius: 20,
     paddingVertical: 12,
     paddingHorizontal: 10,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    borderWidth: 1.5,
+    overflow: 'hidden',
   },
-  gameLabel: {
+  activityWash: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  activityLabel: {
+    flex: 1,
     fontFamily: fonts.bodyBold,
-    fontSize: 12,
-    textAlign: 'center',
-    lineHeight: 16,
+    fontSize: 14,
   },
-  platformStep: {
+  detailsStep: {
     gap: spacing.sm,
+  },
+  heroOuter: {
+    borderRadius: 28,
+    marginBottom: spacing.md,
   },
   hero: {
     alignItems: 'center',
-    borderWidth: 1.5,
-    borderRadius: 20,
+    justifyContent: 'flex-end',
+    borderRadius: 28,
+    minHeight: 196,
     paddingVertical: spacing.xl,
     paddingHorizontal: spacing.lg,
     gap: spacing.sm,
-    marginBottom: spacing.md,
+    overflow: 'hidden',
   },
-  heroIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 24,
+  heroCopy: {
+    zIndex: 2,
     alignItems: 'center',
-    justifyContent: 'center',
+    gap: spacing.sm,
   },
   heroTitle: {
     fontFamily: fonts.displaySemi,
@@ -446,6 +1050,10 @@ const styles = StyleSheet.create({
     lineHeight: 30,
     textAlign: 'center',
     letterSpacing: -0.4,
+    color: '#fff',
+    textShadowColor: 'rgba(0,0,0,0.35)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 6,
   },
   heroBadge: {
     flexDirection: 'row',
@@ -454,40 +1062,117 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: radii.pill,
+    backgroundColor: 'rgba(255,255,255,0.18)',
   },
   heroBadgeText: {
     fontFamily: fonts.bodyBold,
     fontSize: 13,
+    color: '#fff',
   },
-  platformGrid: {
+  fieldBlock: {
+    marginBottom: spacing.md,
+    gap: 6,
+  },
+  fieldLabel: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+  },
+  fieldHint: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    marginBottom: 4,
+  },
+  optionGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 10,
   },
-  platformTileLarge: {
+  optionOuter: {
+    minWidth: '30%',
+    flexGrow: 1,
+  },
+  optionOuterFull: {
+    width: '100%',
+  },
+  optionTile: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionTileRow: {
     width: '100%',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+    borderRadius: 20,
     borderWidth: 1.5,
-    borderRadius: 16,
     paddingHorizontal: 16,
-    paddingVertical: 16,
+    paddingVertical: 14,
+    overflow: 'hidden',
   },
-  platformIconWrap: {
+  optionWash: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  optionIconWrap: {
     width: 44,
     height: 44,
     borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    zIndex: 1,
   },
-  platformLabelLarge: {
-    fontFamily: fonts.bodyBold,
-    fontSize: 17,
+  optionLabel: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 15,
+    zIndex: 1,
   },
-  wrapChips: {
+  boolRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  boolOuter: {
+    flex: 1,
+  },
+  boolTile: {
+    width: '100%',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    overflow: 'hidden',
+  },
+  scaleRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginTop: spacing.sm,
+    gap: 8,
+  },
+  scaleChip: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  yearChip: {
+    minWidth: 52,
+    height: 40,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  scaleChipText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 13,
+    zIndex: 1,
   },
 });

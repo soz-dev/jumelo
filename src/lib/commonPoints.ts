@@ -18,7 +18,8 @@ export type CommonPointKind =
   | 'platform'
   | 'vibe'
   | 'city'
-  | 'availability';
+  | 'availability'
+  | 'age';
 
 export type CommonPoint = {
   key: string;
@@ -125,6 +126,26 @@ export function getCommonPoints(me: UserProfile, other: UserProfile): CommonPoin
       kind: 'availability',
       label: avail?.label ?? slot,
       icon: resolveCatalogIcon(slot),
+    });
+  }
+
+  const myAge = me.age;
+  const theirAge = other.age;
+  if (
+    typeof myAge === 'number' &&
+    typeof theirAge === 'number' &&
+    Number.isFinite(myAge) &&
+    Number.isFinite(theirAge) &&
+    Math.abs(myAge - theirAge) <= 4
+  ) {
+    points.push({
+      key: `age:${Math.min(myAge, theirAge)}-${Math.max(myAge, theirAge)}`,
+      kind: 'age',
+      label:
+        myAge === theirAge
+          ? `${myAge} ans`
+          : `${Math.min(myAge, theirAge)}–${Math.max(myAge, theirAge)} ans`,
+      icon: 'pulse',
     });
   }
 

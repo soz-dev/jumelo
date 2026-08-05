@@ -95,7 +95,7 @@ export default function DataRightsScreen() {
 
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]} edges={['top']}>
-      <SettingsBackHeader title="Mes données" subtitle="Droits RGPD" />
+      <SettingsBackHeader title="Mes données" subtitle="Droits RGPD" fallback="/settings" />
       <ScrollView contentContainerStyle={styles.content}>
         <Text style={[styles.lead, { color: colors.inkMuted }]}>
           Accès, portabilité et effacement : outils proposés dans l’app. Pour les autres droits

@@ -25,8 +25,10 @@ type ChipProps = {
   icon?: IconName;
   /** Couleur marque Simple Icons quand disponible. */
   branded?: boolean;
+  /** Teinte selected (défaut = primary thème). */
+  accent?: string;
   /**
-   * `default` — fond soft / blanc.
+   * `default` — fond soft / blanc, selected = fill discret + bordure.
    * `glass` — verre translucide (sur carte en dégradé thème).
    * `outline` — contour teinté primaryLight, fond blanc léger.
    */
@@ -41,45 +43,53 @@ export function Chip({
   emoji,
   icon,
   branded,
+  accent,
   tone = 'default',
 }: ChipProps) {
   const { colors } = useTheme();
   const iconName = name ?? icon;
   const scale = useSharedValue(1);
+  const tintColor = accent ?? colors.primary;
 
   const surface =
     tone === 'glass'
       ? {
-          backgroundColor: 'rgba(255,255,255,0.72)',
-          borderColor: 'rgba(255,255,255,0.92)',
+          backgroundColor: selected
+            ? 'rgba(255,255,255,0.88)'
+            : 'rgba(255,255,255,0.72)',
+          borderColor: selected ? tintColor : 'rgba(255,255,255,0.92)',
         }
       : tone === 'outline'
         ? {
-            backgroundColor: 'rgba(255,255,255,0.55)',
-            borderColor: withHexAlpha(colors.primaryLight, 0.85),
+            backgroundColor: selected
+              ? withHexAlpha(tintColor, 0.12)
+              : 'rgba(255,255,255,0.55)',
+            borderColor: selected
+              ? tintColor
+              : withHexAlpha(colors.primaryLight, 0.85),
           }
         : selected
           ? {
-              backgroundColor: withHexAlpha(colors.primary, 0.14),
-              borderColor: withHexAlpha(colors.primary, 0.55),
+              backgroundColor: withHexAlpha(tintColor, 0.12),
+              borderColor: tintColor,
             }
           : {
-              backgroundColor: withHexAlpha(colors.primarySoft, 0.75),
+              backgroundColor: colors.white,
               borderColor: colors.border,
             };
 
   const tint =
-    tone === 'glass' || tone === 'outline'
+    tone === 'glass' && !selected
       ? colors.ink
       : selected
-        ? colors.primary
+        ? tintColor
         : colors.inkMuted;
 
   const labelColor =
-    tone === 'glass' || tone === 'outline'
+    tone === 'glass' && !selected
       ? colors.ink
       : selected
-        ? colors.primaryDark
+        ? tintColor
         : colors.inkMuted;
 
   const animStyle = useAnimatedStyle(() => ({

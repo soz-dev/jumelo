@@ -49,7 +49,11 @@ export default function AdminActivityScreen() {
 
   return (
     <Screen>
-      <SettingsBackHeader title="Journal admin" subtitle="AsyncStorage · 200 dernières" />
+      <SettingsBackHeader
+        title="Journal admin"
+        subtitle="AsyncStorage · 200 dernières"
+        fallback="/admin"
+      />
       {loading && rows.length === 0 ? (
         <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
       ) : (

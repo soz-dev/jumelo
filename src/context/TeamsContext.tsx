@@ -20,9 +20,11 @@ import {
   membershipState,
   rejectJoinRequest,
   joinTeam,
+  updateTeam,
   withMemberId,
   type CreateTeamInput,
   type TeamMembershipState,
+  type UpdateTeamInput,
 } from '../lib/api/teams';
 import {
   bumpMyTeam,
@@ -43,6 +45,10 @@ type TeamsContextValue = {
   pendingForTeam: (teamId: string) => TeamJoinRequest[];
   create: (
     input: CreateTeamInput,
+  ) => Promise<{ ok: true; team: Team } | { ok: false; error: string }>;
+  update: (
+    teamId: string,
+    input: UpdateTeamInput,
   ) => Promise<{ ok: true; team: Team } | { ok: false; error: string }>;
   requestToJoin: (
     teamId: string,
@@ -151,8 +157,8 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
           const { notifyUser } = await import('../lib/notifications');
           await notifyUser({
             userId: user.id,
-            title: 'Équipe créée',
-            body: `« ${result.team.name} » est en tête de tes équipes actives.`,
+            title: 'Jumelo créé',
+            body: `« ${result.team.name} » est en tête de tes jumelos.`,
             data: { type: 'team_created', teamId: result.team.id },
             kind: 'team',
             presentLocally: true,
@@ -160,6 +166,21 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
         } catch {
           // best-effort
         }
+        await refresh();
+      }
+      return result;
+    },
+    [user, refresh],
+  );
+
+  const update = useCallback(
+    async (teamId: string, input: UpdateTeamInput) => {
+      if (!user) return { ok: false as const, error: 'Connecte-toi pour modifier.' };
+      const result = await updateTeam(teamId, user.id, input);
+      if (result.ok) {
+        setTeams((prev) =>
+          prev.map((t) => (t.id === teamId ? result.team : t)),
+        );
         await refresh();
       }
       return result;
@@ -291,6 +312,7 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
       getMembership,
       pendingForTeam,
       create,
+      update,
       requestToJoin,
       approveRequest,
       rejectRequest,
@@ -306,6 +328,7 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
       getMembership,
       pendingForTeam,
       create,
+      update,
       requestToJoin,
       approveRequest,
       rejectRequest,

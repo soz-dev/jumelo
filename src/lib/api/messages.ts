@@ -1,10 +1,13 @@
 import type { ChatMessage } from '../../data/mock';
 import {
+  countLocalDmUnread,
   getLocalDmPeerId,
   getOrCreateLocalDm,
   listLocalDmMessages,
   listLocalDmThreads,
+  markLocalDmRead,
   sendLocalDmMessage,
+  type ThreadReadStatus,
 } from '../dmStore';
 import { getSupabase, isSupabaseConfigured } from '../supabase';
 import { canWriteSupabaseUserId, isLocalUserId } from '../userIds';
@@ -26,6 +29,8 @@ export type DmThread = {
   preview: string;
   updatedAt: string;
   unread: number;
+  lastFromMe?: boolean;
+  readStatus?: ThreadReadStatus | null;
 };
 
 /**
@@ -325,8 +330,26 @@ export async function listMyDmThreads(myId: string): Promise<DmThread[]> {
         (lastMsg?.created_at as string | undefined) || (conv.updated_at as string),
       ),
       unread: 0,
+      lastFromMe: false,
+      readStatus: null,
     });
   }
 
   return threads;
+}
+
+/** Marque un DM comme lu (AsyncStorage pour fb-* / u-*). */
+export async function markDmRead(conversationId: string, myUserId: string): Promise<void> {
+  if (useLocalStore(myUserId)) {
+    await markLocalDmRead(conversationId, myUserId);
+    return;
+  }
+  // Cloud : pas encore de table read receipts — no-op MVP
+}
+
+export async function countMyDmUnread(myId: string): Promise<number> {
+  if (useLocalStore(myId)) {
+    return countLocalDmUnread(myId);
+  }
+  return 0;
 }

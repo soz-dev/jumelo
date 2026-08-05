@@ -17,54 +17,37 @@ import { fonts, radii, spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import { mockUsers } from '../../src/data/mock';
-import { listIncomingLikes } from '../../src/lib/api/likes';
-import type { LikeRecord } from '../../src/lib/likesStore';
+import {
+  listIncomingDailyAccepts,
+  type IncomingDailyAccept,
+} from '../../src/lib/dailyJumelo';
 import { safeBack } from '../../src/lib/navigation';
-import { useRequirePremium } from '../../src/lib/premiumStore';
-
-function relativeTime(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  if (!Number.isFinite(ms) || ms < 60_000) return 'à l’instant';
-  if (ms < 3_600_000) return `il y a ${Math.floor(ms / 60_000)} min`;
-  if (ms < 86_400_000) return `il y a ${Math.floor(ms / 3_600_000)} h`;
-  return `il y a ${Math.floor(ms / 86_400_000)} j`;
-}
 
 export default function LikesInboxScreen() {
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { ready: premiumReady, allowed } = useRequirePremium();
-  const [likes, setLikes] = useState<LikeRecord[] | null>(null);
+  const [rows, setRows] = useState<IncomingDailyAccept[] | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       let active = true;
-      if (!user || !allowed) {
-        setLikes([]);
+      if (!user) {
+        setRows([]);
         return () => {
           active = false;
         };
       }
       (async () => {
-        const incoming = await listIncomingLikes(user.id);
-        if (active) setLikes(incoming);
+        const incoming = await listIncomingDailyAccepts(user.id);
+        if (active) setRows(incoming);
       })();
       return () => {
         active = false;
       };
-    }, [user, allowed]),
+    }, [user]),
   );
 
   if (!user) return null;
-  if (!premiumReady || !allowed) {
-    return (
-      <Atmosphere variant="soft">
-        <SafeAreaView style={styles.safe} edges={['top']}>
-          <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
-        </SafeAreaView>
-      </Atmosphere>
-    );
-  }
 
   return (
     <Atmosphere variant="soft">
@@ -76,49 +59,64 @@ export default function LikesInboxScreen() {
           >
             <Ionicons name="arrow-back" size={20} color={colors.ink} />
           </Pressable>
-          <Text style={[styles.title, { color: colors.ink }]}>Invites reçues</Text>
+          <Text style={[styles.title, { color: colors.ink }]}>Propositions</Text>
           <View style={{ width: 40 }} />
         </View>
 
-        {likes === null ? (
+        {rows === null ? (
           <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.xl }} />
         ) : (
           <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
-            {likes.length === 0 ? (
-              <View style={[styles.empty, { backgroundColor: colors.white, borderColor: colors.border }]}>
-                <Ionicons name="people-outline" size={36} color={colors.inkFaint} />
-                <Text style={[styles.emptyTitle, { color: colors.ink }]}>Aucune invite pour l’instant</Text>
-                <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, textAlign: 'center' }}>
-                  Lance un cas de test depuis Home, ou attends qu’un profil veuille jumeler.
+            <Text style={[styles.intro, { color: colors.inkMuted }]}>
+              Quelqu’un t’a proposé ? Réponds dans l’onglet Du jour (acceptation mutuelle
+              requise).
+            </Text>
+            {rows.length === 0 ? (
+              <View
+                style={[styles.empty, { backgroundColor: colors.white, borderColor: colors.border }]}
+              >
+                <Ionicons name="compass-outline" size={36} color={colors.inkFaint} />
+                <Text style={[styles.emptyTitle, { color: colors.ink }]}>
+                  Aucune proposition en attente
                 </Text>
+                <Text
+                  style={{ color: colors.inkMuted, fontFamily: fonts.body, textAlign: 'center' }}
+                >
+                  Ouvre Du jour pour voir ta carte.
+                </Text>
+                <Pressable
+                  onPress={() => router.replace('/(tabs)/discover')}
+                  style={[styles.cta, { backgroundColor: colors.primary }]}
+                >
+                  <Text style={styles.ctaLabel}>Du jour</Text>
+                </Pressable>
               </View>
             ) : (
-              likes.map((like) => {
-                const peer = mockUsers.find((u) => u.id === like.fromUserId);
+              rows.map((row) => {
+                const peer = mockUsers.find((u) => u.id === row.fromUserId);
                 const name = peer?.name ?? 'Profil';
                 const photo =
                   peer?.photo ??
-                  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0F8F8A&color=fff&size=200`;
+                  `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=2F6BFF&color=fff&size=200`;
                 return (
                   <Pressable
-                    key={`${like.fromUserId}-${like.createdAt}`}
-                    onPress={() => router.push(`/liked-me/${like.fromUserId}`)}
-                    style={[styles.row, { backgroundColor: colors.white, borderColor: colors.border }]}
+                    key={`${row.fromUserId}-${row.at}`}
+                    onPress={() => router.push('/(tabs)/discover')}
+                    style={[
+                      styles.row,
+                      { backgroundColor: colors.white, borderColor: colors.border },
+                    ]}
                   >
                     <Image source={{ uri: photo }} style={styles.avatar} />
                     <View style={{ flex: 1 }}>
                       <Text style={[styles.rowTitle, { color: colors.ink }]}>
-                        {name} veut jumeler
+                        {name} t’a proposé
                       </Text>
                       <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, fontSize: 13 }}>
-                        {relativeTime(like.createdAt)}
+                        Aujourd’hui · réponds dans Du jour
                       </Text>
                     </View>
-                    {!like.read ? (
-                      <View style={[styles.unreadDot, { backgroundColor: colors.accent }]} />
-                    ) : (
-                      <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
-                    )}
+                    <Ionicons name="chevron-forward" size={18} color={colors.inkFaint} />
                   </Pressable>
                 );
               })
@@ -149,12 +147,18 @@ const styles = StyleSheet.create({
   },
   title: {
     fontFamily: fonts.displaySemi,
-    fontSize: 20,
+    fontSize: 18,
   },
   content: {
     padding: spacing.lg,
+    gap: spacing.sm,
     paddingBottom: spacing.xxl,
-    gap: 10,
+  },
+  intro: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    lineHeight: 18,
+    marginBottom: spacing.sm,
   },
   empty: {
     borderRadius: radii.lg,
@@ -164,30 +168,31 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   emptyTitle: {
-    fontFamily: fonts.displaySemi,
-    fontSize: 18,
-    marginTop: spacing.sm,
+    fontFamily: fonts.bodyBold,
+    fontSize: 16,
+    textAlign: 'center',
+  },
+  cta: {
+    marginTop: spacing.md,
+    borderRadius: radii.pill,
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  ctaLabel: {
+    color: '#fff',
+    fontFamily: fonts.bodyBold,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    borderRadius: radii.md,
+    gap: spacing.md,
+    borderRadius: radii.lg,
     borderWidth: 1,
-    padding: 12,
+    padding: spacing.md,
   },
-  avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-  },
+  avatar: { width: 48, height: 48, borderRadius: 24 },
   rowTitle: {
     fontFamily: fonts.bodyBold,
     fontSize: 15,
-  },
-  unreadDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
   },
 });

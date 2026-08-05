@@ -24,6 +24,7 @@ export type MatchReasonKey =
   | 'vibe'
   | 'objectifs'
   | 'niveau'
+  | 'age'
   | 'plateformes'
   | 'ville'
   | 'langues';
@@ -50,12 +51,13 @@ export type MatchResult = {
 
 /** Poids relatifs des dimensions (somme = 100). */
 export const MATCH_WEIGHTS = {
-  activites: 32,
+  activites: 28,
   univers: 12,
   dispos: 14,
-  vibe: 12,
-  objectifs: 10,
+  vibe: 11,
+  objectifs: 8,
   niveau: 8,
+  age: 7,
   plateformes: 6,
   ville: 4,
   langues: 2,
@@ -238,6 +240,65 @@ function levelDetail(me: UserProfile, other: UserProfile): string {
   return 'Niveaux très éloignés';
 }
 
+function isValidAge(age: unknown): age is number {
+  return typeof age === 'number' && Number.isFinite(age) && age >= 13 && age <= 100;
+}
+
+/**
+ * Similarité d’âge (0–1) : même âge = 1, décroît avec l’écart.
+ * ±2 ans ≈ excellent, ±5 ans ≈ bon, ±10 ans ≈ faible.
+ */
+function ageSimilarity(me: UserProfile, other: UserProfile): {
+  similarity: number;
+  applicable: boolean;
+  detail: string;
+  shared: string[];
+} {
+  const a = me.age;
+  const b = other.age;
+  if (!isValidAge(a) && !isValidAge(b)) {
+    return {
+      similarity: 0,
+      applicable: false,
+      detail: 'Âge non renseigné',
+      shared: [],
+    };
+  }
+  if (!isValidAge(a) || !isValidAge(b)) {
+    return {
+      similarity: 0,
+      applicable: true,
+      detail: 'Âge manquant d’un côté',
+      shared: [],
+    };
+  }
+  const delta = Math.abs(a - b);
+  let similarity = 0;
+  if (delta === 0) similarity = 1;
+  else if (delta <= 2) similarity = 0.92;
+  else if (delta <= 4) similarity = 0.78;
+  else if (delta <= 6) similarity = 0.58;
+  else if (delta <= 8) similarity = 0.38;
+  else if (delta <= 12) similarity = 0.18;
+  else similarity = 0.05;
+
+  const detail =
+    delta === 0
+      ? `Même âge · ${a} ans`
+      : delta <= 2
+        ? `Âges très proches · ${a} / ${b} ans`
+        : delta <= 6
+          ? `Âges proches · ${a} / ${b} ans`
+          : `Écart d’âge · ${a} / ${b} ans`;
+
+  return {
+    similarity,
+    applicable: true,
+    detail,
+    shared: delta <= 4 ? [`${Math.min(a, b)}–${Math.max(a, b)} ans`] : [],
+  };
+}
+
 function citySimilarity(me: UserProfile, other: UserProfile): {
   similarity: number;
   applicable: boolean;
@@ -334,6 +395,7 @@ function buildDimensions(me: UserProfile, other: UserProfile): DimDraft[] {
   ) as PlatformId[];
 
   const city = citySimilarity(me, other);
+  const age = ageSimilarity(me, other);
 
   const lang = setSimilarity(
     uniqueNormalized(me.languages ?? []),
@@ -410,6 +472,15 @@ function buildDimensions(me: UserProfile, other: UserProfile): DimDraft[] {
       similarity: levelSimilarity(me, other),
       shared: [],
       detail: levelDetail(me, other),
+    },
+    {
+      key: 'age',
+      label: 'Âge',
+      weight: MATCH_WEIGHTS.age,
+      applicable: age.applicable,
+      similarity: age.similarity,
+      shared: age.shared,
+      detail: age.detail,
     },
     {
       key: 'plateformes',

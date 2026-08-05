@@ -88,7 +88,7 @@ export default function MatchSuccessScreen() {
           </Pressable>
           <Text style={[styles.missing, { color: colors.ink }]}>Profil introuvable</Text>
           <Button
-            label="Continuer Discover"
+            label="Jumelo du jour"
             onPress={() => safeBack('/(tabs)/discover')}
             style={styles.cta}
           />
@@ -171,7 +171,7 @@ export default function MatchSuccessScreen() {
             style={{ marginTop: spacing.sm }}
           />
           <Button
-            label="Continuer Discover"
+            label="Jumelo du jour"
             icon="compass-outline"
             variant="ghost"
             onPress={() => safeBack('/(tabs)/discover')}

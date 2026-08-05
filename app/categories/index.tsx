@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -8,30 +8,43 @@ import { Atmosphere } from '../../src/components/Atmosphere';
 import {
   CategoryPath,
   CategoryPicker,
+  emptyCategoryPath,
+  useCategoryPathBack,
 } from '../../src/components/CategoryPicker';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { HeaderRow } from '../../src/components/ui';
-import { getCategory, getSubCategory, platforms } from '../../src/constants/catalog';
+import {
+  areRequiredDetailsFilled,
+  getActivityDetailFields,
+  summarizeActivityDetails,
+} from '../../src/constants/activityDetails';
+import { getSubCategory, platforms } from '../../src/constants/catalog';
 import { fonts, radii, spacing } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
-import { safeBack } from '../../src/lib/navigation';
 
 export default function CategoriesScreen() {
   const { colors } = useTheme();
-  const [path, setPath] = useState<CategoryPath>({
-    universeId: null,
-    subCategoryId: null,
-    platformId: null,
-  });
+  const [path, setPath] = useState<CategoryPath>(emptyCategoryPath());
+  const onBack = useCategoryPathBack(path, setPath, '/(tabs)/home');
 
-  const cat = path.universeId ? getCategory(path.universeId) : undefined;
   const sub =
     path.universeId && path.subCategoryId
       ? getSubCategory(path.universeId, path.subCategoryId)
       : undefined;
   const platform = platforms.find((p) => p.id === path.platformId);
-  const atPlatformStep = Boolean(sub);
-  const canSearch = Boolean(sub && (!sub.platforms?.length || platform));
+  const atDetailsStep = Boolean(sub);
+
+  const detailFields = useMemo(() => {
+    if (!path.universeId || !path.subCategoryId) return [];
+    return getActivityDetailFields(path.universeId, path.subCategoryId);
+  }, [path.universeId, path.subCategoryId]);
+
+  const canSearch = Boolean(
+    sub && areRequiredDetailsFilled(detailFields, path.activityDetails),
+  );
+  const summary = canSearch
+    ? summarizeActivityDetails(detailFields, path.activityDetails)
+    : '';
 
   return (
     <Atmosphere variant="soft">
@@ -39,7 +52,9 @@ export default function CategoriesScreen() {
         <View style={styles.top}>
           <Pressable
             style={[styles.back, { backgroundColor: colors.white, borderColor: colors.border }]}
-            onPress={() => safeBack('/(tabs)/home')}
+            onPress={onBack}
+            accessibilityRole="button"
+            accessibilityLabel="Retour"
           >
             <Ionicons name="arrow-back" size={20} color={colors.ink} />
           </Pressable>
@@ -47,39 +62,30 @@ export default function CategoriesScreen() {
         </View>
 
         <ScrollView contentContainerStyle={styles.content}>
-          {!atPlatformStep ? (
+          {!atDetailsStep ? (
             <HeaderRow
               title="Catégories"
-              subtitle="Univers → activité → plateforme"
+              subtitle="Univers → activité → précisions"
             />
           ) : (
             <HeaderRow
               title="Presque prêt"
-              subtitle="Choisis ta plateforme pour lancer la recherche"
+              subtitle="Quelques précisions pour affiner ton jumelo"
             />
           )}
 
           <View style={styles.picker}>
-            <CategoryPicker value={path} onChange={setPath} requirePlatform />
+            <CategoryPicker value={path} onChange={setPath} requireDetails />
           </View>
 
           {canSearch ? (
             <Pressable
               style={[styles.cta, { backgroundColor: colors.primary }]}
-              onPress={() =>
-                router.push({
-                  pathname: '/maintenant',
-                  params: {
-                    universe: path.universeId ?? '',
-                    activity: sub?.label ?? '',
-                    platform: platform?.id ?? '',
-                  },
-                })
-              }
+              onPress={() => router.push('/(tabs)/discover')}
             >
               <Text style={{ color: '#fff', fontFamily: fonts.bodyBold, textAlign: 'center' }}>
-                Chercher un partenaire
-                {platform ? ` · ${platform.label}` : ''}
+                Jumelo du jour
+                {summary ? ` · ${summary}` : platform ? ` · ${platform.label}` : ''}
               </Text>
             </Pressable>
           ) : null}

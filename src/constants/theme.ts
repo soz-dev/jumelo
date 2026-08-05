@@ -55,12 +55,24 @@ export type ThemePalette = {
   accentSoft: string;
 };
 
-/** 10 thèmes persistés dans les préférences utilisateur.
- *  Premier = charte marque (logo Jumelo coral/rouge). */
+/**
+ * Charte Jumelo active = bleu.
+ * Les autres palettes restent définies pour plus tard (sélecteur en standby).
+ */
 export const themePalettes: ThemePalette[] = [
   {
-    id: 'coral',
+    id: 'blue',
     label: 'Jumelo',
+    primary: '#2F6BFF',
+    primaryDark: '#1B4ED8',
+    primarySoft: '#E8EFFF',
+    accent: '#38BDF8',
+    accentSoft: '#E0F2FE',
+  },
+  // —— Standby : réactiver avec le panneau de thèmes ——
+  {
+    id: 'coral',
+    label: 'Coral',
     primary: '#FF4B2B',
     primaryDark: '#E03A1C',
     primarySoft: '#FFE8E4',
@@ -84,15 +96,6 @@ export const themePalettes: ThemePalette[] = [
     primarySoft: '#F0ECFF',
     accent: '#FF5A45',
     accentSoft: '#FFE8E4',
-  },
-  {
-    id: 'blue',
-    label: 'Bleu',
-    primary: '#3B82F6',
-    primaryDark: '#2563EB',
-    primarySoft: '#EBF2FF',
-    accent: '#F59E0B',
-    accentSoft: '#FEF3C7',
   },
   {
     id: 'orange',
@@ -150,17 +153,18 @@ export const themePalettes: ThemePalette[] = [
   },
 ];
 
-/** Charte graphique logo Jumelo — modifiable ensuite via préférences. */
-export const DEFAULT_THEME_ID: ThemeId = 'coral';
+/** Charte graphique Jumelo — bleu (palettes multi en standby). */
+export const DEFAULT_THEME_ID: ThemeId = 'blue';
 
 export const baseColors = {
-  /** Charcoal-bleu — pas de noir dur pour titres / corps */
-  ink: '#2A3F4C',
-  inkMuted: '#5E7380',
-  inkFaint: '#8A99A3',
-  cream: '#F7F4EF',
+  /** Encre bleutée — titres / corps */
+  ink: '#1E2F42',
+  inkMuted: '#5A6F82',
+  inkFaint: '#8B9AAB',
+  /** Fond app froid, aligné charte bleue */
+  cream: '#F2F5FA',
   white: '#FFFFFF',
-  border: '#E4E9EC',
+  border: '#DCE3EC',
   success: '#1FA97A',
   warning: '#E8A317',
   online: '#22C55E',
@@ -177,16 +181,21 @@ export const categoryColors: Record<string, string> = {
 
 /** @deprecated Prefer useTheme().colors — kept for gradual migration */
 export const colors = {
-  teal: '#0F8F8A',
-  tealDark: '#0A6B67',
-  tealSoft: '#E6F6F5',
-  coral: '#FF4B2B',
-  coralSoft: '#FFE8E4',
+  teal: '#2F6BFF',
+  tealDark: '#1B4ED8',
+  tealSoft: '#E8EFFF',
+  coral: '#38BDF8',
+  coralSoft: '#E0F2FE',
   ...baseColors,
 };
 
 export function resolveTheme(id: ThemeId): ThemePalette {
-  return themePalettes.find((t) => t.id === id) ?? themePalettes[0];
+  // Standby multi-thèmes : toujours la charte bleue Jumelo.
+  return (
+    themePalettes.find((t) => t.id === DEFAULT_THEME_ID) ??
+    themePalettes.find((t) => t.id === id) ??
+    themePalettes[0]
+  );
 }
 
 function clampByte(n: number) {

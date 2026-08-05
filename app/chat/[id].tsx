@@ -15,6 +15,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { DailyTrialBanner } from '../../src/components/DailyTrialBanner';
+import { JumeloValidationBanner } from '../../src/components/JumeloValidationBanner';
 import { safeBack } from '../../src/lib/navigation';
 
 import { fonts, radii, spacing } from '../../src/constants/theme';
@@ -27,24 +29,29 @@ import {
   mockUsers,
   type UserProfile,
 } from '../../src/data/mock';
+import { useIsAdmin } from '../../src/lib/admin';
 import {
   getAdminMember,
   listAdminNotices,
   sendAdminMessage,
 } from '../../src/lib/adminStore';
-import { getDmPeerId, listMessages, sendMessage } from '../../src/lib/api/messages';
+import { getDmPeerId, listMessages, markDmRead, sendMessage } from '../../src/lib/api/messages';
 import {
   getTeamChatById,
   isTeamChatId,
   listTeamChatMessages,
+  markTeamChatRead,
   sendTeamChatMessage,
 } from '../../src/lib/api/teamChats';
 import { getProfileById } from '../../src/lib/api/profiles';
+import { getTeam } from '../../src/lib/api/teams';
 import { isSupabaseConfigured } from '../../src/lib/supabase';
+import { isDuoCapacity } from '../../src/lib/teamKind';
 
 export default function ChatDetailScreen() {
   const { colors } = useTheme();
   const { user: me } = useAuth();
+  const isAdmin = useIsAdmin();
   const { id } = useLocalSearchParams<{ id: string }>();
   const thread = mockChats.find((c) => c.id === id);
   const mockPeer = mockUsers.find((u) => u.id === thread?.peerId);
@@ -69,7 +76,11 @@ export default function ChatDetailScreen() {
   /** DM local ou cloud (hors groupe équipe / admin). */
   const isDmThread = Boolean(id && !isAdminThread && !isTeamChatId(id));
 
-  const initial = useMemo(() => mockMessages[id ?? ''] ?? [], [id]);
+  // Prefill mock uniquement pour le compte admin (évite un flash de msgs fictifs).
+  const initial = useMemo(
+    () => (isAdmin ? mockMessages[id ?? ''] ?? [] : []),
+    [id, isAdmin],
+  );
   const [messages, setMessages] = useState<ChatMessage[]>(initial);
   const [draft, setDraft] = useState('');
   const [loadingRemote, setLoadingRemote] = useState(
@@ -80,6 +91,8 @@ export default function ChatDetailScreen() {
     thread?.isGroup ? thread.name : undefined,
   );
   const [isGroup, setIsGroup] = useState(Boolean(thread?.isGroup || teamChatHint));
+  const [teamIdForBanner, setTeamIdForBanner] = useState<string | null>(null);
+  const [isJumeloChat, setIsJumeloChat] = useState(false);
 
   useEffect(() => {
     if (!id || !me) {
@@ -104,6 +117,8 @@ export default function ChatDetailScreen() {
         if (active) {
           setIsGroup(false);
           setGroupTitle(undefined);
+          setTeamIdForBanner(null);
+          setIsJumeloChat(false);
           setPeer(adminPeer ?? undefined);
           setMessages(
             forThread
@@ -130,9 +145,27 @@ export default function ChatDetailScreen() {
           getTeamChatById(id),
           listTeamChatMessages(id, me.id),
         ]);
+        await markTeamChatRead(id, me.id);
+        const resolvedTeamId =
+          chat?.teamId ??
+          (id.startsWith('cg-') ? id.slice(3) : thread?.teamId) ??
+          null;
+        let jumelo = false;
+        let title = chat?.name ?? thread?.name ?? 'Chat jumelo';
+        if (resolvedTeamId) {
+          const team = await getTeam(resolvedTeamId, me.id);
+          if (team) {
+            jumelo = isDuoCapacity(team.capacity);
+            title = `${team.name} · jumelo`;
+          } else {
+            jumelo = true;
+          }
+        }
         if (active) {
           setIsGroup(true);
-          setGroupTitle(chat?.name ?? thread?.name ?? 'Chat de groupe');
+          setGroupTitle(title);
+          setTeamIdForBanner(resolvedTeamId);
+          setIsJumeloChat(jumelo);
           setPeer(undefined);
           setMessages(rows);
           setLoadingRemote(false);
@@ -143,6 +176,7 @@ export default function ChatDetailScreen() {
       // DM : Supabase (UUID) ou AsyncStorage local (fb-* / u-* / c-* / dm-*)
       setLoadingRemote(true);
       const [rows, peerId] = await Promise.all([listMessages(id, me.id), getDmPeerId(id, me.id)]);
+      await markDmRead(id, me.id);
       let remotePeer: UserProfile | undefined = mockPeer;
       if (peerId) {
         remotePeer =
@@ -155,6 +189,8 @@ export default function ChatDetailScreen() {
         setPeer(remotePeer);
         setIsGroup(false);
         setGroupTitle(undefined);
+        setTeamIdForBanner(null);
+        setIsJumeloChat(false);
         setLoadingRemote(false);
       }
     })();
@@ -247,7 +283,7 @@ export default function ChatDetailScreen() {
       ? `Admin → ${peer.name}`
       : 'Notice admin'
     : isGroup
-      ? groupTitle ?? 'Chat de groupe'
+      ? groupTitle ?? 'Chat jumelo'
       : peer?.name ?? thread?.name ?? (useRemote ? 'Conversation' : 'Chat');
 
   return (
@@ -271,7 +307,7 @@ export default function ChatDetailScreen() {
           </Text>
           {isGroup ? (
             <Text style={{ color: colors.inkMuted, fontFamily: fonts.body, fontSize: 12 }}>
-              Groupe privé · membres uniquement
+              Jumelo · chat privé
             </Text>
           ) : peer?.online ? (
             <Text style={{ color: colors.primary, fontFamily: fonts.bodyMedium, fontSize: 12 }}>
@@ -287,6 +323,15 @@ export default function ChatDetailScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={8}
       >
+        {isJumeloChat && teamIdForBanner ? (
+          <JumeloValidationBanner
+            teamId={teamIdForBanner}
+            onTeamNameChange={(name) => setGroupTitle(`${name} · jumelo`)}
+          />
+        ) : null}
+        {isDmThread && id && !isJumeloChat ? (
+          <DailyTrialBanner conversationId={id} />
+        ) : null}
         {loadingRemote ? (
           <View style={{ padding: spacing.lg }}>
             <Text style={{ fontFamily: fonts.body, color: colors.inkMuted }}>Chargement…</Text>
@@ -337,7 +382,9 @@ export default function ChatDetailScreen() {
           <TextInput
             value={draft}
             onChangeText={setDraft}
-            placeholder={isGroup ? 'Écrire au groupe…' : 'Écrire un message…'}
+            placeholder={
+              isGroup || isJumeloChat ? 'Écrire au jumelo…' : 'Écrire un message…'
+            }
             placeholderTextColor={colors.inkFaint}
             style={[styles.input, { backgroundColor: colors.cream, color: colors.ink }]}
           />

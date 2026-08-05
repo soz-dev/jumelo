@@ -5,8 +5,15 @@ import { OnboardingShell } from '../../src/components/OnboardingShell';
 import { colors, fonts, radii, spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 
+function parseAge(raw: string): number | null {
+  const n = Number.parseInt(raw.trim(), 10);
+  if (!Number.isFinite(n) || n < 13 || n > 100) return null;
+  return n;
+}
+
 export default function ProfilOnboardingScreen() {
   const { draft, setDraft, completeOnboarding } = useAuth();
+  const ageOk = parseAge(draft.age ?? '') != null;
 
   const finish = async () => {
     await completeOnboarding();
@@ -17,10 +24,10 @@ export default function ProfilOnboardingScreen() {
     <OnboardingShell
       step={5}
       title="Ton profil"
-      subtitle="Dernière touche avant de découvrir tes jumelages."
-      nextLabel="Voir mes jumelages"
+      subtitle="Dernière touche — l’âge aide à te proposer un binôme proche de toi."
+      nextLabel="Trouve ton jumelo !"
       onNext={finish}
-      nextDisabled={!draft.name.trim() || !draft.city.trim()}
+      nextDisabled={!draft.name.trim() || !draft.city.trim() || !ageOk}
     >
       <View style={styles.form}>
         <Text style={styles.label}>Prénom</Text>
@@ -30,6 +37,16 @@ export default function ProfilOnboardingScreen() {
           placeholder="Léa"
           placeholderTextColor={colors.inkFaint}
           style={styles.input}
+        />
+        <Text style={styles.label}>Âge</Text>
+        <TextInput
+          value={draft.age ?? ''}
+          onChangeText={(age) => setDraft({ age: age.replace(/[^\d]/g, '').slice(0, 3) })}
+          placeholder="22"
+          placeholderTextColor={colors.inkFaint}
+          keyboardType="number-pad"
+          style={styles.input}
+          maxLength={3}
         />
         <Text style={styles.label}>Ville</Text>
         <TextInput

@@ -211,11 +211,11 @@ export async function notifyTeamJoined(params: {
   /** Bannière locale (appareil du membre qui vient de rejoindre). */
   presentLocally?: boolean;
 }): Promise<void> {
-  const name = params.teamName.trim() || 'cette équipe';
+  const name = params.teamName.trim() || 'ce jumelo';
   await notifyUser({
     userId: params.userId,
-    title: 'Équipe rejointe',
-    body: `Tu as rejoint « ${name} » — bienvenue dans le lobby !`,
+    title: 'Jumelo rejoint',
+    body: `Tu as rejoint « ${name} » — bienvenue dans le binôme !`,
     data: { type: 'team_joined', teamId: params.teamId },
     kind: 'team',
     presentLocally: params.presentLocally,

@@ -1,3 +1,4 @@
+import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useId } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
@@ -10,6 +11,10 @@ import Animated, {
 import Svg, { Circle, Defs, Line, Path, Pattern, Rect } from 'react-native-svg';
 
 import { useTheme } from '../context/ThemeContext';
+import {
+  themeAtmosphereColors,
+  themeGradientAngles,
+} from '../design-system/themeGradients';
 import { JumeloLottie } from './JumeloLottie';
 
 type Props = {
@@ -20,7 +25,7 @@ type Props = {
 };
 
 /**
- * Fond texturé : blobs colorés + griffures SVG + Lottie abstraites en filigrane.
+ * Fond texturé : wash dégradé bleu + blobs + griffures SVG + Lottie.
  * `intro` = disposition plus douce / anneaux, sans éclairs Home.
  */
 export function Atmosphere({ variant = 'soft', lottie = true, children }: Props) {
@@ -29,6 +34,8 @@ export function Atmosphere({ variant = 'soft', lottie = true, children }: Props)
   const opacity = variant === 'bold' ? 0.16 : isIntro ? 0.12 : 0.09;
   const patternId = useId().replace(/:/g, '');
   const lottieOpacity = variant === 'bold' ? 0.22 : isIntro ? 0.12 : 0.15;
+  const atmosphere = themeAtmosphereColors(colors);
+  const angle = themeGradientAngles.atmosphere;
 
   const drift = useSharedValue(0);
   useEffect(() => {
@@ -51,7 +58,14 @@ export function Atmosphere({ variant = 'soft', lottie = true, children }: Props)
   }));
 
   return (
-    <View style={[styles.root, { backgroundColor: colors.cream }]}>
+    <View style={styles.root}>
+      <LinearGradient
+        colors={[...atmosphere]}
+        start={angle.start}
+        end={angle.end}
+        style={StyleSheet.absoluteFill}
+        pointerEvents="none"
+      />
       <Animated.View
         pointerEvents="none"
         style={[

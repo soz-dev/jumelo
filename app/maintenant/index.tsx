@@ -11,27 +11,41 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { safeBack } from '../../src/lib/navigation';
-import { CategoryPath, CategoryPicker } from '../../src/components/CategoryPicker';
+import {
+  CategoryPath,
+  CategoryPicker,
+  emptyCategoryPath,
+  useCategoryPathBack,
+} from '../../src/components/CategoryPicker';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { Button, Chip } from '../../src/components/ui';
-import { getVibesForContext, type Vibe } from '../../src/constants/catalog';
-import { fonts, radii, spacing } from '../../src/constants/theme';
+import {
+  getCategory,
+  getVibesForContext,
+  type Vibe,
+} from '../../src/constants/catalog';
+import { fonts, radii, spacing, withHexAlpha } from '../../src/constants/theme';
 import { useTheme } from '../../src/context/ThemeContext';
 
 export default function MaintenantScreen() {
   const { colors } = useTheme();
-  const [path, setPath] = useState<CategoryPath>({
-    universeId: 'gaming',
-    subCategoryId: null,
-    platformId: null,
-  });
+  const [path, setPath] = useState<CategoryPath>(
+    emptyCategoryPath({ universeId: 'gaming' }),
+  );
+  const onBack = useCategoryPathBack(path, setPath, '/(tabs)/home');
   const [activity, setActivity] = useState('');
   const [vibe, setVibe] = useState<Vibe | null>('fun');
 
   const availableVibes = useMemo(
     () => getVibesForContext(path.universeId ?? 'gaming', path.subCategoryId),
     [path.universeId, path.subCategoryId],
+  );
+
+  const universeAccent = useMemo(
+    () =>
+      (path.universeId ? getCategory(path.universeId)?.color : undefined) ??
+      colors.primary,
+    [path.universeId, colors.primary],
   );
 
   useEffect(() => {
@@ -47,7 +61,9 @@ export default function MaintenantScreen() {
       <View style={styles.top}>
         <Pressable
           style={[styles.back, { backgroundColor: colors.white, borderColor: colors.border }]}
-          onPress={() => safeBack('/(tabs)/home')}
+          onPress={onBack}
+          accessibilityRole="button"
+          accessibilityLabel="Retour"
         >
           <Ionicons name="arrow-back" size={20} color={colors.ink} />
         </Pressable>
@@ -55,12 +71,20 @@ export default function MaintenantScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        <View style={[styles.icon, { backgroundColor: colors.primary }]}>
-          <Ionicons name="flash" size={28} color="#fff" />
+        <View
+          style={[
+            styles.icon,
+            {
+              backgroundColor: withHexAlpha(universeAccent, 0.14),
+              borderColor: withHexAlpha(universeAccent, 0.28),
+            },
+          ]}
+        >
+          <Ionicons name="flash" size={28} color={universeAccent} />
         </View>
-        <Text style={[styles.title, { color: colors.ink }]}>Maintenant</Text>
+        <Text style={[styles.title, { color: colors.ink }]}>Jumelo maintenant</Text>
         <Text style={[styles.sub, { color: colors.inkMuted }]}>
-          Trouve un partenaire dispo tout de suite
+          Jumelage 1:1 — trouve un partenaire dispo tout de suite (slots 2/2)
         </Text>
 
         <Text style={[styles.label, { color: colors.ink }]}>Univers</Text>
@@ -85,6 +109,7 @@ export default function MaintenantScreen() {
               key={item.id}
               name={item.icon}
               label={item.label}
+              accent={universeAccent}
               selected={vibe === item.id}
               onPress={() => setVibe(item.id)}
             />
@@ -92,7 +117,7 @@ export default function MaintenantScreen() {
         </View>
 
         <Button
-          label="Lancer la recherche"
+          label="Trouver mon jumelo"
           icon="flash"
           onPress={() =>
             router.push({
@@ -101,6 +126,7 @@ export default function MaintenantScreen() {
                 universe: path.universeId ?? '',
                 sub: path.subCategoryId ?? '',
                 platform: path.platformId ?? '',
+                details: JSON.stringify(path.activityDetails),
                 activity,
                 vibe: vibe ?? '',
               },
@@ -112,7 +138,7 @@ export default function MaintenantScreen() {
         <View style={styles.onlineRow}>
           <View style={[styles.onlineDot, { backgroundColor: colors.accent }]} />
           <Text style={{ color: colors.inkMuted, fontFamily: fonts.body }}>
-            6 joueurs en ligne maintenant
+            Partenaires en ligne pour un jumelo maintenant
           </Text>
         </View>
       </ScrollView>
@@ -141,6 +167,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.md,

@@ -169,6 +169,7 @@ export type IconName =
   // Gaming
   | 'valorant'
   | 'lol'
+  | 'wild-rift'
   | 'cod'
   | 'fortnite'
   | 'minecraft'
@@ -343,6 +344,7 @@ const ICONS: Record<IconName, PhosphorIcon> = {
   // Gaming
   valorant: Crosshair,
   lol: Sword,
+  'wild-rift': Sword,
   cod: Crosshair,
   fortnite: TreasureChest,
   minecraft: Cube,
