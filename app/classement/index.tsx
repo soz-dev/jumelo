@@ -47,10 +47,10 @@ function winPct(score: DuoScore): number {
   return Math.round((score.averageRating / 5) * 100);
 }
 
-function trendColor(trend: number, up: string, down: string): string {
+function trendColor(trend: number, up: string): string {
   if (trend > 0) return up;
-  if (trend < 0) return down;
-  return '#9CA3AF';
+  if (trend < 0) return '#EF4444';
+  return '#F97316'; // orange = stable
 }
 
 async function fetchMemberSnaps(ids: string[]): Promise<Map<string, MemberSnap>> {
@@ -355,7 +355,7 @@ export default function ClassementScreen() {
                       </View>
                       <View style={[styles.statBox, styles.statBorder]}>
                         <Text style={styles.statValue}>{winPct(champion.score)}%</Text>
-                        <Text style={styles.statKey}>VICTOIRES</Text>
+                        <Text style={styles.statKey}>PERF</Text>
                       </View>
                       <View style={styles.statBox}>
                         <Text style={styles.statValue}>🔥 {champion.score.sessionsEnded}</Text>
@@ -417,7 +417,7 @@ export default function ClassementScreen() {
               <View style={[styles.tableHead, { borderBottomColor: withHexAlpha(colors.border, 0.7) }]}>
                 <Text style={[styles.thPos,    { color: colors.inkMuted }]}>#</Text>
                 <Text style={[styles.thJumelo, { color: colors.inkMuted }]}>JUMELO</Text>
-                <Text style={[styles.thNum,    { color: colors.inkMuted }]}>V%</Text>
+                <Text style={[styles.thNum,    { color: colors.inkMuted }]}>PERF</Text>
                 <Text style={[styles.thNum,    { color: colors.inkMuted }]}>SÉRIE</Text>
                 <Text style={[styles.thPts,    { color: colors.inkMuted }]}>PTS</Text>
               </View>
@@ -494,13 +494,13 @@ export default function ClassementScreen() {
                       {/* Points + trend */}
                       <View style={styles.ptsCell}>
                         <Text style={[styles.ptsVal, { color: colors.ink }]}>{entry.score.points}</Text>
-                        {entry.trend !== 0 ? (
-                          <Text style={[styles.trend, { color: trendColor(entry.trend, colors.primary, colors.accent) }]}>
-                            {entry.trend > 0 ? `▲${entry.trend}` : `▼${Math.abs(entry.trend)}`}
-                          </Text>
-                        ) : (
-                          <Text style={[styles.trend, { color: colors.inkFaint }]}>—</Text>
-                        )}
+                        <Text style={[styles.trend, { color: trendColor(entry.trend, colors.primary) }]}>
+                          {entry.trend > 0
+                            ? `▲${entry.trend}`
+                            : entry.trend < 0
+                            ? `▼${Math.abs(entry.trend)}`
+                            : '—'}
+                        </Text>
                       </View>
                     </Pressable>
                   </Animated.View>
