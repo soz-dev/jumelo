@@ -49,7 +49,7 @@ function WebOAuthPopupLayout() {
         gap: 16,
       }}
     >
-      <ActivityIndicator color="#0F8F8A" size="large" />
+      <ActivityIndicator color="#0186F0" size="large" />
     </View>
   );
 }
@@ -100,7 +100,7 @@ function AppRootLayout() {
           backgroundColor: baseColors.cream,
         }}
       >
-        <ActivityIndicator color="#0F8F8A" size="large" />
+        <ActivityIndicator color="#0186F0" size="large" />
       </View>
     );
   }
@@ -141,6 +141,7 @@ function AppRootLayout() {
                 options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
               />
               <Stack.Screen name="chat/[id]" />
+              <Stack.Screen name="jumelo/[id]" />
               <Stack.Screen name="team/[id]" />
               <Stack.Screen name="team/create" options={{ presentation: 'modal' }} />
               <Stack.Screen name="maintenant/index" />

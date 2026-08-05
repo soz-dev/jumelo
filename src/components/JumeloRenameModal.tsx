@@ -12,12 +12,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useTheme } from '../context/ThemeContext';
 import { Button, TextField, fonts, spacing } from '../design-system';
+import { isProvisionalJumeloName } from '../lib/jumeloName';
 
 const NAME_MAX = 40;
 
 type Props = {
   visible: boolean;
   currentName: string;
+  /** `name` = premier choix post-formation ; `rename` = édition ultérieure. */
+  variant?: 'name' | 'rename';
   onClose: () => void;
   onSave: (name: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 };
@@ -25,6 +28,7 @@ type Props = {
 export function JumeloRenameModal({
   visible,
   currentName,
+  variant = 'rename',
   onClose,
   onSave,
 }: Props) {
@@ -33,14 +37,16 @@ export function JumeloRenameModal({
   const [value, setValue] = useState(currentName);
   const [error, setError] = useState<string | undefined>();
   const [busy, setBusy] = useState(false);
+  const isFirstName = variant === 'name';
 
   useEffect(() => {
     if (visible) {
-      setValue(currentName);
+      // Premier naming : champ vide, l’auto-nom sert de placeholder.
+      setValue(isFirstName && isProvisionalJumeloName(currentName) ? '' : currentName);
       setError(undefined);
       setBusy(false);
     }
-  }, [visible, currentName]);
+  }, [visible, currentName, isFirstName]);
 
   const handleSave = async () => {
     const trimmed = value.trim().replace(/\s+/g, ' ');
@@ -54,6 +60,10 @@ export function JumeloRenameModal({
     }
     if (trimmed.length > NAME_MAX) {
       setError(`Maximum ${NAME_MAX} caractères.`);
+      return;
+    }
+    if (isFirstName && isProvisionalJumeloName(trimmed)) {
+      setError('Choisis un vrai nom pour votre jumelo.');
       return;
     }
     if (trimmed === currentName.trim()) {
@@ -102,10 +112,12 @@ export function JumeloRenameModal({
               <View style={[styles.handle, { backgroundColor: colors.border }]} />
             </View>
             <Text style={[styles.title, { color: colors.ink }]}>
-              Renommer le jumelo
+              {isFirstName ? 'Nomme ton jumelo' : 'Renommer le jumelo'}
             </Text>
             <Text style={[styles.sub, { color: colors.inkMuted }]}>
-              Ce nom est partagé — il apparaît identiquement sur vos deux profils.
+              {isFirstName
+                ? 'Choisis un nom pour ce nouveau jumelo — partagé avec ton binôme.'
+                : 'Ce nom est partagé — il apparaît identiquement sur vos deux profils.'}
             </Text>
 
             <TextField
@@ -115,7 +127,11 @@ export function JumeloRenameModal({
                 setValue(text);
                 if (error) setError(undefined);
               }}
-              placeholder="Ex. Les Inséparables"
+              placeholder={
+                isFirstName && currentName.trim()
+                  ? currentName.trim()
+                  : 'Ex. Les Inséparables'
+              }
               autoCapitalize="words"
               autoCorrect={false}
               maxLength={NAME_MAX}
@@ -127,7 +143,7 @@ export function JumeloRenameModal({
             />
 
             <Button
-              label="Enregistrer"
+              label={isFirstName ? 'Confirmer' : 'Enregistrer'}
               onPress={handleSave}
               loading={busy}
               disabled={busy}
@@ -136,7 +152,7 @@ export function JumeloRenameModal({
 
             <Pressable onPress={onClose} disabled={busy} style={styles.cancel}>
               <Text style={{ fontFamily: fonts.bodyBold, color: colors.primary }}>
-                Annuler
+                {isFirstName ? 'Plus tard' : 'Annuler'}
               </Text>
             </Pressable>
           </Pressable>

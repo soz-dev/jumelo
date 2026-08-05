@@ -10,6 +10,7 @@ import {
   AirplaneTilt,
   Barbell,
   Basketball,
+  Bell,
   Bicycle,
   Binoculars,
   BookOpen,
@@ -126,6 +127,7 @@ export type IconName =
   | 'spark'
   | 'live'
   | 'pulse'
+  | 'bell'
   | 'city'
   | 'interest'
   | 'lock'
@@ -307,6 +309,7 @@ const ICONS: Record<IconName, PhosphorIcon> = {
   spark: Sparkle,
   live: Broadcast,
   pulse: Pulse,
+  bell: Bell,
   city: MapPin,
   interest: Star,
   lock: LockKey,

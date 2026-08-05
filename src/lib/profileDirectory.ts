@@ -20,7 +20,7 @@ function coerceProfile(raw: unknown): UserProfile | null {
     avatarColor:
       typeof parsed.avatarColor === 'string' && parsed.avatarColor
         ? parsed.avatarColor
-        : '#0F8F8A',
+        : '#0186F0',
     photo: typeof parsed.photo === 'string' && parsed.photo ? parsed.photo : undefined,
     avatarPersonaId:
       typeof parsed.avatarPersonaId === 'string' && parsed.avatarPersonaId

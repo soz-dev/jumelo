@@ -44,6 +44,27 @@ export function joinLabel(
   }
 }
 
+/** Légende accès carte lobby : Complet / Sur demande / Ouvert. */
+export function lobbyAccessLabel(team: {
+  locked: boolean;
+  membersCount: number;
+  capacity: number;
+  memberIds?: string[];
+}): { label: string; icon: 'lock' | 'lock-open' } {
+  const count = Math.max(
+    team.membersCount,
+    team.memberIds?.length ?? 0,
+  );
+  const full = count >= team.capacity;
+  if (full) {
+    return { label: 'Complet', icon: 'lock' };
+  }
+  if (team.locked) {
+    return { label: 'Sur demande', icon: 'lock' };
+  }
+  return { label: 'Ouvert', icon: 'lock-open' };
+}
+
 type Props = {
   team: Team;
   state: TeamMembershipState;
@@ -124,8 +145,11 @@ export function TeamLobbyCard({
   const progress = Math.min(1, team.membersCount / team.capacity);
   const slotsLeft = Math.max(0, team.capacity - team.membersCount);
   const label = joinLabel(state, team.locked, team.capacity);
+  const access = lobbyAccessLabel(team);
   const isPending = state === 'pending';
-  const joinDisabled = isPending || busy;
+  const isMemberOrOwner = state === 'member' || state === 'owner';
+  const joinDisabled =
+    isPending || busy || (slotsLeft === 0 && !isMemberOrOwner);
 
   /**
    * Panneau ardoise / encre — contraste lisible pour le texte clair,
@@ -155,14 +179,12 @@ export function TeamLobbyCard({
           <View style={styles.mediaTop}>
             <View style={styles.mediaChip}>
               <Icon
-                name={team.locked ? 'lock' : 'lock-open'}
+                name={access.icon}
                 size={11}
                 color="#fff"
                 weight="bold"
               />
-              <Text style={styles.mediaChipText}>
-                {team.locked ? 'Sur demande' : 'Ouvert'}
-              </Text>
+              <Text style={styles.mediaChipText}>{access.label}</Text>
             </View>
             {team.vibe ? (
               <View style={styles.mediaChipMuted}>

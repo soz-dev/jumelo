@@ -15,13 +15,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { safeBack } from '../../../src/lib/navigation';
 import { CategoryIcon } from '../../../src/components/CategoryIcon';
 import { DuoRankPanel } from '../../../src/components/DuoRankBadge';
+import { JumeloRenameModal } from '../../../src/components/JumeloRenameModal';
 import { Avatar, Button, Subtitle, Title } from '../../../src/components/ui';
 import { fonts, radii, spacing, withHexAlpha } from '../../../src/constants/theme';
 import { useAuth } from '../../../src/context/AuthContext';
 import { useTeams } from '../../../src/context/TeamsContext';
 import { useTheme } from '../../../src/context/ThemeContext';
 import { mockUsers, type UserProfile } from '../../../src/data/mock';
+import { renameJumeloName } from '../../../src/lib/api/teams';
 import { ensureTeamChat } from '../../../src/lib/api/teamChats';
+import { isProvisionalJumeloName } from '../../../src/lib/jumeloName';
+import { isDuoCapacity } from '../../../src/lib/teamKind';
 import {
   emptyDuoScore,
   getDuoScore,
@@ -51,6 +55,9 @@ function memberMetaLine(member: UserProfile): string {
   ].filter(Boolean);
   return parts.join(' · ') || 'Profil Jumelo';
 }
+
+/** Stable empty map — avoids setState({}) identity churn / update-depth loops. */
+const EMPTY_PROFILES: Record<string, UserProfile> = {};
 
 /** Profil immédiat (sync) — le user courant n’attend pas la résolution async. */
 function syncProfileForId(
@@ -86,9 +93,13 @@ export default function TeamDetailScreen() {
   const [pendingRateSession, setPendingRateSession] = useState<TeamSession | null>(null);
   const [sessionBusy, setSessionBusy] = useState(false);
   const [duoScore, setDuoScore] = useState<DuoScore>(emptyDuoScore());
-  const [enrichedById, setEnrichedById] = useState<Record<string, UserProfile>>({});
-  const [pendingProfiles, setPendingProfiles] = useState<Record<string, UserProfile>>(
-    {},
+  const [enrichedById, setEnrichedById] =
+    useState<Record<string, UserProfile>>(EMPTY_PROFILES);
+  const [pendingProfiles, setPendingProfiles] =
+    useState<Record<string, UserProfile>>(EMPTY_PROFILES);
+  const [nameModalOpen, setNameModalOpen] = useState(false);
+  const [nameModalVariant, setNameModalVariant] = useState<'name' | 'rename'>(
+    'rename',
   );
 
   const reloadSession = useCallback(async () => {
@@ -172,7 +183,11 @@ export default function TeamDetailScreen() {
     let active = true;
     (async () => {
       if (!rosterIds.length) {
-        if (active) setEnrichedById({});
+        if (active) {
+          setEnrichedById((prev) =>
+            Object.keys(prev).length === 0 ? prev : EMPTY_PROFILES,
+          );
+        }
         return;
       }
       try {
@@ -193,18 +208,25 @@ export default function TeamDetailScreen() {
     return () => {
       active = false;
     };
-  }, [rosterIdsKey, user]);
+  }, [rosterIdsKey, user?.id]);
 
   useEffect(() => {
     let active = true;
+    const requests = pending;
     (async () => {
-      if (!pending.length) {
-        if (active) setPendingProfiles({});
+      if (!requests.length) {
+        if (active) {
+          // Do not allocate a fresh {} when already empty — that re-renders forever
+          // because pendingForTeam() returns a new array each render.
+          setPendingProfiles((prev) =>
+            Object.keys(prev).length === 0 ? prev : EMPTY_PROFILES,
+          );
+        }
         return;
       }
       try {
         const entries = await Promise.all(
-          pending.map(async (req) => {
+          requests.map(async (req) => {
             const resolved = await resolveUserById(req.userId);
             const profile: UserProfile = {
               ...(resolved ?? syncProfileForId(req.userId, user)),
@@ -218,13 +240,17 @@ export default function TeamDetailScreen() {
         );
         if (active) setPendingProfiles(Object.fromEntries(entries));
       } catch {
-        if (active) setPendingProfiles({});
+        if (active) {
+          setPendingProfiles((prev) =>
+            Object.keys(prev).length === 0 ? prev : EMPTY_PROFILES,
+          );
+        }
       }
     })();
     return () => {
       active = false;
     };
-  }, [pendingIdsKey, pending, colors.primary, user]);
+  }, [pendingIdsKey, colors.primary, user?.id]);
 
   const onRequestJoin = async () => {
     if (!id) return;
@@ -289,9 +315,34 @@ export default function TeamDetailScreen() {
 
   const sessionStatus: TeamSessionStatus = sessionUiStatus(session);
   const isMemberOrOwner = membership === 'member' || membership === 'owner';
+  const isDuo = !!team && isDuoCapacity(team.capacity);
+  const needsNaming =
+    isDuo && isMemberOrOwner && isProvisionalJumeloName(team?.name);
   const canStartSession =
     isOwner && sessionStatus !== 'active' && (team?.memberIds.length ?? 0) >= 2;
   const canEndSession = isOwner && sessionStatus === 'active';
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!needsNaming) return;
+      setNameModalVariant('name');
+      setNameModalOpen(true);
+    }, [needsNaming]),
+  );
+
+  const onSaveJumeloName = useCallback(
+    async (name: string) => {
+      if (!team || !user?.id) {
+        return { ok: false as const, error: 'Session invalide.' };
+      }
+      const result = await renameJumeloName(team.id, user.id, name);
+      if (!result.ok) return result;
+      await ensureTeamChat(result.team);
+      await refresh();
+      return { ok: true as const };
+    },
+    [team, user?.id, refresh],
+  );
 
   const onStartSession = async () => {
     if (!id || !team || !user) return;
@@ -420,7 +471,26 @@ export default function TeamDetailScreen() {
           >
             JUMELO
           </Text>
-          <Title style={{ fontSize: 28 }}>{team.name}</Title>
+          <View style={styles.titleRow}>
+            <Title style={{ fontSize: 28, flex: 1 }}>{team.name}</Title>
+            {isDuo && isMemberOrOwner ? (
+              <Pressable
+                onPress={() => {
+                  setNameModalVariant('rename');
+                  setNameModalOpen(true);
+                }}
+                accessibilityRole="button"
+                accessibilityLabel="Renommer le jumelo"
+                hitSlop={10}
+                style={[
+                  styles.renameBtn,
+                  { backgroundColor: withHexAlpha(colors.primary, 0.12) },
+                ]}
+              >
+                <Ionicons name="pencil" size={16} color={colors.primaryDark} />
+              </Pressable>
+            ) : null}
+          </View>
           <Subtitle>
             {team.activity} · {team.nextSession}
           </Subtitle>
@@ -735,6 +805,14 @@ export default function TeamDetailScreen() {
           />
         ) : null}
       </ScrollView>
+
+      <JumeloRenameModal
+        visible={nameModalOpen}
+        currentName={team.name}
+        variant={nameModalVariant}
+        onClose={() => setNameModalOpen(false)}
+        onSave={onSaveJumeloName}
+      />
     </SafeAreaView>
   );
 }
@@ -747,6 +825,18 @@ const styles = StyleSheet.create({
     borderRadius: radii.lg,
     padding: spacing.lg,
     gap: spacing.sm,
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  renameBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   blurb: { fontFamily: fonts.body, lineHeight: 22, marginTop: spacing.sm },
   chefRow: {

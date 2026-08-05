@@ -51,6 +51,9 @@ export {
   renameJumeloName,
   requestJoin,
   resetTeamsDemoState,
+  dedupeTeams,
+  findLocalDuoForPair,
+  duoMemberPairKey,
 } from './teams';
 export type { TeamMembershipState } from './teams';
 export {
@@ -67,9 +70,11 @@ export {
   acceptDailyJumelo,
   confirmDailyFormation,
   dismissDailyOutcome,
+  ensureDailyTrialConversation,
   formatRemaining,
   getDailyJumeloView,
   getOpenTrialForConversation,
+  linkDailyJumeloIdentity,
   listIncomingDailyAccepts,
   refuseDailyJumelo,
   resetDailyJumeloDemoState,

@@ -47,7 +47,7 @@ export function mapProfileRow(
     name: row.name,
     city: row.city,
     bio: row.bio,
-    avatarColor: row.avatar_color || '#0F8F8A',
+    avatarColor: row.avatar_color || '#0186F0',
     photo: row.avatar_url ?? undefined,
     universes: relations.universes ?? [],
     interests: relations.interests ?? [],

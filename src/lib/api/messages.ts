@@ -45,6 +45,16 @@ function useLocalStore(userId?: string | null): boolean {
   return false;
 }
 
+/** Conversations AsyncStorage (`dm-*` / seed `c-*`) — jamais Postgres. */
+function isLocalConversationId(conversationId?: string | null): boolean {
+  if (!conversationId) return false;
+  return (
+    conversationId.startsWith('dm-') ||
+    conversationId.startsWith('c-') ||
+    conversationId.startsWith('admin-')
+  );
+}
+
 function formatAt(iso: string): string {
   try {
     const d = new Date(iso);
@@ -77,7 +87,7 @@ export async function listMessages(
   conversationId: string,
   myUserId: string,
 ): Promise<ChatMessage[]> {
-  if (useLocalStore(myUserId)) {
+  if (useLocalStore(myUserId) || isLocalConversationId(conversationId)) {
     return listLocalDmMessages(conversationId, myUserId);
   }
 
@@ -108,7 +118,7 @@ export async function sendMessage(params: {
   const { checkChatMessage } = await import('../profanity');
   if (!checkChatMessage(trimmed).ok) return null;
 
-  if (useLocalStore(params.senderId)) {
+  if (useLocalStore(params.senderId) || isLocalConversationId(params.conversationId)) {
     return sendLocalDmMessage({
       conversationId: params.conversationId,
       senderId: params.senderId,
@@ -338,9 +348,9 @@ export async function listMyDmThreads(myId: string): Promise<DmThread[]> {
   return threads;
 }
 
-/** Marque un DM comme lu (AsyncStorage pour fb-* / u-*). */
+/** Marque un DM comme lu (AsyncStorage pour fb-* / u-* / dm-*). */
 export async function markDmRead(conversationId: string, myUserId: string): Promise<void> {
-  if (useLocalStore(myUserId)) {
+  if (useLocalStore(myUserId) || isLocalConversationId(conversationId)) {
     await markLocalDmRead(conversationId, myUserId);
     return;
   }

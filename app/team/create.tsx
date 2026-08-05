@@ -288,7 +288,7 @@ export default function CreateTeamScreen() {
       return;
     }
 
-    router.replace(`/team/${result.team.id}`);
+    router.replace(`/jumelo/${result.team.id}`);
   };
 
   if (isEdit && editId && !editingTeam) {

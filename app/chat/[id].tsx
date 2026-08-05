@@ -21,6 +21,7 @@ import { safeBack } from '../../src/lib/navigation';
 
 import { fonts, radii, spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
+import { useTeams } from '../../src/context/TeamsContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import {
   ChatMessage,
@@ -45,14 +46,22 @@ import {
 } from '../../src/lib/api/teamChats';
 import { getProfileById } from '../../src/lib/api/profiles';
 import { getTeam } from '../../src/lib/api/teams';
+import { ensureDailyTrialConversation } from '../../src/lib/dailyJumelo';
 import { isSupabaseConfigured } from '../../src/lib/supabase';
 import { isDuoCapacity } from '../../src/lib/teamKind';
+
+function normalizeRouteId(raw: string | string[] | undefined): string | undefined {
+  if (Array.isArray(raw)) return raw[0];
+  return raw;
+}
 
 export default function ChatDetailScreen() {
   const { colors } = useTheme();
   const { user: me } = useAuth();
+  const { refresh: refreshTeams } = useTeams();
   const isAdmin = useIsAdmin();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string | string[] }>();
+  const id = normalizeRouteId(params.id);
   const thread = mockChats.find((c) => c.id === id);
   const mockPeer = mockUsers.find((u) => u.id === thread?.peerId);
   const teamChatHint = Boolean(id && isTeamChatId(id));
@@ -83,6 +92,7 @@ export default function ChatDetailScreen() {
   );
   const [messages, setMessages] = useState<ChatMessage[]>(initial);
   const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
   const [loadingRemote, setLoadingRemote] = useState(
     useRemote || isDmThread || teamChatHint || isAdminThread,
   );
@@ -93,6 +103,20 @@ export default function ChatDetailScreen() {
   const [isGroup, setIsGroup] = useState(Boolean(thread?.isGroup || teamChatHint));
   const [teamIdForBanner, setTeamIdForBanner] = useState<string | null>(null);
   const [isJumeloChat, setIsJumeloChat] = useState(false);
+
+  // Heal trial seed URL → vrai dm-*
+  useEffect(() => {
+    if (!me?.id || !id || !isDmThread) return;
+    let active = true;
+    (async () => {
+      const healed = await ensureDailyTrialConversation(me.id);
+      if (!active || !healed || healed === id) return;
+      router.replace(`/chat/${healed}`);
+    })();
+    return () => {
+      active = false;
+    };
+  }, [me?.id, id, isDmThread]);
 
   useEffect(() => {
     if (!id || !me) {
@@ -201,9 +225,34 @@ export default function ChatDetailScreen() {
     };
   }, [id, me, mockPeer, thread, isAdminThread]);
 
+  const onTrialFormed = useCallback(
+    (teamId: string) => {
+      void refreshTeams();
+      Alert.alert('Jumelo formé', 'Votre duo est prêt. Place à la gestion du jumelo.', [
+        {
+          text: 'Voir le jumelo',
+          onPress: () => router.replace(`/jumelo/${teamId}`),
+        },
+      ]);
+      setTimeout(() => {
+        router.replace(`/jumelo/${teamId}`);
+      }, 600);
+    },
+    [refreshTeams],
+  );
+
+  const onConversationHealed = useCallback(
+    (conversationId: string) => {
+      if (conversationId && conversationId !== id) {
+        router.replace(`/chat/${conversationId}`);
+      }
+    },
+    [id],
+  );
+
   const send = useCallback(async () => {
     const text = draft.trim();
-    if (!text || !id) return;
+    if (!text || !id || !me || sending) return;
 
     const { checkChatMessage } = await import('../../src/lib/profanity');
     const safety = checkChatMessage(text);
@@ -212,51 +261,58 @@ export default function ChatDetailScreen() {
       return;
     }
 
+    setSending(true);
     setDraft('');
 
-    if (isAdminThread && me) {
-      const peerId = id.replace(/^admin-/, '');
-      const member = (await getAdminMember(peerId)) ?? {
-        id: peerId,
-        name: peer?.name ?? 'Membre',
-        email: peer?.email ?? '',
-        photo: peer?.photo,
-        avatarColor: peer?.avatarColor ?? '#0F8F8A',
-        source: 'demo' as const,
-      };
-      const result = await sendAdminMessage({
-        fromUserId: me.id,
-        peer: member,
-        body: text,
-      });
-      if (result.ok) {
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: `local-${Date.now()}`,
-            fromMe: true,
-            text: `[Admin] ${text}`,
-            at: 'Maintenant',
-          },
-        ]);
+    try {
+      if (isAdminThread) {
+        const peerId = id.replace(/^admin-/, '');
+        const member = (await getAdminMember(peerId)) ?? {
+          id: peerId,
+          name: peer?.name ?? 'Membre',
+          email: peer?.email ?? '',
+          photo: peer?.photo,
+          avatarColor: peer?.avatarColor ?? '#0186F0',
+          source: 'demo' as const,
+        };
+        const result = await sendAdminMessage({
+          fromUserId: me.id,
+          peer: member,
+          body: text,
+        });
+        if (result.ok) {
+          setMessages((prev) => [
+            ...prev,
+            {
+              id: `local-${Date.now()}`,
+              fromMe: true,
+              text: `[Admin] ${text}`,
+              at: 'Maintenant',
+            },
+          ]);
+        } else {
+          setDraft(text);
+          Alert.alert('Envoi impossible', 'Réessaie dans un instant.');
+        }
+        return;
       }
-      return;
-    }
 
-    if (isTeamChatId(id) && me) {
-      const saved = await sendTeamChatMessage({
-        chatId: id,
-        senderId: me.id,
-        senderName: me.name,
-        body: text,
-      });
-      if (saved) {
-        setMessages((prev) => [...prev, saved]);
+      if (isTeamChatId(id)) {
+        const saved = await sendTeamChatMessage({
+          chatId: id,
+          senderId: me.id,
+          senderName: me.name,
+          body: text,
+        });
+        if (saved) {
+          setMessages((prev) => [...prev, saved]);
+        } else {
+          setDraft(text);
+          Alert.alert('Envoi impossible', 'Le message n’a pas pu être enregistré.');
+        }
+        return;
       }
-      return;
-    }
 
-    if (me) {
       const optimistic: ChatMessage = {
         id: `local-${Date.now()}`,
         fromMe: true,
@@ -272,11 +328,14 @@ export default function ChatDetailScreen() {
       if (saved) {
         setMessages((prev) => prev.map((m) => (m.id === optimistic.id ? saved : m)));
       } else {
-        // Échec persist → retire l’optimiste pour ne pas mentir à l’utilisateur
         setMessages((prev) => prev.filter((m) => m.id !== optimistic.id));
+        setDraft(text);
+        Alert.alert('Envoi impossible', 'Le message n’a pas pu être enregistré.');
       }
+    } finally {
+      setSending(false);
     }
-  }, [draft, id, me, isAdminThread, peer]);
+  }, [draft, id, me, isAdminThread, peer, sending]);
 
   const title = isAdminThread
     ? peer?.name
@@ -329,9 +388,6 @@ export default function ChatDetailScreen() {
             onTeamNameChange={(name) => setGroupTitle(`${name} · jumelo`)}
           />
         ) : null}
-        {isDmThread && id && !isJumeloChat ? (
-          <DailyTrialBanner conversationId={id} />
-        ) : null}
         {loadingRemote ? (
           <View style={{ padding: spacing.lg }}>
             <Text style={{ fontFamily: fonts.body, color: colors.inkMuted }}>Chargement…</Text>
@@ -341,6 +397,7 @@ export default function ChatDetailScreen() {
           data={messages}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
+          keyboardShouldPersistTaps="handled"
           renderItem={({ item }) => (
             <View
               style={[
@@ -378,17 +435,40 @@ export default function ChatDetailScreen() {
           )}
         />
 
+        {isDmThread && id && !isJumeloChat ? (
+          <DailyTrialBanner
+            conversationId={id}
+            sticky
+            onFormed={onTrialFormed}
+            onConversationHealed={onConversationHealed}
+          />
+        ) : null}
+
         <View style={[styles.composer, { backgroundColor: colors.white, borderTopColor: colors.border }]}>
           <TextInput
             value={draft}
             onChangeText={setDraft}
+            editable={!sending}
             placeholder={
               isGroup || isJumeloChat ? 'Écrire au jumelo…' : 'Écrire un message…'
             }
             placeholderTextColor={colors.inkFaint}
             style={[styles.input, { backgroundColor: colors.cream, color: colors.ink }]}
+            onSubmitEditing={send}
+            returnKeyType="send"
+            blurOnSubmit={false}
           />
-          <Pressable onPress={send} style={[styles.send, { backgroundColor: colors.accent }]}>
+          <Pressable
+            onPress={send}
+            disabled={sending || !draft.trim()}
+            style={[
+              styles.send,
+              {
+                backgroundColor: colors.accent,
+                opacity: sending || !draft.trim() ? 0.55 : 1,
+              },
+            ]}
+          >
             <Text style={{ color: '#fff', fontFamily: fonts.bodyBold }}>Envoyer</Text>
           </Pressable>
         </View>
@@ -411,7 +491,7 @@ const styles = StyleSheet.create({
   avatar: { width: 40, height: 40, borderRadius: 20, marginBottom: 4 },
   groupAvatar: { alignItems: 'center', justifyContent: 'center' },
   name: { fontFamily: fonts.bodyBold, fontSize: 16 },
-  list: { padding: spacing.lg, gap: spacing.sm },
+  list: { padding: spacing.lg, gap: spacing.sm, flexGrow: 1 },
   bubble: {
     maxWidth: '80%',
     borderRadius: radii.md,

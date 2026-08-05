@@ -339,7 +339,8 @@ export default function ProfileScreen() {
             onPress={() => openQuick('univers')}
           />
           <ListRow
-            title="Parcourir le catalogue"
+            title="Mes catégories"
+            subtitle="Choisir tes univers préférés"
             left={<Ionicons name="grid-outline" size={20} color={colors.ink} />}
             onPress={() => router.push('/categories')}
           />

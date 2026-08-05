@@ -42,7 +42,7 @@ export const leaProfile: UserProfile = {
   age: 23,
   city: 'Lyon',
   bio: 'Valorant ranked le soir, muscu le matin. Toujours partante pour un jumelo chill.',
-  avatarColor: '#0F8F8A',
+  avatarColor: '#0186F0',
   photo: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=800',
   universes: ['gaming', 'sports'],
   interests: ['Valorant', 'Musculation', 'Apex Legends'],
@@ -111,7 +111,7 @@ export const mockUsers: UserProfile[] = [
     age: 24,
     city: 'Lyon',
     bio: 'Main duelist Valorant, cherche un jumelo ranked régulier.',
-    avatarColor: '#FF5A45',
+    avatarColor: '#68C3FF',
     photo: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=800',
     universes: ['gaming'],
     interests: ['Valorant', 'Apex Legends'],
@@ -396,7 +396,7 @@ export const mockMessages: Record<string, ChatMessage[]> = {
 };
 
 export const mockActivity = [
-  { id: 'a1', text: 'Léa t’a proposé en Jumelo du jour', time: 'il y a 2h', color: '#2F6BFF' },
-  { id: 'a2', text: 'Jumelo formé avec Maxime', time: 'il y a 5h', color: '#0F8F8A' },
+  { id: 'a1', text: 'Léa t’a proposé en Jumelo du jour', time: 'il y a 2h', color: '#0186F0' },
+  { id: 'a2', text: 'Jumelo formé avec Maxime', time: 'il y a 5h', color: '#011867' },
   { id: 'a3', text: "Karim t'a invité dans une équipe", time: 'hier', color: '#7C5CFC' },
 ];

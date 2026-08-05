@@ -85,7 +85,7 @@ function profileFromFirebaseLocal(user: FirebaseUser): UserProfile {
     name: displayNameFromFirebase(user) || email.split('@')[0] || 'Jumelo',
     city: '',
     bio: '',
-    avatarColor: '#0F8F8A',
+    avatarColor: '#0186F0',
     photo: user.photoURL ?? undefined,
     universes: [],
     interests: [],
@@ -192,14 +192,23 @@ async function resolveProfileAfterFirebase(params: {
   const { firebaseUser, supabaseUserId, supabaseEmail } = params;
   const name = displayNameFromFirebase(firebaseUser);
   const email = supabaseEmail || firebaseUser.email || '';
+  const localFbId = localProfileIdFromFirebase(firebaseUser.uid);
 
   if (supabaseUserId && isSupabaseConfigured()) {
     try {
-      return await ensureProfileRow({
+      const profile = await ensureProfileRow({
         id: supabaseUserId,
         email,
         name,
       });
+      // Même compte : migrer l’état « Du jour » fb-* → UUID.
+      if (localFbId !== supabaseUserId) {
+        const { linkDailyJumeloIdentity } = await import('../lib/dailyJumelo');
+        await linkDailyJumeloIdentity(localFbId, supabaseUserId).catch(
+          () => undefined,
+        );
+      }
+      return profile;
     } catch {
       // fallback local ci-dessous
     }
@@ -212,7 +221,7 @@ async function resolveProfileAfterFirebase(params: {
       const parsed = coerceUserProfile(JSON.parse(cached));
       if (
         parsed &&
-        (parsed.id === localProfileIdFromFirebase(firebaseUser.uid) ||
+        (parsed.id === localFbId ||
           (supabaseUserId && parsed.id === supabaseUserId))
       ) {
         return {
@@ -477,7 +486,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           name: name.trim(),
           city: '',
           bio: '',
-          avatarColor: '#0F8F8A',
+          avatarColor: '#0186F0',
           universes: [],
           interests: [],
           level: 'intermediaire',

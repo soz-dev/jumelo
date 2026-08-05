@@ -38,7 +38,7 @@ export function GameArtImage({
   catalogId,
   size = 40,
   height,
-  color = '#0F8F8A',
+  color = '#0186F0',
   brandedFallback = false,
   resizeMode: resizeModeProp,
   borderRadius: borderRadiusProp,

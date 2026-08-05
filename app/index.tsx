@@ -50,7 +50,7 @@ export default function Index() {
           backgroundColor: colors.cream,
         }}
       >
-        <ActivityIndicator color={colors.coral} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }
@@ -70,7 +70,7 @@ export default function Index() {
           backgroundColor: colors.cream,
         }}
       >
-        <ActivityIndicator color={colors.coral} size="large" />
+        <ActivityIndicator color={colors.primary} size="large" />
       </View>
     );
   }

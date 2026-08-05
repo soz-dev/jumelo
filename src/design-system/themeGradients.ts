@@ -70,7 +70,7 @@ export function themeBrandColors(
 export function themeHeroColors(
   source: ThemeGradientSource | AppColors,
 ): readonly [string, string, string] {
-  const deep = mixHex(source.primaryDark, '#061428', 0.42);
+  const deep = mixHex(source.primaryDark, '#000F46', 0.55);
   return [source.primary, source.primaryDark, deep];
 }
 

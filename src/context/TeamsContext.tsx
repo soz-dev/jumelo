@@ -22,6 +22,7 @@ import {
   joinTeam,
   updateTeam,
   withMemberId,
+  dedupeTeams,
   type CreateTeamInput,
   type TeamMembershipState,
   type UpdateTeamInput,
@@ -78,7 +79,7 @@ export function TeamsProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     const seq = ++refreshSeq.current;
     const userId = user?.id ?? null;
-    const nextTeams = await listTeams(userId);
+    const nextTeams = dedupeTeams(await listTeams(userId));
     if (seq !== refreshSeq.current) return;
     setTeams(nextTeams);
     if (userId) {

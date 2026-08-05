@@ -31,7 +31,7 @@ type Props = {
 export function ActivityArtImage({
   catalogId,
   size = 40,
-  color = '#0F8F8A',
+  color = '#0186F0',
   backgroundColor = 'transparent',
   style,
 }: Props) {

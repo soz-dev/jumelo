@@ -23,9 +23,9 @@ export const PROFILE_PERSONAS: ProfilePersona[] = [
   {
     id: 'nova',
     label: 'Nova',
-    color: '#0F8F8A',
-    accent: '#A7F3D0',
-    soft: '#134E4A',
+    color: '#0186F0',
+    accent: '#BAE6FD',
+    soft: '#0C4A6E',
     motif: 'spark',
   },
   {
@@ -39,9 +39,9 @@ export const PROFILE_PERSONAS: ProfilePersona[] = [
   {
     id: 'ember',
     label: 'Ember',
-    color: '#FF5A45',
-    accent: '#FECACA',
-    soft: '#7F1D1D',
+    color: '#011867',
+    accent: '#68C3FF',
+    soft: '#000F46',
     motif: 'flame',
   },
   {

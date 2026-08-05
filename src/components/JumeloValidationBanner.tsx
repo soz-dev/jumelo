@@ -175,7 +175,7 @@ export function JumeloValidationBanner({ teamId, onTeamNameChange }: Props) {
               </Text>
             </Pressable>
             <Pressable
-              onPress={() => router.push(`/team/${team.id}`)}
+              onPress={() => router.push(`/jumelo/${team.id}`)}
               style={[styles.chipBtn, { backgroundColor: colors.primary }]}
               accessibilityRole="button"
               accessibilityLabel="Voir le jumelo"

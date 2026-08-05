@@ -156,7 +156,7 @@ export function PersonaAvatar({ personaId, size = 48 }: Props) {
           width: size,
           height: size,
           borderRadius: size / 2,
-          backgroundColor: '#0F8F8A',
+          backgroundColor: '#0186F0',
         }}
       />
     );

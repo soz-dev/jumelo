@@ -389,10 +389,10 @@ export function useCategoryPathBack(
 function tileAccent(universeId: UniverseId | undefined, index: number): string {
   const palette =
     universeId === 'gaming'
-      ? ['#0F8F8A', '#3D7EA6', '#FF5A45', '#F5A623', '#5B8DEF', '#00C2A8']
+      ? ['#0186F0', '#3D7EA6', '#68C3FF', '#011867', '#5B8DEF', '#38BDF8']
       : universeId === 'sports'
-        ? ['#0F8F8A', '#27AE60', '#16A085', '#F39C12']
-        : ['#0F8F8A', '#3D7EA6', '#C45C26', '#6B5B95'];
+        ? ['#0186F0', '#27AE60', '#0EA5E9', '#011867']
+        : ['#0186F0', '#3D7EA6', '#68C3FF', '#011867'];
   return palette[index % palette.length];
 }
 

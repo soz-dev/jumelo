@@ -138,7 +138,7 @@ function jaggedEdge(args: {
 export function TornBleedGameArt({
   catalogId,
   opacity = 0.42,
-  color = '#0F8F8A',
+  color = '#0186F0',
 }: Props) {
   const [box, setBox] = useState({ w: 0, h: 0 });
   const [uri, setUri] = useState<string | null>(null);

@@ -14,7 +14,7 @@ export default function OAuthCallbackScreen() {
 
   return (
     <View style={styles.root}>
-      <ActivityIndicator color="#0F8F8A" size="large" />
+      <ActivityIndicator color="#0186F0" size="large" />
       <Text style={styles.text}>Connexion en cours…</Text>
     </View>
   );

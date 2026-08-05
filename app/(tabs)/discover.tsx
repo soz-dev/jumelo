@@ -7,6 +7,7 @@ import {
   Dimensions,
   ImageBackground,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
@@ -14,6 +15,7 @@ import {
 import Animated, {
   cancelAnimation,
   Easing,
+  FadeInDown,
   interpolate,
   useAnimatedStyle,
   useSharedValue,
@@ -24,12 +26,14 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
+import { CommonPointsBlock } from '../../src/components/CommonPointsBlock';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { getCategory } from '../../src/constants/catalog';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import { mockUsers, type UserProfile } from '../../src/data/mock';
 import {
+  Avatar,
   CategoryPill,
   elevation,
   fonts,
@@ -43,11 +47,13 @@ import { getCommonPoints } from '../../src/lib/commonPoints';
 import {
   acceptDailyJumelo,
   dismissDailyOutcome,
+  ensureDailyTrialConversation,
   formatRemaining,
   getDailyJumeloView,
   refuseDailyJumelo,
   type DailyViewModel,
 } from '../../src/lib/dailyJumelo';
+import { computeMatch } from '../../src/lib/matching';
 import { openChatWithUser } from '../../src/lib/users';
 
 const { height: SCREEN_H } = Dimensions.get('window');
@@ -191,6 +197,11 @@ export default function DiscoverScreen() {
     if (!user || !view?.peer || busy) return;
     setBusy(true);
     try {
+      const healed = await ensureDailyTrialConversation(user.id);
+      if (healed) {
+        router.push(`/chat/${healed}`);
+        return;
+      }
       if (view.trial?.conversationId) {
         router.push(`/chat/${view.trial.conversationId}`);
         return;
@@ -257,6 +268,7 @@ export default function DiscoverScreen() {
 
   const subtitle = (() => {
     if (!mode) return 'Une proposition · 24 h · accepte ou refuse';
+    if (mode === 'formed') return 'Binôme confirmé · voici vos points communs';
     if (tone === 'refused' || mode === 'cooldown') {
       return `Prochaine proposition dans ${lockLabel}`;
     }
@@ -272,6 +284,12 @@ export default function DiscoverScreen() {
     }
     return 'Une proposition · 24 h · accepte ou refuse';
   })();
+
+  const formedMatch =
+    user && peer && mode === 'formed' ? computeMatch(user, peer) : null;
+  const formedPoints =
+    user && peer && mode === 'formed' ? getCommonPoints(user, peer) : [];
+  const peerFirst = peer?.name.split(' ')[0] ?? '';
 
   return (
     <Atmosphere variant="bold">
@@ -298,20 +316,67 @@ export default function DiscoverScreen() {
             />
           </View>
         ) : view.mode === 'formed' && peer ? (
-          <View style={styles.centerPad}>
-            <StatusBlock
-              colors={colors}
-              icon="checkmark-circle"
-              title="C’est validé"
-              body={`Toi et ${peer.name.split(' ')[0]} avez confirmé ensemble.`}
-            />
-            <Pressable
-              onPress={onDismissOutcome}
-              style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+          <ScrollView
+            style={styles.formedScroll}
+            contentContainerStyle={styles.formedContent}
+            showsVerticalScrollIndicator={false}
+          >
+            <Animated.View entering={FadeInDown.duration(360)} style={styles.formedHeader}>
+              <View
+                style={[
+                  styles.formedAvatarRing,
+                  {
+                    borderColor: withHexAlpha(colors.primary, 0.28),
+                    backgroundColor: colors.white,
+                  },
+                ]}
+              >
+                <Avatar
+                  name={peer.name}
+                  photo={peer.photo}
+                  personaId={peer.avatarPersonaId}
+                  color={peer.avatarColor}
+                  size={64}
+                />
+              </View>
+              <Text style={[styles.formedTitle, { color: colors.ink }]}>Jumelo formé</Text>
+              <Text style={[styles.formedBody, { color: colors.inkMuted }]}>
+                Toi et {peerFirst} êtes binômes. Ce qui compte, ce sont vos points communs.
+              </Text>
+            </Animated.View>
+
+            <Animated.View
+              entering={FadeInDown.delay(90).duration(360)}
+              style={[
+                styles.formedPointsCard,
+                {
+                  backgroundColor: colors.white,
+                  borderColor: withHexAlpha(colors.primary, 0.12),
+                },
+                elevation.soft,
+              ]}
             >
-              <Text style={styles.primaryLabel}>Continuer</Text>
-            </Pressable>
-          </View>
+              <CommonPointsBlock
+                points={formedPoints}
+                score={formedMatch?.score ?? view.score}
+                reasons={formedMatch?.reasons}
+              />
+            </Animated.View>
+
+            <Animated.View entering={FadeInDown.delay(160).duration(360)} style={{ width: '100%' }}>
+              <Pressable
+                onPress={() => {
+                  const teamId = view.trial?.teamId;
+                  void onDismissOutcome();
+                  if (teamId) router.push(`/jumelo/${teamId}`);
+                  else router.push('/(tabs)/home');
+                }}
+                style={[styles.primaryBtn, { backgroundColor: colors.primary }]}
+              >
+                <Text style={styles.primaryLabel}>Voir mon jumelo</Text>
+              </Pressable>
+            </Animated.View>
+          </ScrollView>
         ) : view.mode === 'rejected' ? (
           <View style={styles.centerPad}>
             <StatusBlock
@@ -700,6 +765,48 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     justifyContent: 'center',
     gap: spacing.md,
+  },
+  formedScroll: { flex: 1 },
+  formedContent: {
+    flexGrow: 1,
+    paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.xl,
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  formedHeader: {
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingTop: spacing.sm,
+  },
+  formedAvatarRing: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formedTitle: {
+    fontFamily: fonts.display,
+    fontSize: 26,
+    letterSpacing: -0.5,
+    textAlign: 'center',
+    marginTop: spacing.xs,
+  },
+  formedBody: {
+    fontFamily: fonts.body,
+    fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  formedPointsCard: {
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.xs,
   },
   stage: {
     flex: 1,

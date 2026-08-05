@@ -114,7 +114,7 @@ function DuoCard({
   return (
     <Animated.View entering={FadeInDown.delay(40 + index * 50).duration(320)}>
       <Pressable
-        onPress={() => router.push(`/team/${team.id}`)}
+        onPress={() => router.push(`/jumelo/${team.id}`)}
         accessibilityRole="button"
         accessibilityLabel={`Jumelo ${team.name}, ${statusLabel}${
           validated ? `, ${score.rank.displayName}, niveau ${score.rank.level}` : ''

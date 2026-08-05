@@ -1,0 +1,10 @@
+app/(onboarding)/interets.tsx
+app/(tabs)/discover.tsx
+app/(tabs)/home.tsx
+app/liked-me/[id].tsx
+app/match-success/[id].tsx
+src/components/DiscoverApps.tsx
+src/constants/gameArt.ts
+src/constants/theme.ts
+src/design-system/Chip.tsx
+src/lib/likesStore.ts

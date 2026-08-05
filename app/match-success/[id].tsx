@@ -1,34 +1,34 @@
 import { Ionicons } from '@expo/vector-icons';
-import { LinearGradient } from 'expo-linear-gradient';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
-  Image,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { safeBack } from '../../src/lib/navigation';
 import { Atmosphere } from '../../src/components/Atmosphere';
-import { JumeloLottie } from '../../src/components/JumeloLottie';
+import { CommonPointsBlock } from '../../src/components/CommonPointsBlock';
 import { Button } from '../../src/components/ui';
-import { fonts, radii, shadows, spacing } from '../../src/constants/theme';
+import {
+  Avatar,
+  elevation,
+  fonts,
+  radii,
+  spacing,
+  withHexAlpha,
+} from '../../src/design-system';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import { mockUsers } from '../../src/data/mock';
-import { getMatch, scoreLabel, type MatchResult } from '../../src/lib/matching';
+import { getCommonPoints } from '../../src/lib/commonPoints';
+import { getMatch, type MatchResult } from '../../src/lib/matching';
+import { safeBack } from '../../src/lib/navigation';
 import { openChatWithUser, resolveUserById } from '../../src/lib/users';
-
-function avatarUri(name: string, photo?: string) {
-  return (
-    photo ??
-    `https://ui-avatars.com/api/?name=${encodeURIComponent(name)}&background=0F8F8A&color=fff&size=400`
-  );
-}
 
 export default function MatchSuccessScreen() {
   const { colors } = useTheme();
@@ -62,9 +62,9 @@ export default function MatchSuccessScreen() {
     };
   }, [user, id]);
 
-  const mePhoto = useMemo(
-    () => (user ? avatarUri(user.name, user.photo) : undefined),
-    [user],
+  const commonPoints = useMemo(
+    () => (user && match ? getCommonPoints(user, match.user) : []),
+    [user, match],
   );
 
   if (!user || !id) return null;
@@ -97,7 +97,8 @@ export default function MatchSuccessScreen() {
     );
   }
 
-  const peerPhoto = avatarUri(match.user.name, match.user.photo);
+  const peer = match.user;
+  const peerFirst = peer.name.split(' ')[0];
 
   return (
     <Atmosphere>
@@ -110,43 +111,75 @@ export default function MatchSuccessScreen() {
           <Ionicons name="close" size={22} color={colors.ink} />
         </Pressable>
 
-        <View style={styles.hero}>
-          <View style={styles.confettiWrap} pointerEvents="none">
-            <JumeloLottie name="confetti" size={280} loop={false} />
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.header}>
+            <View style={styles.avatarsRow}>
+              <View
+                style={[
+                  styles.avatarRing,
+                  {
+                    borderColor: withHexAlpha(colors.primary, 0.3),
+                    backgroundColor: colors.white,
+                  },
+                ]}
+              >
+                <Avatar
+                  name={user.name}
+                  photo={user.photo}
+                  personaId={user.avatarPersonaId}
+                  color={user.avatarColor}
+                  size={52}
+                />
+              </View>
+              <View style={[styles.linkBadge, { backgroundColor: colors.primary }]}>
+                <Ionicons name="people" size={16} color="#fff" />
+              </View>
+              <View
+                style={[
+                  styles.avatarRing,
+                  {
+                    borderColor: withHexAlpha(colors.accent, 0.35),
+                    backgroundColor: colors.white,
+                  },
+                ]}
+              >
+                <Avatar
+                  name={peer.name}
+                  photo={peer.photo}
+                  personaId={peer.avatarPersonaId}
+                  color={peer.avatarColor}
+                  size={52}
+                />
+              </View>
+            </View>
+
+            <Text style={[styles.title, { color: colors.ink }]}>Jumelo formé</Text>
+            <Text style={[styles.subtitle, { color: colors.inkMuted }]}>
+              Toi et {peerFirst} — ce qui vous relie vraiment.
+            </Text>
           </View>
 
-          <JumeloLottie name="success" size={72} loop={false} style={styles.successIcon} />
-
-          <Text style={[styles.title, { color: colors.ink }]}>C’est un jumelage !</Text>
-          <Text style={[styles.subtitle, { color: colors.inkMuted }]}>
-            Toi et {match.user.name} voulez jumeler ensemble
-          </Text>
-
-          <View style={styles.avatarsRow}>
-            <View style={[styles.avatarWrap, shadows.soft, { borderColor: colors.primary }]}>
-              <Image source={{ uri: mePhoto }} style={styles.avatar} />
-            </View>
-            <View style={[styles.heartBadge, { backgroundColor: colors.primary }]}>
-              <Ionicons name="people" size={22} color="#fff" />
-            </View>
-            <View style={[styles.avatarWrap, shadows.soft, { borderColor: colors.accent }]}>
-              <Image source={{ uri: peerPhoto }} style={styles.avatar} />
-            </View>
-          </View>
-
-          <LinearGradient
-            colors={[colors.primary, colors.accent]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={styles.scorePill}
+          <View
+            style={[
+              styles.pointsCard,
+              {
+                backgroundColor: colors.white,
+                borderColor: withHexAlpha(colors.primary, 0.12),
+              },
+              elevation.soft,
+            ]}
           >
-            <Text style={styles.scoreValue}>{match.score}%</Text>
-            <View>
-              <Text style={styles.scoreLabel}>compatibilité</Text>
-              <Text style={styles.scoreHint}>{scoreLabel(match.score)}</Text>
-            </View>
-          </LinearGradient>
-        </View>
+            <CommonPointsBlock
+              points={commonPoints}
+              score={match.score}
+              reasons={match.reasons}
+            />
+          </View>
+        </ScrollView>
 
         <View style={styles.actions}>
           <Button
@@ -202,81 +235,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.lg,
     marginTop: spacing.xl,
   },
-  hero: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+  scroll: { flex: 1 },
+  scrollContent: {
     paddingHorizontal: spacing.lg,
+    paddingBottom: spacing.md,
+    gap: spacing.md,
   },
-  confettiWrap: {
-    position: 'absolute',
-    top: -20,
-    alignSelf: 'center',
-    opacity: 0.95,
-  },
-  successIcon: { marginBottom: spacing.sm },
-  title: {
-    fontFamily: fonts.display,
-    fontSize: 34,
-    letterSpacing: -0.8,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontFamily: fonts.body,
-    fontSize: 15,
-    textAlign: 'center',
-    marginTop: spacing.sm,
-    marginBottom: spacing.xl,
+  header: {
+    alignItems: 'center',
+    paddingTop: spacing.sm,
+    gap: spacing.sm,
   },
   avatarsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: spacing.lg,
+    marginBottom: spacing.xs,
   },
-  avatarWrap: {
-    width: 112,
-    height: 112,
-    borderRadius: 56,
-    borderWidth: 3,
-    overflow: 'hidden',
-    backgroundColor: '#fff',
-  },
-  avatar: { width: '100%', height: '100%' },
-  heartBadge: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  avatarRing: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    borderWidth: 2,
     alignItems: 'center',
     justifyContent: 'center',
-    marginHorizontal: -10,
+  },
+  linkBadge: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: -6,
     zIndex: 2,
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: '#fff',
   },
-  scorePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    borderRadius: radii.pill,
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-  },
-  scoreValue: {
-    color: '#fff',
+  title: {
     fontFamily: fonts.display,
-    fontSize: 36,
-    letterSpacing: -1,
+    fontSize: 26,
+    letterSpacing: -0.5,
+    textAlign: 'center',
   },
-  scoreLabel: {
-    color: 'rgba(255,255,255,0.9)',
-    fontFamily: fonts.bodyMedium,
-    fontSize: 13,
-  },
-  scoreHint: {
-    color: '#fff',
-    fontFamily: fonts.bodyBold,
+  subtitle: {
+    fontFamily: fonts.body,
     fontSize: 14,
+    lineHeight: 20,
+    textAlign: 'center',
+    paddingHorizontal: spacing.sm,
+  },
+  pointsCard: {
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.md,
+    paddingTop: spacing.xs,
   },
   actions: {
     paddingHorizontal: spacing.lg,

@@ -44,3 +44,5 @@ supabase/.temp/
 /ios
 /android
 .claude/
+*.bak-pre-agent
+.cursor_write_test*

@@ -98,7 +98,7 @@ export default function TeamsScreen() {
       return;
     }
     if (state === 'pending') {
-      router.push(`/team/${teamId}`);
+      router.push(`/jumelo/${teamId}`);
       return;
     }
     if (state === 'member') {
@@ -113,7 +113,7 @@ export default function TeamsScreen() {
         }
         return;
       }
-      router.push(`/team/${teamId}`);
+      router.push(`/jumelo/${teamId}`);
       return;
     }
     setBusyId(teamId);
@@ -141,7 +141,7 @@ export default function TeamsScreen() {
       }
       return;
     }
-    router.push(`/team/${teamId}`);
+    router.push(`/jumelo/${teamId}`);
   };
 
   const createJumelo = () => router.push('/team/create');
@@ -269,7 +269,7 @@ export default function TeamsScreen() {
                   busy={busyId === team.id}
                   duoRank={duoScores.get(team.id)?.rank ?? null}
                   onJoin={() => onJoinPress(team.id, state)}
-                  onDetails={() => router.push(`/team/${team.id}`)}
+                  onDetails={() => router.push(`/jumelo/${team.id}`)}
                 />
               </Animated.View>
             );

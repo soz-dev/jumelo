@@ -28,7 +28,7 @@ export function LifestyleCoverImage({
   uri,
   width,
   height,
-  color = '#0F8F8A',
+  color = '#0186F0',
   iconName = 'spark',
   borderRadius = 0,
   style,

@@ -289,49 +289,90 @@ function schedulePeerReadSimulation(
   }, 2200);
 }
 
-/** Crée ou retrouve un DM local (ids `c-*` seedés ou `dm-*`). */
+/**
+ * Parse `dm-<idA>__<idB>` (ids ordonnés, sans `__` dans l’id user).
+ * Retourne null si le format est invalide.
+ */
+export function parseLocalDmId(
+  conversationId: string,
+): [string, string] | null {
+  if (!conversationId.startsWith('dm-')) return null;
+  const rest = conversationId.slice(3);
+  const sep = rest.indexOf('__');
+  if (sep <= 0 || sep >= rest.length - 2) return null;
+  const a = rest.slice(0, sep);
+  const b = rest.slice(sep + 2);
+  if (!a || !b) return null;
+  return [a, b];
+}
+
+/** Crée ou retrouve un DM local réel (`dm-*`). Ne recycle jamais les chats seedés `c-*`. */
 export async function getOrCreateLocalDm(
   myId: string,
   peerId: string,
   peer?: { name?: string; photo?: string; avatarColor?: string },
 ): Promise<string> {
   const state = await loadLocal();
+  const id = localDmIdFor(myId, peerId);
 
-  const byPeer = state.chats.find(
-    (c) =>
-      c.peerId === peerId ||
-      (c.memberIds.includes(myId) && c.memberIds.includes(peerId)),
-  );
-  if (byPeer) {
-    if (!byPeer.memberIds.includes(myId)) {
-      byPeer.memberIds = [...byPeer.memberIds, myId];
-      await saveLocal(state);
+  const ensureMembers = (chat: LocalDmRecord): boolean => {
+    const next = new Set(chat.memberIds);
+    let dirty = false;
+    if (!next.has(myId)) {
+      next.add(myId);
+      dirty = true;
     }
-    return byPeer.id;
+    if (!next.has(peerId)) {
+      next.add(peerId);
+      dirty = true;
+    }
+    if (dirty) chat.memberIds = [...next];
+    // peerId du record = l’autre personne vue depuis « my » perspective courante
+    if (chat.peerId === myId) {
+      chat.peerId = peerId;
+      dirty = true;
+    }
+    return dirty;
+  };
+
+  const exact = state.chats.find((c) => c.id === id && !c.seeded);
+  if (exact) {
+    if (ensureMembers(exact)) await saveLocal(state);
+    return exact.id;
   }
 
-  const seedHit = mockChats.find((c) => !c.isGroup && c.peerId === peerId);
-  if (seedHit && canViewSeededDemoContent()) {
-    const built = buildSeedChat(seedHit);
-    if (built) {
-      built.memberIds = [myId, peerId];
-      state.chats = [built, ...state.chats.filter((c) => c.id !== built.id)];
-      await saveLocal(state);
-      return built.id;
+  // Conversation réelle déjà créée sous un autre id (hors seed admin)
+  const byMembers = state.chats.find(
+    (c) =>
+      !c.seeded &&
+      c.memberIds.includes(myId) &&
+      c.memberIds.includes(peerId),
+  );
+  if (byMembers) {
+    if (ensureMembers(byMembers)) await saveLocal(state);
+    return byMembers.id;
+  }
+
+  // Admin only : réutiliser un thread seedé mock pour la démo admin
+  if (canViewSeededDemoContent()) {
+    const seedHit = mockChats.find((c) => !c.isGroup && c.peerId === peerId);
+    if (seedHit) {
+      const existingSeed = state.chats.find((c) => c.id === seedHit.id);
+      if (existingSeed?.seeded) {
+        if (ensureMembers(existingSeed)) await saveLocal(state);
+        return existingSeed.id;
+      }
+      const built = buildSeedChat(seedHit);
+      if (built) {
+        built.memberIds = [myId, peerId];
+        state.chats = [built, ...state.chats.filter((c) => c.id !== built.id)];
+        await saveLocal(state);
+        return built.id;
+      }
     }
   }
 
   const meta = peerMeta(peerId);
-  const id = localDmIdFor(myId, peerId);
-  const existing = state.chats.find((c) => c.id === id);
-  if (existing) {
-    if (!existing.memberIds.includes(myId)) {
-      existing.memberIds = [...existing.memberIds, myId];
-      await saveLocal(state);
-    }
-    return existing.id;
-  }
-
   const chat: LocalDmRecord = {
     id,
     peerId,
@@ -420,6 +461,28 @@ export async function listLocalDmMessages(
       }
     }
   }
+  // Auto-heal : conversation `dm-*` absente (trial créé avant fix / autre device id)
+  if (!chat) {
+    const pair = parseLocalDmId(conversationId);
+    if (pair) {
+      const [a, b] = pair;
+      const peerId = a === myUserId ? b : b === myUserId ? a : b;
+      const meta = peerMeta(peerId);
+      chat = {
+        id: conversationId,
+        peerId,
+        peerName: meta.name,
+        peerPhoto: meta.photo,
+        peerAvatarColor: meta.avatarColor,
+        preview: 'Nouvelle conversation',
+        updatedAt: new Date().toISOString(),
+        memberIds: [a, b],
+        messages: [],
+      };
+      state.chats = [chat, ...state.chats];
+      await saveLocal(state);
+    }
+  }
   if (!chat || (chat.seeded && !canViewSeededDemoContent())) return [];
   return chat.messages.map((m) => toUiMessage(m, myUserId));
 }
@@ -443,6 +506,28 @@ export async function sendLocalDmMessage(params: {
         state.chats = [built, ...state.chats];
         chat = built;
       }
+    }
+  }
+  // Auto-heal dm-* manquant (sinon envoi silencieux → chat « cassé »)
+  if (!chat) {
+    const pair = parseLocalDmId(params.conversationId);
+    if (pair) {
+      const [a, b] = pair;
+      const peerId =
+        a === params.senderId ? b : b === params.senderId ? a : b;
+      const meta = peerMeta(peerId);
+      chat = {
+        id: params.conversationId,
+        peerId,
+        peerName: meta.name,
+        peerPhoto: meta.photo,
+        peerAvatarColor: meta.avatarColor,
+        preview: 'Nouvelle conversation',
+        updatedAt: new Date().toISOString(),
+        memberIds: [...new Set([a, b, params.senderId])],
+        messages: [],
+      };
+      state.chats = [chat, ...state.chats];
     }
   }
   if (!chat || (chat.seeded && !canViewSeededDemoContent())) return null;

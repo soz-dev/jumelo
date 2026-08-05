@@ -8,6 +8,7 @@ import {
   type TeamJoinRequest,
 } from '../../data/mock';
 import { getSupabase, isSupabaseConfigured } from '../supabase';
+import { isDuoCapacity } from '../teamKind';
 import { canWriteSupabaseUserId, isLocalUserId } from '../userIds';
 
 const STORAGE_KEY = '@jumelo/teams-state';
@@ -36,6 +37,54 @@ function cloneSeed(): TeamsState {
 
 function syncMemberCount(team: Team): Team {
   return { ...team, membersCount: team.memberIds.length };
+}
+
+/** Clé stable pour un binôme formé (2 membres). */
+export function duoMemberPairKey(team: Team): string | null {
+  if (!isDuoCapacity(team.capacity)) return null;
+  const ids = [
+    ...new Set(
+      [team.ownerId, ...(team.memberIds ?? [])].filter(
+        (id): id is string => Boolean(id),
+      ),
+    ),
+  ].sort();
+  if (ids.length < 2) return null;
+  return ids.join('|');
+}
+
+/**
+ * Déduplique par id, puis (jumelos 2/2) par paire de membres.
+ * Conserve la première occurrence (la plus récente si préfixée en tête).
+ */
+export function dedupeTeams(teams: Team[]): Team[] {
+  const byId = new Set<string>();
+  const byPair = new Set<string>();
+  const out: Team[] = [];
+  for (const team of teams) {
+    if (!team?.id || byId.has(team.id)) continue;
+    const pair = duoMemberPairKey(team);
+    if (pair && byPair.has(pair)) continue;
+    byId.add(team.id);
+    if (pair) byPair.add(pair);
+    out.push(team);
+  }
+  return out;
+}
+
+/** Retrouve un jumelo local déjà formé pour la même paire. */
+export async function findLocalDuoForPair(
+  userIdA: string,
+  userIdB: string,
+  actorId?: string | null,
+): Promise<Team | null> {
+  if (!userIdA || !userIdB || userIdA === userIdB) return null;
+  const want = [userIdA, userIdB].sort().join('|');
+  const teams = await listTeams(actorId ?? userIdA);
+  for (const team of teams) {
+    if (duoMemberPairKey(team) === want) return team;
+  }
+  return null;
 }
 
 /**
@@ -107,12 +156,16 @@ async function loadLocal(): Promise<TeamsState> {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(seed));
       return seed;
     }
+    // Ne jamais re-merger mockTeams dans un store déjà peuplé (évite doublons au launch).
+    const hydrated = parsed.teams.map(hydrateTeam);
+    const teams = dedupeTeams(hydrated);
     const state: TeamsState = {
-      teams: parsed.teams.map(hydrateTeam),
+      teams,
       joinRequests: parsed.joinRequests ?? [],
     };
-    // Persiste si on a injecté ownerId manquant (migration démo)
-    const needsPersist = parsed.teams.some((t) => !t.ownerId);
+    const needsPersist =
+      teams.length !== hydrated.length ||
+      parsed.teams.some((t) => !t.ownerId);
     if (needsPersist) await saveLocal(state);
     return state;
   } catch {
@@ -200,7 +253,7 @@ export async function listTeams(userId?: string | null): Promise<Team[]> {
     const state = await loadLocal();
     return state.teams;
   }
-  return listTeamsRemote();
+  return dedupeTeams(await listTeamsRemote());
 }
 
 export async function getTeam(
@@ -638,7 +691,7 @@ export async function createTeam(
   if (useLocalStore(ownerId)) {
     const state = await loadLocal();
     const team: Team = syncMemberCount({
-      id: `t-${Date.now()}`,
+      id: `t-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       name: normalized.name,
       universe: normalized.universe,
       activity: normalized.activity,
@@ -655,7 +708,7 @@ export async function createTeam(
       blurb: normalized.blurb,
       locked: normalized.locked,
     });
-    state.teams = [team, ...state.teams];
+    state.teams = dedupeTeams([team, ...state.teams]);
     await saveLocal(state);
     return { ok: true, team };
   }
