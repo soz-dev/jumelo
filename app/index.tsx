@@ -83,7 +83,10 @@ export default function Index() {
     return <Redirect href="/settings/accept" />;
   }
 
-  if (!user.onboardingComplete) {
+  // Considérer l'onboarding terminé si le flag est true OU si le profil a déjà
+  // des univers sélectionnés (protection contre un flag non persisté en DB).
+  const profileHasData = user.universes && user.universes.length > 0;
+  if (!user.onboardingComplete && !profileHasData) {
     return <Redirect href="/(onboarding)/univers" />;
   }
 

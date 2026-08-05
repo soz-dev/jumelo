@@ -240,6 +240,21 @@ async function resolveProfileAfterFirebase(params: {
   return profileFromFirebaseLocal(firebaseUser);
 }
 
+/**
+ * Répare silencieusement le flag `onboardingComplete` si le profil a des données
+ * (universes) mais que le flag est toujours à false (ex : save Supabase raté).
+ * Tente aussi de corriger la DB Supabase en arrière-plan.
+ */
+function repairOnboardingFlag(profile: UserProfile): UserProfile {
+  if (profile.onboardingComplete || !profile.universes?.length) return profile;
+  const fixed: UserProfile = { ...profile, onboardingComplete: true };
+  // Tenter de corriger en DB Supabase en arrière-plan (sans bloquer)
+  if (isSupabaseConfigured() && canWriteSupabaseUserId(fixed.id)) {
+    saveProfile(fixed).catch(() => undefined);
+  }
+  return fixed;
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [loading, setLoading] = useState(true);
@@ -294,11 +309,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   }
                 }
 
-                const profile = await resolveProfileAfterFirebase({
-                  firebaseUser: fbUser,
-                  supabaseUserId,
-                  supabaseEmail,
-                });
+                const profile = repairOnboardingFlag(
+                  await resolveProfileAfterFirebase({
+                    firebaseUser: fbUser,
+                    supabaseUserId,
+                    supabaseEmail,
+                  }),
+                );
                 if (active) {
                   setUser(profile);
                   await persistLocal(profile);
@@ -323,11 +340,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const { data } = await supabase.auth.getSession();
           const session = data.session;
           if (session?.user && active) {
-            const profile = await ensureProfileRow({
-              id: session.user.id,
-              email: session.user.email ?? '',
-              name: displayNameFromSupabaseUser(session.user),
-            });
+            const profile = repairOnboardingFlag(
+              await ensureProfileRow({
+                id: session.user.id,
+                email: session.user.email ?? '',
+                name: displayNameFromSupabaseUser(session.user),
+              }),
+            );
             setUser(profile);
             await persistLocal(profile);
           }
@@ -341,11 +360,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
             if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
               try {
-                const profile = await ensureProfileRow({
-                  id: nextSession.user.id,
-                  email: nextSession.user.email ?? '',
-                  name: displayNameFromSupabaseUser(nextSession.user),
-                });
+                const profile = repairOnboardingFlag(
+                  await ensureProfileRow({
+                    id: nextSession.user.id,
+                    email: nextSession.user.email ?? '',
+                    name: displayNameFromSupabaseUser(nextSession.user),
+                  }),
+                );
                 if (active) {
                   setUser(profile);
                   await persistLocal(profile);
@@ -408,11 +429,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (usingFirebase) {
         const result = await signInEmailFirebase(normalized, password);
         if (!result.ok) return result;
-        const profile = await resolveProfileAfterFirebase({
-          firebaseUser: result.firebaseUser,
-          supabaseUserId: result.supabaseUserId,
-          supabaseEmail: result.supabaseEmail,
-        });
+        const profile = repairOnboardingFlag(
+          await resolveProfileAfterFirebase({
+            firebaseUser: result.firebaseUser,
+            supabaseUserId: result.supabaseUserId,
+            supabaseEmail: result.supabaseEmail,
+          }),
+        );
         setUser(profile);
         await persistLocal(profile);
         setDraftState(emptyDraft());
@@ -444,11 +467,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       try {
-        const profile = await ensureProfileRow({
-          id: data.user.id,
-          email: data.user.email ?? normalized,
-          name: displayNameFromSupabaseUser(data.user),
-        });
+        const profile = repairOnboardingFlag(
+          await ensureProfileRow({
+            id: data.user.id,
+            email: data.user.email ?? normalized,
+            name: displayNameFromSupabaseUser(data.user),
+          }),
+        );
         setUser(profile);
         await persistLocal(profile);
         setDraftState(emptyDraft());
@@ -574,11 +599,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (!result.ok) return result;
 
     try {
-      const profile = await resolveProfileAfterFirebase({
-        firebaseUser: result.firebaseUser,
-        supabaseUserId: result.supabaseUserId,
-        supabaseEmail: result.supabaseEmail,
-      });
+      const profile = repairOnboardingFlag(
+        await resolveProfileAfterFirebase({
+          firebaseUser: result.firebaseUser,
+          supabaseUserId: result.supabaseUserId,
+          supabaseEmail: result.supabaseEmail,
+        }),
+      );
       setUser(profile);
       await persistLocal(profile);
       setDraftState(emptyDraft());
