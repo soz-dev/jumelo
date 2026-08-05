@@ -160,6 +160,13 @@ export default function TeamsScreen() {
             subtitle="Trouve un partenaire ou lance le tien"
             right={
               <View style={styles.actions}>
+                <Pressable
+                  onPress={() => router.push('/classement')}
+                  style={[styles.trophyBtn, { backgroundColor: colors.white, borderColor: colors.border }]}
+                  accessibilityLabel="Classement"
+                >
+                  <Icon name="trophy" size={18} color={colors.primary} weight="bold" />
+                </Pressable>
                 <BrandLogo size={34} />
                 <ThemeSwitcherButton />
               </View>
@@ -314,6 +321,14 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   actions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  trophyBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   ctaPress: {
     marginTop: spacing.md,
     borderRadius: radii.xl,

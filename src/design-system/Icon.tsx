@@ -163,6 +163,7 @@ export type IconName =
   | 'golf'
   | 'fitness'
   | 'autre-sport'
+  | 'trophy'
   | 'studies'
   | 'evening'
   | 'morning'
@@ -346,6 +347,7 @@ const ICONS: Record<IconName, PhosphorIcon> = {
   golf: Golf,
   fitness: Flame,
   'autre-sport': Trophy,
+  trophy: Trophy,
 
   // Gaming
   valorant: Crosshair,
