@@ -15,6 +15,7 @@ import Animated, { FadeInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { Atmosphere } from '../../src/components/Atmosphere';
+import { BrandLogo } from '../../src/components/BrandLogo';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { TeamLobbyCard } from '../../src/components/TeamLobbyCard';
 import { UniverseId, categories } from '../../src/constants/catalog';
@@ -159,20 +160,8 @@ export default function TeamsScreen() {
             subtitle="Trouve un partenaire ou lance le tien"
             right={
               <View style={styles.actions}>
+                <BrandLogo size={34} />
                 <ThemeSwitcherButton />
-                <Pressable
-                  style={[styles.fab, elevation.glow(colors.primary)]}
-                  onPress={createJumelo}
-                  accessibilityLabel="Créer un jumelo"
-                >
-                  <LinearGradient
-                    colors={[...themeBrandColors(colors)]}
-                    start={themeGradientAngles.brand.start}
-                    end={themeGradientAngles.brand.end}
-                    style={StyleSheet.absoluteFill}
-                  />
-                  <Icon name="plus" size={22} color="#fff" weight="bold" />
-                </Pressable>
               </View>
             }
           />
@@ -325,14 +314,6 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   content: { padding: spacing.lg, paddingBottom: spacing.xxl },
   actions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
-  fab: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-  },
   ctaPress: {
     marginTop: spacing.md,
     borderRadius: radii.xl,
