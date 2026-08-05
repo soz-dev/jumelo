@@ -1,5 +1,6 @@
 import type { SessionRating, TeamSession } from './teamSessions';
 import { getTeamSessionBundles } from './teamSessions';
+import { computeCheckinXp } from './dailyCheckin';
 
 /**
  * Points & rang jumelo — style progression ranked (inspiré Wild Rift / ranked duo).
@@ -346,6 +347,7 @@ export function emptyDuoScore(): DuoScore {
 export function computeDuoPoints(
   sessions: TeamSession[],
   ratings: SessionRating[],
+  checkinXp = 0,
 ): DuoScore {
   const sessionsEnded = sessions.filter((s) => s.status === 'ended').length;
   const sessionsActive = sessions.filter((s) => s.status === 'active').length;
@@ -372,7 +374,7 @@ export function computeDuoPoints(
     }
   }
 
-  const points = fromSessions + fromStars + qualityBonus;
+  const points = fromSessions + fromStars + qualityBonus + checkinXp;
 
   return {
     points,
@@ -385,15 +387,24 @@ export function computeDuoPoints(
   };
 }
 
-/** Scores pour plusieurs jumelos (un seul chargement storage). */
+/** Scores pour plusieurs jumelos — inclut les XP de check-in quotidien. */
 export async function getDuoScoresByTeamIds(
   teamIds: string[],
+  /** memberIds par teamId — nécessaire pour valider les journées mutuelles. */
+  memberIdsByTeam?: Map<string, string[]>,
 ): Promise<Map<string, DuoScore>> {
+  const { getValidatedDays } = await import('./dailyCheckin');
   const bundles = await getTeamSessionBundles(teamIds);
   const out = new Map<string, DuoScore>();
   for (const id of teamIds) {
     const bundle = bundles.get(id) ?? { sessions: [], ratings: [] };
-    out.set(id, computeDuoPoints(bundle.sessions, bundle.ratings));
+    let checkinXp = 0;
+    const memberIds = memberIdsByTeam?.get(id);
+    if (memberIds && memberIds.length >= 2) {
+      const validated = await getValidatedDays(id, memberIds);
+      checkinXp = computeCheckinXp(validated);
+    }
+    out.set(id, computeDuoPoints(bundle.sessions, bundle.ratings, checkinXp));
   }
   return out;
 }

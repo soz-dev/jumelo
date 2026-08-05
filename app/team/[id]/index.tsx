@@ -50,6 +50,12 @@ import {
   resolveUsersByIds,
   stubProfileFromId,
 } from '../../../src/lib/users';
+import {
+  checkInToday,
+  computeStreak,
+  getTodayCheckins,
+  getValidatedDays,
+} from '../../../src/lib/dailyCheckin';
 
 function memberMetaLine(member: UserProfile): string {
   const parts = [
@@ -59,6 +65,140 @@ function memberMetaLine(member: UserProfile): string {
   ].filter(Boolean);
   return parts.join(' · ') || 'Profil Jumelo';
 }
+
+type AppColors = ReturnType<typeof import('../../../src/context/ThemeContext').useTheme>['colors'];
+
+function CheckinCard({
+  userId,
+  memberIds,
+  checkedInUsers,
+  streak,
+  busy,
+  onCheckin,
+  colors,
+}: {
+  userId: string;
+  memberIds: string[];
+  checkedInUsers: string[];
+  streak: number;
+  busy: boolean;
+  onCheckin: () => void;
+  colors: AppColors;
+}) {
+  const myCheckin = checkedInUsers.includes(userId);
+  const others = memberIds.filter((id) => id !== userId);
+  const allChecked = memberIds.length >= 2 && memberIds.every((id) => checkedInUsers.includes(id));
+  const partnerCount = others.filter((id) => checkedInUsers.includes(id)).length;
+  const borderColor = allChecked
+    ? withHexAlpha('#22c55e', 0.4)
+    : myCheckin
+      ? withHexAlpha(colors.primary, 0.3)
+      : withHexAlpha(colors.border, 0.8);
+
+  return (
+    <View style={[checkinStyles.card, { backgroundColor: colors.white, borderColor }]}>
+      <View style={checkinStyles.top}>
+        <View style={checkinStyles.labelRow}>
+          <Text style={[checkinStyles.title, { color: colors.ink }]}>Check-in du jour</Text>
+          {streak > 0 ? (
+            <View style={[checkinStyles.streakBadge, { backgroundColor: withHexAlpha('#f97316', 0.12), borderColor: withHexAlpha('#f97316', 0.3) }]}>
+              <Text style={checkinStyles.streakFire}>🔥</Text>
+              <Text style={[checkinStyles.streakNum, { color: '#f97316' }]}>{streak} jour{streak > 1 ? 's' : ''}</Text>
+            </View>
+          ) : null}
+        </View>
+        <Text style={[checkinStyles.sub, { color: colors.inkMuted }]}>
+          {allChecked
+            ? '+20 XP validés aujourd\'hui !'
+            : `Il faut que les ${memberIds.length} membres cochent pour gagner les points`}
+        </Text>
+      </View>
+
+      {/* Statuts membres */}
+      <View style={checkinStyles.members}>
+        <View style={checkinStyles.memberStatus}>
+          <View style={[checkinStyles.dot, { backgroundColor: myCheckin ? '#22c55e' : withHexAlpha(colors.ink, 0.12) }]} />
+          <Text style={[checkinStyles.memberLabel, { color: colors.ink }]}>
+            Toi {myCheckin ? '✓' : ''}
+          </Text>
+        </View>
+        {others.map((id) => {
+          const checked = checkedInUsers.includes(id);
+          return (
+            <View key={id} style={checkinStyles.memberStatus}>
+              <View style={[checkinStyles.dot, { backgroundColor: checked ? '#22c55e' : withHexAlpha(colors.ink, 0.12) }]} />
+              <Text style={[checkinStyles.memberLabel, { color: colors.inkMuted }]}>
+                Partenaire {checked ? '✓' : '—'}
+              </Text>
+            </View>
+          );
+        })}
+      </View>
+
+      {!myCheckin ? (
+        <Pressable
+          onPress={onCheckin}
+          disabled={busy}
+          style={[checkinStyles.btn, { backgroundColor: colors.primary, opacity: busy ? 0.6 : 1 }]}
+        >
+          {busy
+            ? <ActivityIndicator color="#fff" size="small" />
+            : <Text style={checkinStyles.btnLabel}>Je suis là aujourd'hui ✓</Text>}
+        </Pressable>
+      ) : (
+        <View style={[checkinStyles.doneRow, { backgroundColor: withHexAlpha('#22c55e', 0.08), borderColor: withHexAlpha('#22c55e', 0.2) }]}>
+          <Text style={[checkinStyles.doneText, { color: '#16a34a' }]}>
+            {allChecked ? '🎉 Journée validée — +20 XP gagnés !' : `Tu as coché · ${partnerCount}/${others.length} partenaire${others.length > 1 ? 's' : ''} restant${others.length > 1 ? 's' : ''}`}
+          </Text>
+        </View>
+      )}
+    </View>
+  );
+}
+
+const checkinStyles = StyleSheet.create({
+  card: {
+    borderRadius: radii.xl,
+    borderWidth: 1.5,
+    padding: spacing.md,
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
+  top: { gap: 3 },
+  labelRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  title: { fontFamily: fonts.bodyBold, fontSize: 15, flex: 1 },
+  sub: { fontFamily: fonts.body, fontSize: 13, lineHeight: 18 },
+  streakBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+  },
+  streakFire: { fontSize: 13 },
+  streakNum: { fontFamily: fonts.bodyBold, fontSize: 13 },
+  members: { flexDirection: 'row', gap: spacing.md },
+  memberStatus: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  dot: { width: 10, height: 10, borderRadius: 5 },
+  memberLabel: { fontFamily: fonts.bodyMedium, fontSize: 13 },
+  btn: {
+    borderRadius: radii.lg,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  btnLabel: { fontFamily: fonts.bodyBold, fontSize: 15, color: '#fff' },
+  doneRow: {
+    borderRadius: radii.md,
+    borderWidth: 1,
+    paddingVertical: 10,
+    paddingHorizontal: spacing.md,
+    alignItems: 'center',
+  },
+  doneText: { fontFamily: fonts.bodyMedium, fontSize: 13, textAlign: 'center' },
+});
 
 /** Stable empty map — avoids setState({}) identity churn / update-depth loops. */
 const EMPTY_PROFILES: Record<string, UserProfile> = {};
@@ -101,6 +241,9 @@ export default function TeamDetailScreen() {
     useState<Record<string, UserProfile>>(EMPTY_PROFILES);
   const [pendingProfiles, setPendingProfiles] =
     useState<Record<string, UserProfile>>(EMPTY_PROFILES);
+  const [checkedInUsers, setCheckedInUsers] = useState<string[]>([]);
+  const [streak, setStreak] = useState(0);
+  const [checkinBusy, setCheckinBusy] = useState(false);
   const [nameModalOpen, setNameModalOpen] = useState(false);
   const [nameModalVariant, setNameModalVariant] = useState<'name' | 'rename'>(
     'rename',
@@ -131,13 +274,32 @@ export default function TeamDetailScreen() {
     setDuoScore(score);
   }, [id]);
 
+  const reloadCheckin = useCallback(async () => {
+    if (!id) return;
+    const [checkins, validated] = await Promise.all([
+      getTodayCheckins(id),
+      getValidatedDays(id, rosterIds),
+    ]);
+    setCheckedInUsers(checkins);
+    setStreak(computeStreak(validated));
+  }, [id, rosterIds]);
+
   useFocusEffect(
     useCallback(() => {
       refresh().catch(() => undefined);
       reloadSession().catch(() => undefined);
       reloadDuoScore().catch(() => undefined);
-    }, [refresh, reloadSession, reloadDuoScore]),
+      reloadCheckin().catch(() => undefined);
+    }, [refresh, reloadSession, reloadDuoScore, reloadCheckin]),
   );
+
+  const onCheckin = useCallback(async () => {
+    if (!id || !user?.id || checkinBusy) return;
+    setCheckinBusy(true);
+    await checkInToday(id, user.id);
+    await reloadCheckin();
+    setCheckinBusy(false);
+  }, [id, user?.id, checkinBusy, reloadCheckin]);
 
   const team = teams.find((t) => t.id === id);
   const membership = getMembership(id ?? '');
@@ -731,6 +893,21 @@ export default function TeamDetailScreen() {
                 );
               })}
             </>
+          ) : null}
+
+          {/* Check-in quotidien — visible uniquement aux membres */}
+          {isMemberOrOwner ? (
+            <Animated.View entering={FadeInDown.delay(60).duration(320)}>
+              <CheckinCard
+                userId={user?.id ?? ''}
+                memberIds={rosterIds}
+                checkedInUsers={checkedInUsers}
+                streak={streak}
+                busy={checkinBusy}
+                onCheckin={onCheckin}
+                colors={colors}
+              />
+            </Animated.View>
           ) : null}
 
           {/* Membres */}
