@@ -160,7 +160,7 @@ const RAW_MOCKS: RawMock[] = [
   { id: 'mk-t20', name: 'Rocket League Duo',         universe: 'gaming',    subCategoryId: 'rocket-league', members: [M.kim, M.axel],      points: 950,  rating: 3.6, sessions: 14, trend: -1, compat: 81 },
 ];
 
-const MEDAL: Record<number, string>       = { 2: '\u{1F948}', 3: '\u{1F949}' };
+const MEDAL: Record<number, string>       = { 2: '🥈', 3: '🥉' };
 const MEDAL_COLOR: Record<number, string> = { 1: '#FFD700', 2: '#C0C0C0', 3: '#CD7F32', 4: '#94A3B8' };
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -288,7 +288,7 @@ export default function DiscoverScreen() {
                       </View>
                       <View style={styles.rankHero}>
                         <Text style={styles.rankHeroText}>#1</Text>
-                        <Text style={styles.rankHeroCrown}>\u{1F451}</Text>
+                        <Text style={styles.rankHeroCrown}>👑</Text>
                       </View>
                     </View>
 
@@ -335,7 +335,7 @@ export default function DiscoverScreen() {
                         <Text style={styles.statKey}>MATCH</Text>
                       </View>
                       <View style={styles.statBox}>
-                        <Text style={styles.statValue}>\u{1F525} {champion.score.sessionsEnded}</Text>
+                        <Text style={styles.statValue}>🔥 {champion.score.sessionsEnded}</Text>
                         <Text style={styles.statKey}>S\u00c9RIE</Text>
                       </View>
                     </View>
