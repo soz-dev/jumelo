@@ -458,12 +458,18 @@ export async function bridgeIdTokenToSupabase(
   if (fallbackEmail && fallbackUid) {
     const pwd = `jml-${fallbackUid}`;
     const signIn = await supabase.auth.signInWithPassword({ email: fallbackEmail, password: pwd });
+    console.log('[LOG] 🪵 bridge fallback signInWithPassword', { email: fallbackEmail, userId: signIn.data.session?.user?.id ?? null, error: signIn.error?.message ?? null });
     if (signIn.data.session?.user) {
       return { userId: signIn.data.session.user.id, email: signIn.data.session.user.email ?? fallbackEmail };
     }
     const signUp = await supabase.auth.signUp({ email: fallbackEmail, password: pwd });
+    console.log('[LOG] 🪵 bridge fallback signUp', { email: fallbackEmail, userId: signUp.data.session?.user?.id ?? null, userCreated: !!signUp.data.user?.id, error: signUp.error?.message ?? null });
     if (signUp.data.session?.user) {
       return { userId: signUp.data.session.user.id, email: signUp.data.session.user.email ?? fallbackEmail };
+    }
+    // signUp réussi mais session null = confirmation email requise dans Supabase.
+    if (signUp.data.user?.id && !signUp.error) {
+      console.warn('[LOG] 🪵 bridge fallback: compte créé mais session nulle → désactive la confirmation email dans Supabase Dashboard > Auth > Providers > Email');
     }
   }
 

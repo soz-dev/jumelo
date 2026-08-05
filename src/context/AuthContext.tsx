@@ -346,7 +346,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   } else if (fbUser.email) {
                     // Session expirée : re-bridge via fallback deterministe.
                     const pwd = `jml-${fbUser.uid}`;
-                    const { data: si } = await supabase!.auth.signInWithPassword({ email: fbUser.email, password: pwd });
+                    const { data: si, error: siErr } = await supabase!.auth.signInWithPassword({ email: fbUser.email, password: pwd });
+                    console.log('[LOG] 🪵 startup re-bridge', { email: fbUser.email, userId: si.session?.user?.id ?? null, error: siErr?.message ?? null });
                     if (si.session?.user) {
                       supabaseUserId = si.session.user.id;
                       supabaseEmail = si.session.user.email ?? undefined;
