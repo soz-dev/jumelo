@@ -2,7 +2,9 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
 import {
+  ActivityIndicator,
   Alert,
+  Image,
   Modal,
   Platform,
   Pressable,
@@ -30,6 +32,7 @@ import { useTeams } from '../../src/context/TeamsContext';
 import { useTheme } from '../../src/context/ThemeContext';
 import { mockUsers, type UserProfile } from '../../src/data/mock';
 import {
+  Avatar,
   Icon,
   ListRow,
   SectionHeader,
@@ -39,6 +42,7 @@ import {
   radii,
   spacing,
   typography,
+  withHexAlpha,
 } from '../../src/design-system';
 import { listProfiles } from '../../src/lib/api/profiles';
 import {
@@ -48,8 +52,12 @@ import {
   type ActivityItem,
 } from '../../src/lib/likesStore';
 import {
+  acceptDailyJumelo,
+  getDailyJumeloView,
   listIncomingDailyAccepts,
+  refuseDailyJumelo,
   seedIncomingDailyAccept,
+  type DailyViewModel,
 } from '../../src/lib/dailyJumelo';
 import { usePremiumAccess } from '../../src/lib/premiumStore';
 import { isDuoCapacity } from '../../src/lib/teamKind';
@@ -98,11 +106,11 @@ export default function HomeScreen() {
   const [notifOpen, setNotifOpen] = useState(false);
   const [seedHint, setSeedHint] = useState<string | null>(null);
   const [domainFilter, setDomainFilter] = useState<string | 'all'>('all');
+  const [dailyView, setDailyView] = useState<DailyViewModel | null>(null);
+  const [dailyBusy, setDailyBusy] = useState(false);
 
-  const goDailyJumelo = () => {
-    if (!guard()) return;
-    router.push('/(tabs)/discover');
-  };
+  // Ferme juste le panneau notifications — la widget est déjà visible sur home
+  const goDailyJumelo = () => setNotifOpen(false);
 
   useEffect(() => {
     let active = true;
@@ -155,11 +163,46 @@ export default function HomeScreen() {
 
   const closeNotifications = () => setNotifOpen(false);
 
+  const loadDailyView = useCallback(async () => {
+    if (!user) return;
+    try {
+      const currentPool = pool.length ? pool : mockUsers;
+      const v = await getDailyJumeloView(user, currentPool);
+      setDailyView(v);
+    } catch {
+      // ignore
+    }
+  }, [user, pool]);
+
+  const handleDailyAccept = async () => {
+    if (!user || dailyBusy) return;
+    setDailyBusy(true);
+    try {
+      const currentPool = pool.length ? pool : mockUsers;
+      await acceptDailyJumelo(user, currentPool);
+      await loadDailyView();
+    } finally {
+      setDailyBusy(false);
+    }
+  };
+
+  const handleDailyRefuse = async () => {
+    if (!user || dailyBusy) return;
+    setDailyBusy(true);
+    try {
+      await refuseDailyJumelo(user.id);
+      await loadDailyView();
+    } finally {
+      setDailyBusy(false);
+    }
+  };
+
   useFocusEffect(
     useCallback(() => {
       if (!user) return;
       void refreshActivity(user.id);
-    }, [user, refreshActivity]),
+      void loadDailyView();
+    }, [user, refreshActivity, loadDailyView]),
   );
 
   if (!user) return null;
@@ -481,8 +524,6 @@ export default function HomeScreen() {
             </LinearGradient>
           </ScalePressable>
 
-          {Platform.OS === 'ios' ? <DiscoverAppsSection /> : null}
-
           <ScalePressable
             onPress={() => router.push('/categories')}
             style={[styles.categoriesPress, elevation.glow(colors.primary)]}
@@ -500,6 +541,8 @@ export default function HomeScreen() {
               <Icon name="chevronRight" size={16} color={colors.white} weight="bold" />
             </LinearGradient>
           </ScalePressable>
+
+          <DiscoverAppsSection />
         </ScrollView>
 
         <Modal
@@ -794,25 +837,45 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#fff',
   },
-  dailyCta: {
+  dailyCard: {
     borderRadius: radii.xl,
-    padding: spacing.lg,
+    borderWidth: 1,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    justifyContent: 'center',
+    minHeight: 70,
+  },
+  dailyPeerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
-    marginBottom: spacing.md,
+    gap: spacing.sm,
   },
-  dailyCtaTitle: {
-    fontFamily: fonts.display,
-    fontSize: 20,
-    color: '#fff',
-    letterSpacing: -0.4,
+  dailyPeerPhoto: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
   },
-  dailyCtaBody: {
+  dailyPeerName: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+    letterSpacing: -0.2,
+  },
+  dailyPeerMeta: {
     fontFamily: fonts.body,
-    fontSize: 13,
-    lineHeight: 18,
-    color: 'rgba(255,255,255,0.88)',
+    fontSize: 12,
+    marginTop: 2,
+  },
+  dailyActions: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  dailyActionBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   domainRow: {
     gap: 8,
