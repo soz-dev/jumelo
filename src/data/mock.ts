@@ -31,6 +31,8 @@ export type UserProfile = {
   themeId?: ThemeId;
   /** Premium (optionnel) — source de vérité MVP = AsyncStorage `@jumelo/premium-users` */
   isPremium?: boolean;
+  /** ISO 8601 — date de création du compte Supabase. */
+  createdAt?: string;
 };
 
 export const DEMO_EMAIL = 'lea@jumelo.app';

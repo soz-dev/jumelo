@@ -62,5 +62,6 @@ export function mapProfileRow(
       typeof row.age === 'number' && Number.isFinite(row.age) ? row.age : undefined,
     onboardingComplete: row.onboarding_complete,
     themeId: (row.theme_id as ThemeId) || 'teal',
+    createdAt: row.created_at,
   };
 }

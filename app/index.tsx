@@ -83,12 +83,15 @@ export default function Index() {
     return <Redirect href="/settings/accept" />;
   }
 
-  // Profil existant : univers, intérêts, bio ou ville indiquent un compte déjà utilisé.
+  // Compte créé il y a plus de 10 min = compte existant → ne pas forcer l'onboarding.
+  const isExistingAccount =
+    !!user.createdAt && Date.now() - new Date(user.createdAt).getTime() > 10 * 60 * 1000;
   const profileHasData =
     (user.universes?.length ?? 0) > 0 ||
     (user.interests?.length ?? 0) > 0 ||
     user.bio?.trim().length > 0 ||
-    user.city?.trim().length > 0;
+    user.city?.trim().length > 0 ||
+    isExistingAccount;
   if (!user.onboardingComplete && !profileHasData) {
     return <Redirect href="/(onboarding)/univers" />;
   }
