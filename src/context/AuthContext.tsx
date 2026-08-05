@@ -343,6 +343,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                   if (data.session?.user) {
                     supabaseUserId = data.session.user.id;
                     supabaseEmail = data.session.user.email ?? undefined;
+                  } else if (fbUser.email) {
+                    // Session expirée : re-bridge via fallback deterministe.
+                    const pwd = `jml-${fbUser.uid}`;
+                    const { data: si } = await supabase!.auth.signInWithPassword({ email: fbUser.email, password: pwd });
+                    if (si.session?.user) {
+                      supabaseUserId = si.session.user.id;
+                      supabaseEmail = si.session.user.email ?? undefined;
+                    }
                   }
                 }
 
