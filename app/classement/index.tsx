@@ -72,13 +72,13 @@ async function fetchMemberSnaps(ids: string[]): Promise<Map<string, MemberSnap>>
     if (sb) {
       const { data } = await sb
         .from('profiles')
-        .select('id, name, photo, avatar_color')
+        .select('id, name, avatar_url, avatar_color')
         .in('id', missing);
       for (const row of (data ?? []) as Record<string, string>[]) {
         map.set(row.id, {
           id: row.id,
           name: row.name ?? '?',
-          photo: row.photo ?? undefined,
+          photo: row.avatar_url ?? undefined,
           color: row.avatar_color ?? '#7C5CFC',
         });
       }
