@@ -538,12 +538,21 @@ export default function HomeScreen() {
           ) : dailyView?.mode === 'waiting_peer' ? (
             <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
               <View style={styles.dailyPeerRow}>
-                <Text style={{ fontSize: 22 }}>⏳</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>En attente de réponse</Text>
-                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
-                    {dailyView.peer?.name ?? 'Ton jumelo potentiel'} n'a pas encore répondu
+                {dailyView.peer?.photo ? (
+                  <Image source={{ uri: dailyView.peer.photo }} style={styles.dailyPeerPhoto} />
+                ) : (
+                  <Avatar name={dailyView.peer?.name ?? '?'} color={dailyView.peer?.avatarColor ?? colors.primary} size={48} />
+                )}
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>
+                    {dailyView.peer?.name ?? '?'}
                   </Text>
+                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
+                    En attente de sa réponse
+                  </Text>
+                </View>
+                <View style={[styles.dailyStatusBadge, { backgroundColor: withHexAlpha('#22C55E', 0.12), borderColor: withHexAlpha('#22C55E', 0.3) }]}>
+                  <Text style={{ color: '#22C55E', fontSize: 16, fontFamily: fonts.bodyBold }}>✓</Text>
                 </View>
               </View>
             </View>
@@ -577,6 +586,34 @@ export default function HomeScreen() {
                 <Icon name="chevronRight" size={16} color="#22C55E" />
               </View>
             </Pressable>
+          ) : dailyView?.mode === 'cooldown' && dailyView.peer ? (
+            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
+              <View style={styles.dailyPeerRow}>
+                {dailyView.peer.photo ? (
+                  <Image source={{ uri: dailyView.peer.photo }} style={styles.dailyPeerPhoto} />
+                ) : (
+                  <Avatar name={dailyView.peer.name} color={dailyView.peer.avatarColor ?? colors.primary} size={48} />
+                )}
+                <View style={{ flex: 1, gap: 2 }}>
+                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>
+                    {dailyView.peer.name}
+                  </Text>
+                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
+                    Reviens dans 24 h
+                  </Text>
+                </View>
+                <View style={[
+                  styles.dailyStatusBadge,
+                  dailyView.decision === 'refused'
+                    ? { backgroundColor: withHexAlpha('#EF4444', 0.12), borderColor: withHexAlpha('#EF4444', 0.3) }
+                    : { backgroundColor: withHexAlpha('#22C55E', 0.12), borderColor: withHexAlpha('#22C55E', 0.3) },
+                ]}>
+                  <Text style={{ color: dailyView.decision === 'refused' ? '#EF4444' : '#22C55E', fontSize: 16, fontFamily: fonts.bodyBold }}>
+                    {dailyView.decision === 'refused' ? '✕' : '✓'}
+                  </Text>
+                </View>
+              </View>
+            </View>
           ) : (
             <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
               <View style={styles.dailyPeerRow}>
@@ -937,6 +974,14 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dailyStatusBadge: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
