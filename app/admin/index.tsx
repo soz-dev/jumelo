@@ -197,75 +197,112 @@ export default function AdminDashboardScreen() {
 
             {/* ─── Outils de simulation ─── */}
             <Text style={[styles.section, { color: colors.ink }]}>Outils de simulation</Text>
-            {([
-              {
-                id: 'reset_daily',
-                icon: 'refresh-circle-outline' as const,
-                label: 'Réinitialiser le Jumelo du jour',
-                hint: 'Efface lock 24h + trial + validation — nouvelle proposition immédiate',
-                action: async () => {
-                  await resetDailyJumeloDemoState();
-                  await resetJumeloValidationDemoState();
-                  Alert.alert('✓ Réinitialisé', 'Nouvelle proposition disponible immédiatement.', [{ text: 'Retour', onPress: () => router.back() }]);
+            {(
+              [
+                {
+                  id: 'reset_daily',
+                  icon: 'refresh-circle-outline' as keyof typeof Ionicons.glyphMap,
+                  label: 'Réinitialiser le Jumelo du jour',
+                  hint: 'Efface lock 24h + trial + validation — nouvelle proposition immédiate',
+                  action: async () => {
+                    await resetDailyJumeloDemoState();
+                    await resetJumeloValidationDemoState();
+                  },
+                  confirm: 'Remettre à zéro le Jumelo du jour ?',
+                  success: 'Jumelo du jour remis à zéro.',
+                  goBack: true,
+                  danger: false,
                 },
-                confirm: 'Remettre à zéro le Jumelo du jour ?',
-              },
-              {
-                id: 'reset_validation',
-                icon: 'git-compare-outline' as const,
-                label: 'Réinitialiser la validation de jumelage',
-                hint: 'Efface les confirmations de formation (démo)',
-                action: async () => { await resetJumeloValidationDemoState(); },
-                confirm: 'Réinitialiser la validation ?',
-              },
-              {
-                id: 'clear_bans',
-                icon: 'lock-open-outline' as const,
-                label: 'Lever tous les bans',
-                hint: 'Supprime tous les bans et suspensions locaux',
-                action: async () => { await clearAllBans(); await load(); },
-                confirm: 'Lever tous les bans ?',
-                danger: true,
-              },
-              {
-                id: 'clear_reports',
-                icon: 'flag-outline' as const,
-                label: 'Effacer tous les signalements',
-                hint: 'Vide la file de modération locale',
-                action: async () => { await clearAllReports(); await load(); },
-                confirm: 'Effacer tous les signalements ?',
-                danger: true,
-              },
-              {
-                id: 'clear_warnings',
-                icon: 'alert-circle-outline' as const,
-                label: 'Effacer tous les avertissements',
-                hint: "Supprime l'historique des warnings locaux",
-                action: async () => { await clearAllWarnings(); await load(); },
-                confirm: 'Effacer tous les avertissements ?',
-                danger: true,
-              },
-            ] as const).map((tool) => (
+                {
+                  id: 'reset_validation',
+                  icon: 'git-compare-outline' as keyof typeof Ionicons.glyphMap,
+                  label: 'Réinitialiser la validation de jumelage',
+                  hint: 'Efface les confirmations de formation (démo)',
+                  action: async () => { await resetJumeloValidationDemoState(); },
+                  confirm: 'Réinitialiser la validation ?',
+                  success: 'Validation remise à zéro.',
+                  goBack: false,
+                  danger: false,
+                },
+                {
+                  id: 'clear_bans',
+                  icon: 'lock-open-outline' as keyof typeof Ionicons.glyphMap,
+                  label: 'Lever tous les bans',
+                  hint: 'Supprime tous les bans et suspensions locaux',
+                  action: async () => { await clearAllBans(); await load(); },
+                  confirm: 'Lever tous les bans ?',
+                  success: null,
+                  goBack: false,
+                  danger: true,
+                },
+                {
+                  id: 'clear_reports',
+                  icon: 'flag-outline' as keyof typeof Ionicons.glyphMap,
+                  label: 'Effacer tous les signalements',
+                  hint: 'Vide la file de modération locale',
+                  action: async () => { await clearAllReports(); await load(); },
+                  confirm: 'Effacer tous les signalements ?',
+                  success: null,
+                  goBack: false,
+                  danger: true,
+                },
+                {
+                  id: 'clear_warnings',
+                  icon: 'alert-circle-outline' as keyof typeof Ionicons.glyphMap,
+                  label: 'Effacer tous les avertissements',
+                  hint: "Supprime l'historique des warnings locaux",
+                  action: async () => { await clearAllWarnings(); await load(); },
+                  confirm: 'Effacer tous les avertissements ?',
+                  success: null,
+                  goBack: false,
+                  danger: true,
+                },
+              ] satisfies {
+                id: string;
+                icon: keyof typeof Ionicons.glyphMap;
+                label: string;
+                hint: string;
+                action: () => Promise<void>;
+                confirm: string;
+                success: string | null;
+                goBack: boolean;
+                danger: boolean;
+              }[]
+            ).map((tool) => (
               <Pressable
                 key={tool.id}
                 disabled={toolBusy === tool.id}
                 onPress={() => {
-                  Alert.alert(
-                    tool.label,
-                    tool.confirm,
-                    [
-                      { text: 'Annuler', style: 'cancel' },
-                      {
-                        text: 'Confirmer',
-                        style: tool.danger ? 'destructive' : 'default',
-                        onPress: async () => {
-                          setToolBusy(tool.id);
-                          await tool.action().catch(() => undefined);
-                          setToolBusy(null);
-                        },
+                  Alert.alert(tool.label, tool.confirm, [
+                    { text: 'Annuler', style: 'cancel' },
+                    {
+                      text: 'Confirmer',
+                      style: tool.danger ? 'destructive' : 'default',
+                      onPress: () => {
+                        setToolBusy(tool.id);
+                        tool.action()
+                          .then(() => {
+                            setToolBusy(null);
+                            // Délai pour éviter le bug iOS double-Alert
+                            if (tool.success) {
+                              setTimeout(() => {
+                                Alert.alert('✓ Fait', tool.success!, [
+                                  tool.goBack
+                                    ? { text: 'Retour accueil', onPress: () => router.back() }
+                                    : { text: 'OK' },
+                                ]);
+                              }, 350);
+                            } else if (tool.goBack) {
+                              router.back();
+                            }
+                          })
+                          .catch(() => {
+                            setToolBusy(null);
+                            Alert.alert('Erreur', "L'action a échoué.");
+                          });
                       },
-                    ],
-                  );
+                    },
+                  ]);
                 }}
                 style={[
                   styles.navRow,
