@@ -80,6 +80,8 @@ export default function AdminDashboardScreen() {
   const [dash, setDash] = useState<AdminDashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [toolBusy, setToolBusy] = useState<string | null>(null);
+  const [toolDone, setToolDone] = useState<string | null>(null);
+  const [toolError, setToolError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -208,7 +210,6 @@ export default function AdminDashboardScreen() {
                     await resetDailyJumeloDemoState();
                     await resetJumeloValidationDemoState();
                   },
-                  confirm: 'Remettre à zéro le Jumelo du jour ?',
                   success: 'Jumelo du jour remis à zéro.',
                   goBack: true,
                   danger: false,
@@ -219,7 +220,6 @@ export default function AdminDashboardScreen() {
                   label: 'Réinitialiser la validation de jumelage',
                   hint: 'Efface les confirmations de formation (démo)',
                   action: async () => { await resetJumeloValidationDemoState(); },
-                  confirm: 'Réinitialiser la validation ?',
                   success: 'Validation remise à zéro.',
                   goBack: false,
                   danger: false,
@@ -230,7 +230,6 @@ export default function AdminDashboardScreen() {
                   label: 'Lever tous les bans',
                   hint: 'Supprime tous les bans et suspensions locaux',
                   action: async () => { await clearAllBans(); await load(); },
-                  confirm: 'Lever tous les bans ?',
                   success: null,
                   goBack: false,
                   danger: true,
@@ -241,7 +240,6 @@ export default function AdminDashboardScreen() {
                   label: 'Effacer tous les signalements',
                   hint: 'Vide la file de modération locale',
                   action: async () => { await clearAllReports(); await load(); },
-                  confirm: 'Effacer tous les signalements ?',
                   success: null,
                   goBack: false,
                   danger: true,
@@ -252,7 +250,6 @@ export default function AdminDashboardScreen() {
                   label: 'Effacer tous les avertissements',
                   hint: "Supprime l'historique des warnings locaux",
                   action: async () => { await clearAllWarnings(); await load(); },
-                  confirm: 'Effacer tous les avertissements ?',
                   success: null,
                   goBack: false,
                   danger: true,
@@ -263,7 +260,7 @@ export default function AdminDashboardScreen() {
                 label: string;
                 hint: string;
                 action: () => Promise<void>;
-                confirm: string;
+
                 success: string | null;
                 goBack: boolean;
                 danger: boolean;
@@ -271,38 +268,25 @@ export default function AdminDashboardScreen() {
             ).map((tool) => (
               <Pressable
                 key={tool.id}
-                disabled={toolBusy === tool.id}
+                disabled={toolBusy === tool.id || toolDone === tool.id}
                 onPress={() => {
-                  Alert.alert(tool.label, tool.confirm, [
-                    { text: 'Annuler', style: 'cancel' },
-                    {
-                      text: 'Confirmer',
-                      style: tool.danger ? 'destructive' : 'default',
-                      onPress: () => {
-                        setToolBusy(tool.id);
-                        tool.action()
-                          .then(() => {
-                            setToolBusy(null);
-                            // Délai pour éviter le bug iOS double-Alert
-                            if (tool.success) {
-                              setTimeout(() => {
-                                Alert.alert('✓ Fait', tool.success!, [
-                                  tool.goBack
-                                    ? { text: 'Retour accueil', onPress: () => router.back() }
-                                    : { text: 'OK' },
-                                ]);
-                              }, 350);
-                            } else if (tool.goBack) {
-                              router.back();
-                            }
-                          })
-                          .catch(() => {
-                            setToolBusy(null);
-                            Alert.alert('Erreur', "L'action a échoué.");
-                          });
-                      },
-                    },
-                  ]);
+                  setToolBusy(tool.id);
+                  setToolDone(null);
+                  setToolError(null);
+                  tool.action()
+                    .then(() => {
+                      setToolBusy(null);
+                      setToolDone(tool.id);
+                      setTimeout(() => setToolDone(null), 2500);
+                      if (tool.goBack) {
+                        setTimeout(() => router.back(), 2600);
+                      }
+                    })
+                    .catch(() => {
+                      setToolBusy(null);
+                      setToolError(tool.id);
+                      setTimeout(() => setToolError(null), 3000);
+                    });
                 }}
                 style={[
                   styles.navRow,
@@ -340,6 +324,10 @@ export default function AdminDashboardScreen() {
                 </View>
                 {toolBusy === tool.id ? (
                   <Ionicons name="hourglass-outline" size={18} color={colors.inkFaint} />
+                ) : toolDone === tool.id ? (
+                  <Ionicons name="checkmark-circle" size={18} color="#22c55e" />
+                ) : toolError === tool.id ? (
+                  <Ionicons name="close-circle" size={18} color={colors.accent} />
                 ) : (
                   <Ionicons name="play-circle-outline" size={18} color={colors.inkFaint} />
                 )}
