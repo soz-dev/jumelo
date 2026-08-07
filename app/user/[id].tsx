@@ -14,6 +14,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { safeBack } from '../../src/lib/navigation';
@@ -422,11 +423,12 @@ export default function PublicProfileScreen() {
           )}
         </ScrollView>
 
-        <Modal visible={reportOpen} transparent animationType="slide">
+        <Modal visible={reportOpen} transparent animationType="none">
           <Pressable
             style={styles.reportBackdrop}
             onPress={() => !reportBusy && setReportOpen(false)}
           >
+            <Animated.View entering={SlideInDown.springify().damping(80).stiffness(250)} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
             <Pressable
               style={[styles.reportSheet, { backgroundColor: colors.cream }]}
               onPress={(e) => e.stopPropagation()}
@@ -499,6 +501,7 @@ export default function PublicProfileScreen() {
                 style={{ marginTop: 8 }}
               />
             </Pressable>
+            </Animated.View>
           </Pressable>
         </Modal>
       </SafeAreaView>

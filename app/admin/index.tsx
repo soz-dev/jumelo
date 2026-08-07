@@ -206,7 +206,7 @@ export default function AdminDashboardScreen() {
                 action: async () => {
                   await resetDailyJumeloDemoState();
                   await resetJumeloValidationDemoState();
-                  router.back();
+                  Alert.alert('✓ Réinitialisé', 'Nouvelle proposition disponible immédiatement.', [{ text: 'Retour', onPress: () => router.back() }]);
                 },
                 confirm: 'Remettre à zéro le Jumelo du jour ?',
               },

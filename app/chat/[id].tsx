@@ -16,6 +16,7 @@ import {
   TextInput,
   View,
 } from 'react-native';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DailyTrialBanner } from '../../src/components/DailyTrialBanner';
@@ -511,10 +512,11 @@ export default function ChatDetailScreen() {
       <Modal
         visible={membersOpen}
         transparent
-        animationType="slide"
+        animationType="none"
         onRequestClose={() => setMembersOpen(false)}
       >
         <Pressable style={styles.membersBackdrop} onPress={() => setMembersOpen(false)}>
+          <Animated.View entering={SlideInDown.springify().damping(80).stiffness(250)} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
           <Pressable
             style={[styles.membersSheet, { backgroundColor: colors.white, paddingBottom: Math.max(insets.bottom, 24) }]}
             onPress={(e) => e.stopPropagation()}
@@ -544,8 +546,7 @@ export default function ChatDetailScreen() {
                 ))}
               </ScrollView>
             )}
-          </Pressable>
-        </Pressable>
+          </Pressable>          </Animated.View>        </Pressable>
       </Modal>
     </>
   );

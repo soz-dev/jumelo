@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import Animated, {
   FadeInDown,
+  SlideInDown,
   useAnimatedStyle,
   useSharedValue,
   withSpring,
@@ -737,10 +738,11 @@ export default function HomeScreen() {
         <Modal
           visible={notifOpen}
           transparent
-          animationType="slide"
+          animationType="none"
           onRequestClose={closeNotifications}
         >
           <Pressable style={styles.notifBackdrop} onPress={closeNotifications}>
+            <Animated.View entering={SlideInDown.springify().damping(80).stiffness(250)} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
             <Pressable
               style={[
                 styles.notifSheet,
@@ -812,6 +814,7 @@ export default function HomeScreen() {
                 </ScrollView>
               )}
             </Pressable>
+            </Animated.View>
           </Pressable>
         </Modal>
       </SafeAreaView>
