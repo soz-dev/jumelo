@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -89,7 +90,7 @@ export function JumeloRenameModal({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       transparent
       onRequestClose={busy ? undefined : onClose}
     >
@@ -98,6 +99,7 @@ export function JumeloRenameModal({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Pressable style={styles.backdrop} onPress={busy ? undefined : onClose}>
+          <Animated.View entering={SlideInDown.springify().damping(80).stiffness(250)} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
           <Pressable
             style={[
               styles.sheet,
@@ -156,6 +158,7 @@ export function JumeloRenameModal({
               </Text>
             </Pressable>
           </Pressable>
+          </Animated.View>
         </Pressable>
       </KeyboardAvoidingView>
     </Modal>

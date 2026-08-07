@@ -93,12 +93,10 @@ export default function ChatListScreen() {
         if (!active) return;
         setRemoteThreads(rows);
         setTeamThreads(
-          groups
-            .filter((t) => {
-              const team = teams.find((item) => item.id === t.teamId);
-              return !team || team.capacity <= 2;
-            })
-            .map((t) => ({
+          groups.map((t) => {
+            const team = teams.find((item) => item.id === t.teamId);
+            const isDuo = !team || team.capacity <= 2;
+            return {
               id: t.id,
               name: t.name,
               preview: t.preview,
@@ -109,8 +107,9 @@ export default function ChatListScreen() {
               avatarColor: t.avatarColor,
               avatarLetter: t.avatarLetter,
               isGroup: true,
-              isDuoChat: true,
-            })),
+              isDuoChat: isDuo,
+            };
+          }),
         );
       })();
 
@@ -224,13 +223,13 @@ export default function ChatListScreen() {
                 styles.row,
                 {
                   backgroundColor: thread.isGroup
-                    ? withHexAlpha(colors.primary, 0.06)
-                    : withHexAlpha(colors.white, 0.55),
+                    ? withHexAlpha(colors.primary, hasUnread ? 0.14 : 0.05)
+                    : withHexAlpha(colors.white, hasUnread ? 0.95 : 0.5),
                   borderRadius: radii.md,
                   borderWidth: 1,
                   borderColor: thread.isGroup
-                    ? withHexAlpha(colors.primary, 0.12)
-                    : withHexAlpha(colors.border, 0.8),
+                    ? withHexAlpha(colors.primary, hasUnread ? 0.25 : 0.10)
+                    : withHexAlpha(colors.border, hasUnread ? 0.95 : 0.75),
                 },
               ]}
               onPress={() => router.push(`/chat/${thread.id}`)}
@@ -279,7 +278,7 @@ export default function ChatListScreen() {
                             { color: colors.primaryDark },
                           ]}
                         >
-                          Jumelo
+                          {thread.isDuoChat ? 'Duo' : 'Groupe'}
                         </Text>
                       </View>
                     ) : null}

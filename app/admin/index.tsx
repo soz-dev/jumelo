@@ -3,6 +3,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Pressable,
   RefreshControl,
   ScrollView,
@@ -201,8 +202,12 @@ export default function AdminDashboardScreen() {
                 id: 'reset_daily',
                 icon: 'refresh-circle-outline' as const,
                 label: 'Réinitialiser le Jumelo du jour',
-                hint: 'Efface le lock 24h — nouvelle proposition au prochain chargement',
-                action: async () => { await resetDailyJumeloDemoState(); },
+                hint: 'Efface lock 24h + trial + validation — nouvelle proposition immédiate',
+                action: async () => {
+                  await resetDailyJumeloDemoState();
+                  await resetJumeloValidationDemoState();
+                  router.back();
+                },
                 confirm: 'Remettre à zéro le Jumelo du jour ?',
               },
               {

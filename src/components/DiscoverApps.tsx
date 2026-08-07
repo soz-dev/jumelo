@@ -33,7 +33,10 @@ export function DiscoverAppsSection() {
 
   return (
     <Animated.View entering={FadeInDown.delay(120).duration(360)} style={styles.wrap}>
-      <Text style={[styles.title, { color: colors.ink }]}>À découvrir</Text>
+      <Text style={styles.title}>
+        <Text style={{ color: colors.primaryDark }}>À </Text>
+        <Text style={{ color: colors.primary }}>découvrir</Text>
+      </Text>
       <Text style={[styles.subtitle, { color: colors.inkMuted }]}>
         D’autres apps du créateur de Jumelo
       </Text>

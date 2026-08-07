@@ -323,7 +323,10 @@ export default function DiscoverScreen() {
         {/* ─── Header ─── */}
         <View style={styles.header}>
           <View style={styles.titleRow}>
-            <Text style={[styles.title, { color: colors.primaryDark }]}>Top 50 Jumelos</Text>
+            <Text style={styles.title}>
+              <Text style={{ color: colors.primaryDark }}>Top</Text>
+              <Text style={{ color: colors.primary }}> 50 Jumelos</Text>
+            </Text>
             <View style={styles.liveBadge}>
               <View style={styles.liveDot} />
               <Text style={styles.liveLabel}>LIVE</Text>

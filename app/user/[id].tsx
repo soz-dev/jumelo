@@ -27,13 +27,15 @@ import { ProfileDuosSection } from '../../src/components/ProfileDuosSection';
 import { ProfileStatsCard } from '../../src/components/ProfileStatsCard';
 import { TeammateRatingsCard } from '../../src/components/TeammateRatingsCard';
 import { Button, Chip, ScoreBadge } from '../../src/components/ui';
-import { availabilities, getCategory, levels, vibes } from '../../src/constants/catalog';
+import { availabilities, getCategory, getDominantUniverse, levels, vibes } from '../../src/constants/catalog';
 import { fonts, radii, shadows, spacing } from '../../src/constants/theme';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTheme } from '../../src/context/ThemeContext';
-import { Avatar, ListRow, SectionHeader } from '../../src/design-system';
+import { Avatar, ListRow, SectionHeader, withHexAlpha } from '../../src/design-system';
 import { getPersona } from '../../src/lib/profilePersonas';
 import type { UserProfile } from '../../src/data/mock';
+import { mockUsers } from '../../src/data/mock';
+import { acceptDailyJumelo, refuseDailyJumelo, type DailyDecision } from '../../src/lib/dailyJumelo';
 import { getCommonPoints } from '../../src/lib/commonPoints';
 import {
   computeMatch,
@@ -52,7 +54,14 @@ import { chatPathForUser, openChatWithUser, resolveUserById } from '../../src/li
 export default function PublicProfileScreen() {
   const { colors } = useTheme();
   const { user: me } = useAuth();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, fromDaily, dailyState } = useLocalSearchParams<{ id: string; fromDaily?: string; dailyState?: string }>();
+  const isFromDaily = fromDaily === '1';
+
+  // Résoudre la décision initiale depuis le param passé par home (fiable, pas d'AsyncStorage)
+  const initialDecision: DailyDecision | null | undefined = isFromDaily
+    ? dailyState === 'accepted' ? 'accepted' : dailyState === 'refused' ? 'refused' : null
+    : null;
+
   const isSelfParam = Boolean(me && id && me.id === id);
   const { ready: premiumReady, allowed } = useRequirePremium(!isSelfParam);
   const [profile, setProfile] = useState<UserProfile | undefined>(undefined);
@@ -61,6 +70,8 @@ export default function PublicProfileScreen() {
   const [reportReason, setReportReason] = useState<ReportReasonId>('harassment');
   const [reportDetails, setReportDetails] = useState('');
   const [reportBusy, setReportBusy] = useState(false);
+  const [dailyBusy, setDailyBusy] = useState(false);
+  const [dailyDecision, setDailyDecision] = useState<DailyDecision | null>(initialDecision ?? null);
 
   useEffect(() => {
     let active = true;
@@ -85,6 +96,7 @@ export default function PublicProfileScreen() {
     };
   }, [id, isSelfParam, premiumReady, allowed]);
 
+  const dominantUniverse = profile ? getDominantUniverse(profile.universes, profile.subCategoryIds) : null;
   const match = me && profile ? computeMatch(me, profile) : undefined;
   const commonPoints = me && profile ? getCommonPoints(me, profile) : [];
   const isSelf = Boolean(me && profile && me.id === profile.id);
@@ -139,11 +151,11 @@ export default function PublicProfileScreen() {
                   colors={['transparent', 'rgba(10,20,28,0.85)']}
                   style={styles.heroGradient}
                 >
-                  {profile.universes[0] ? (
+                  {dominantUniverse ? (
                     <View style={styles.heroPill}>
-                      <CategoryIcon universeId={profile.universes[0]} size={28} />
+                      <CategoryIcon universeId={dominantUniverse} size={28} />
                       <Text style={styles.heroPillText}>
-                        {getCategory(profile.universes[0])?.shortLabel}
+                        {getCategory(dominantUniverse)?.shortLabel}
                       </Text>
                     </View>
                   ) : null}
@@ -179,11 +191,11 @@ export default function PublicProfileScreen() {
                 end={{ x: 1, y: 1 }}
                 style={[styles.heroPhoto, styles.heroPersona]}
               >
-                {profile.universes[0] ? (
+                {dominantUniverse ? (
                   <View style={styles.heroPill}>
-                    <CategoryIcon universeId={profile.universes[0]} size={28} />
+                    <CategoryIcon universeId={dominantUniverse} size={28} />
                     <Text style={styles.heroPillText}>
-                      {getCategory(profile.universes[0])?.shortLabel}
+                      {getCategory(dominantUniverse)?.shortLabel}
                     </Text>
                   </View>
                 ) : null}
@@ -254,12 +266,14 @@ export default function PublicProfileScreen() {
                 score={match.score}
                 reasons={match.reasons}
               />
-              <Button
-                label="Voir le détail du jumelage"
-                variant="ghost"
-                onPress={() => router.push(`/match/${profile.id}`)}
-                style={{ marginTop: spacing.xs }}
-              />
+              {!isFromDaily ? (
+                <Button
+                  label="Voir le détail du jumelage"
+                  variant="ghost"
+                  onPress={() => router.push(`/match/${profile.id}`)}
+                  style={{ marginTop: spacing.xs }}
+                />
+              ) : null}
             </>
           ) : null}
 
@@ -336,31 +350,63 @@ export default function PublicProfileScreen() {
 
           {!isSelf ? (
             <View style={styles.ctaBlock}>
-              <Button
-                label="Discuter"
-                icon="chatbubble-outline"
-                onPress={async () => {
-                  const path = me
-                    ? await openChatWithUser(me.id, profile.id)
-                    : chatPathForUser(profile.id);
-                  router.push(path);
-                }}
-              />
-              <Button
-                label="Inviter à jouer"
-                icon="game-controller-outline"
-                variant="accent"
-                onPress={() =>
-                  router.push({
-                    pathname: '/invite/[userId]',
-                    params: {
-                      userId: profile.id,
-                      activity: profile.interests[0] ?? 'session',
-                    },
-                  })
-                }
-                style={{ marginTop: spacing.sm }}
-              />
+              {!isFromDaily ? (
+                <Button
+                  label="Discuter"
+                  icon="chatbubble-outline"
+                  onPress={async () => {
+                    const path = me
+                      ? await openChatWithUser(me.id, profile.id)
+                      : chatPathForUser(profile.id);
+                    router.push(path);
+                  }}
+                />
+              ) : null}
+              {isFromDaily ? (
+                dailyDecision !== null ? (
+                  <View style={[styles.dailyResult, {
+                    backgroundColor: dailyDecision === 'accepted' ? withHexAlpha('#22C55E', 0.08) : withHexAlpha('#EF4444', 0.08),
+                    borderColor: dailyDecision === 'accepted' ? '#22C55E' : '#EF4444',
+                  }]}>
+                    <Text style={{ color: dailyDecision === 'accepted' ? '#22C55E' : '#EF4444', fontFamily: fonts.bodyBold, fontSize: 15, textAlign: 'center' }}>
+                      {dailyDecision === 'accepted' ? '✓ Vous avez accepté ce jumelo' : '✕ Vous avez refusé ce jumelo'}
+                    </Text>
+                  </View>
+                ) : (
+                  <View style={styles.dailyBtnRow}>
+                    <Pressable
+                      disabled={dailyBusy}
+                      onPress={async () => {
+                        if (!me || dailyBusy) return;
+                        setDailyBusy(true);
+                        try {
+                          await refuseDailyJumelo(me.id);
+                          setDailyDecision('refused');
+                          router.back();
+                        } finally { setDailyBusy(false); }
+                      }}
+                      style={[styles.dailyBtn, { backgroundColor: '#EF4444', borderColor: '#EF4444' }]}
+                    >
+                      <Text style={{ color: '#fff', fontFamily: fonts.bodyBold, fontSize: 15 }}>✕ Refuser</Text>
+                    </Pressable>
+                    <Pressable
+                      disabled={dailyBusy}
+                      onPress={async () => {
+                        if (!me || dailyBusy) return;
+                        setDailyBusy(true);
+                        try {
+                          await acceptDailyJumelo(me, mockUsers);
+                          setDailyDecision('accepted');
+                          router.back();
+                        } finally { setDailyBusy(false); }
+                      }}
+                      style={[styles.dailyBtn, { backgroundColor: '#22C55E', borderColor: '#22C55E', flex: 1 }]}
+                    >
+                      <Text style={{ color: '#fff', fontFamily: fonts.bodyBold, fontSize: 15 }}>✓ Accepter</Text>
+                    </Pressable>
+                  </View>
+                )
+              ) : null}
               <Button
                 label="Signaler ce profil"
                 icon="flag-outline"
@@ -566,6 +612,27 @@ const styles = StyleSheet.create({
   },
   wrap: { flexDirection: 'row', flexWrap: 'wrap' },
   ctaBlock: { marginTop: spacing.xl },
+  dailyBtnRow: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: spacing.sm,
+  },
+  dailyBtn: {
+    flex: 1,
+    height: 48,
+    borderRadius: 24,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dailyResult: {
+    borderRadius: 24,
+    borderWidth: 1.5,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
+    alignItems: 'center',
+  },
   selfHint: {
     marginTop: spacing.xl,
     textAlign: 'center',

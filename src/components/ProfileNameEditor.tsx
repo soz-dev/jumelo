@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import {
   KeyboardAvoidingView,
   Modal,
@@ -64,12 +65,13 @@ export function ProfileNameEditor({ visible, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={busy ? undefined : onClose}>
+    <Modal visible={visible} animationType="none" transparent onRequestClose={busy ? undefined : onClose}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
         <Pressable style={styles.backdrop} onPress={busy ? undefined : onClose}>
+          <Animated.View entering={SlideInDown.springify().damping(80).stiffness(250)} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
           <Pressable
             style={[
               styles.sheet,
@@ -120,6 +122,7 @@ export function ProfileNameEditor({ visible, onClose }: Props) {
               </Text>
             </Pressable>
           </Pressable>
+          </Animated.View>
         </Pressable>
       </KeyboardAvoidingView>
     </Modal>

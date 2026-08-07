@@ -1,8 +1,10 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import type { UserProfile } from '../data/mock';
+import { mockUsers } from '../data/mock';
 import { createLike } from './api/likes';
 import { getOrCreateDmConversation } from './api/messages';
+import { getProfileById } from './api/profiles';
 import { createTeam, findLocalDuoForPair, joinTeam } from './api/teams';
 import { confirmJumeloValidation } from './jumeloValidation';
 import { rankMatches } from './matching';
@@ -654,7 +656,14 @@ export async function getDailyJumeloView(
       : 0;
 
     const peerId = trial?.peerId ?? mine.proposal?.peerId ?? null;
-    const peer = peerId ? pool.find((u) => u.id === peerId) ?? null : null;
+    let peer: UserProfile | null = peerId ? pool.find((u) => u.id === peerId) ?? null : null;
+    // Fallback sur les mocks (ids mk-*) puis Supabase pour les vrais UUIDs
+    if (!peer && peerId) {
+      peer = mockUsers.find((u) => u.id === peerId) ?? null;
+    }
+    if (!peer && peerId && !isLocalUserId(peerId) && !peerId.startsWith('mk-')) {
+      peer = await getProfileById(peerId);
+    }
 
     const iConfirmedFormation = Boolean(
       trial && me.id && trial.confirmedBy.includes(me.id),
@@ -738,6 +747,12 @@ export async function getDailyJumeloView(
       peerConfirmedFormation: false,
     };
   });
+}
+
+/** Lit uniquement la décision courante sans toucher à la proposition. */
+export async function getCurrentDailyDecision(myId: string): Promise<DailyDecision | null> {
+  const root = await loadRoot();
+  return userState(root, myId).decision ?? null;
 }
 
 export async function refuseDailyJumelo(myId: string): Promise<DailyViewModel | null> {
@@ -1124,7 +1139,17 @@ export async function dismissDailyOutcome(myId: string): Promise<void> {
 
 export async function resetDailyJumeloDemoState(): Promise<void> {
   await enqueueDaily(async () => {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    const root = await loadRoot();
+    // Keep refusedPeerIds + formedWith so the last refused person isn't immediately re-proposed
+    for (const userId of Object.keys(root.byUserId)) {
+      const { refusedPeerIds, formedWith } = root.byUserId[userId];
+      root.byUserId[userId] = {
+        ...(refusedPeerIds?.length ? { refusedPeerIds } : {}),
+        ...(formedWith?.length ? { formedWith } : {}),
+      };
+    }
+    root.accepts = [];
+    await saveRoot(root);
   });
 }
 

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import {
   ActivityIndicator,
   Alert,
@@ -84,8 +85,9 @@ export function ProfileAvatarEditor({ visible, onClose }: Props) {
   };
 
   return (
-    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+    <Modal visible={visible} animationType="none" transparent onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={busy ? undefined : onClose}>
+        <Animated.View entering={SlideInDown.springify().damping(80).stiffness(250)} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
         <Pressable
           style={[
             styles.sheet,
@@ -184,6 +186,7 @@ export function ProfileAvatarEditor({ visible, onClose }: Props) {
             <Text style={{ fontFamily: fonts.bodyBold, color: colors.primary }}>Fermer</Text>
           </Pressable>
         </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );

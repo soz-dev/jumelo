@@ -105,7 +105,6 @@ export default function TabsLayout() {
         name="teams"
         options={{
           title: 'Lobby',
-          tabBarAccessibilityLabel: 'Lobby',
           tabBarIcon: ({ color, focused }) => (
             <TabIcon name="social" color={color} focused={focused} />
           ),

@@ -127,6 +127,7 @@ function AppRootLayout() {
               <Stack.Screen name="oauth" />
               <Stack.Screen name="user/[id]" />
               <Stack.Screen name="match/[id]" options={{ presentation: 'modal' }} />
+              <Stack.Screen name="match/choose-sub" options={{ presentation: 'modal', animation: 'slide_from_bottom' }} />
               <Stack.Screen
                 name="match-success/[id]"
                 options={{ presentation: 'modal', animation: 'fade' }}

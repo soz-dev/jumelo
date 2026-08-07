@@ -3,17 +3,20 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
+  ActivityIndicator,
   FlatList,
   Image,
   KeyboardAvoidingView,
+  Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { DailyTrialBanner } from '../../src/components/DailyTrialBanner';
 import { JumeloValidationBanner } from '../../src/components/JumeloValidationBanner';
@@ -31,6 +34,7 @@ import {
   type UserProfile,
 } from '../../src/data/mock';
 import { useIsAdmin } from '../../src/lib/admin';
+import { Avatar } from '../../src/design-system';
 import {
   getAdminMember,
   listAdminNotices,
@@ -103,6 +107,11 @@ export default function ChatDetailScreen() {
   const [isGroup, setIsGroup] = useState(Boolean(thread?.isGroup || teamChatHint));
   const [teamIdForBanner, setTeamIdForBanner] = useState<string | null>(null);
   const [isJumeloChat, setIsJumeloChat] = useState(false);
+  const [membersOpen, setMembersOpen] = useState(false);
+  const [teamMemberIds, setTeamMemberIds] = useState<string[]>([]);
+  const [teamMembers, setTeamMembers] = useState<UserProfile[]>([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const insets = useSafeAreaInsets();
 
   // Heal trial seed URL → vrai dm-*
   useEffect(() => {
@@ -181,6 +190,8 @@ export default function ChatDetailScreen() {
           if (team) {
             jumelo = isDuoCapacity(team.capacity);
             title = `${team.name} · jumelo`;
+            const allIds = [team.ownerId, ...team.memberIds.filter((mid) => mid !== team.ownerId)];
+            setTeamMemberIds(allIds);
           } else {
             jumelo = true;
           }
@@ -224,6 +235,21 @@ export default function ChatDetailScreen() {
       active = false;
     };
   }, [id, me, mockPeer, thread, isAdminThread]);
+
+  const openMembers = useCallback(async () => {
+    setMembersOpen(true);
+    if (teamMembers.length > 0 || teamMemberIds.length === 0) return;
+    setLoadingMembers(true);
+    const profiles = await Promise.all(
+      teamMemberIds.map((mid) => {
+        const local = mockUsers.find((u) => u.id === mid);
+        if (local) return Promise.resolve(local);
+        return getProfileById(mid).catch(() => null);
+      }),
+    );
+    setTeamMembers(profiles.filter(Boolean) as UserProfile[]);
+    setLoadingMembers(false);
+  }, [teamMemberIds, teamMembers]);
 
   const onTrialFormed = useCallback(
     (teamId: string) => {
@@ -346,9 +372,10 @@ export default function ChatDetailScreen() {
       : peer?.name ?? thread?.name ?? (useRemote ? 'Conversation' : 'Chat');
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]}>
-      <View style={[styles.header, { backgroundColor: colors.white, borderBottomColor: colors.border }]}>
-        <Pressable onPress={() => safeBack('/(tabs)/chat')}>
+    <>
+      <SafeAreaView style={[styles.safe, { backgroundColor: colors.cream }]}>
+        <View style={[styles.header, { backgroundColor: colors.cream, borderBottomColor: colors.border }]}>
+          <Pressable onPress={() => safeBack('/(tabs)/chat')}>
           <Text style={{ color: colors.primary, fontFamily: fonts.bodyMedium }}>{'< Retour'}</Text>
         </Pressable>
         <View style={styles.peer}>
@@ -374,7 +401,13 @@ export default function ChatDetailScreen() {
             </Text>
           ) : null}
         </View>
-        <View style={{ width: 60 }} />
+        <View style={{ width: isGroup ? 44 : 60 }}>
+          {isGroup ? (
+            <Pressable onPress={() => void openMembers()} style={{ padding: 10 }}>
+              <Ionicons name="people-outline" size={22} color={colors.primary} />
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <KeyboardAvoidingView
@@ -473,7 +506,48 @@ export default function ChatDetailScreen() {
           </Pressable>
         </View>
       </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+
+      <Modal
+        visible={membersOpen}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setMembersOpen(false)}
+      >
+        <Pressable style={styles.membersBackdrop} onPress={() => setMembersOpen(false)}>
+          <Pressable
+            style={[styles.membersSheet, { backgroundColor: colors.white, paddingBottom: Math.max(insets.bottom, 24) }]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View style={[styles.membersHandle, { backgroundColor: colors.border }]} />
+            <Text style={[styles.membersTitle, { color: colors.ink }]}>
+              Membres · {teamMembers.length || teamMemberIds.length}
+            </Text>
+            {loadingMembers ? (
+              <ActivityIndicator color={colors.primary} style={{ marginVertical: 24 }} />
+            ) : (
+              <ScrollView showsVerticalScrollIndicator={false}>
+                {teamMembers.map((member) => (
+                  <Pressable
+                    key={member.id}
+                    style={styles.memberRow}
+                    onPress={() => { setMembersOpen(false); router.push(`/user/${member.id}`); }}
+                  >
+                    {member.photo ? (
+                      <Image source={{ uri: member.photo }} style={styles.memberAvatar} />
+                    ) : (
+                      <Avatar name={member.name} color={member.avatarColor} size={40} />
+                    )}
+                    <Text style={[styles.memberName, { color: colors.ink }]}>{member.name}</Text>
+                    <Ionicons name="chevron-forward" size={16} color={colors.inkMuted} />
+                  </Pressable>
+                ))}
+              </ScrollView>
+            )}
+          </Pressable>
+        </Pressable>
+      </Modal>
+    </>
   );
 }
 
@@ -519,4 +593,35 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     justifyContent: 'center',
   },
+  membersBackdrop: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(1,24,103,0.35)',
+  },
+  membersSheet: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: spacing.lg,
+    maxHeight: '70%',
+  },
+  membersHandle: {
+    alignSelf: 'center',
+    width: 36,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: spacing.md,
+  },
+  membersTitle: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 18,
+    marginBottom: spacing.md,
+  },
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingVertical: 10,
+  },
+  memberAvatar: { width: 40, height: 40, borderRadius: 20 },
+  memberName: { flex: 1, fontFamily: fonts.bodyMedium, fontSize: 15 },
 });

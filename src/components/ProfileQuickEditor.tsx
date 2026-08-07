@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import Animated, { SlideInDown } from 'react-native-reanimated';
 import {
   Modal,
   Pressable,
@@ -173,11 +174,12 @@ export function ProfileQuickEditor({
   return (
     <Modal
       visible={visible}
-      animationType="slide"
+      animationType="none"
       transparent
       onRequestClose={busy ? undefined : onClose}
     >
       <Pressable style={styles.backdrop} onPress={busy ? undefined : onClose}>
+        <Animated.View entering={SlideInDown.springify().damping(80).stiffness(250)} style={{ position: 'absolute', bottom: 0, left: 0, right: 0 }}>
         <Pressable
           style={[
             styles.sheet,
@@ -408,6 +410,7 @@ export function ProfileQuickEditor({
             </Text>
           </Pressable>
         </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );

@@ -1,6 +1,6 @@
 import { LinearGradient } from 'expo-linear-gradient';
 import { router, useFocusEffect } from 'expo-router';
-import { useCallback, useEffect, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -26,7 +26,7 @@ import { DiscoverAppsSection } from '../../src/components/DiscoverApps';
 import { JumeloLottie } from '../../src/components/JumeloLottie';
 import { CategoryIcon } from '../../src/components/CategoryIcon';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
-import { getCategory } from '../../src/constants/catalog';
+import { findInterestInCatalog, getCategory, getDominantUniverse } from '../../src/constants/catalog';
 import { useAuth } from '../../src/context/AuthContext';
 import { useTeams } from '../../src/context/TeamsContext';
 import { useTheme } from '../../src/context/ThemeContext';
@@ -59,6 +59,7 @@ import {
   seedIncomingDailyAccept,
   type DailyViewModel,
 } from '../../src/lib/dailyJumelo';
+import { useIsAdmin } from '../../src/lib/admin';
 import { usePremiumAccess } from '../../src/lib/premiumStore';
 import { isDuoCapacity } from '../../src/lib/teamKind';
 
@@ -98,7 +99,8 @@ export default function HomeScreen() {
   const { user, usingSupabase } = useAuth();
   const { myActiveTeams } = useTeams();
   const { colors } = useTheme();
-  const { guard } = usePremiumAccess();
+  const { guard, isPremium, blocked, openPaywall, refresh: refreshPremium } = usePremiumAccess();
+  const isAdmin = useIsAdmin();
   const insets = useSafeAreaInsets();
   const [pool, setPool] = useState<UserProfile[]>(mockUsers);
   const [activity, setActivity] = useState<ActivityItem[]>([]);
@@ -108,6 +110,22 @@ export default function HomeScreen() {
   const [domainFilter, setDomainFilter] = useState<string | 'all'>('all');
   const [dailyView, setDailyView] = useState<DailyViewModel | null>(null);
   const [dailyBusy, setDailyBusy] = useState(false);
+  const commonSubs = useMemo(() => {
+    if (!dailyView?.peer || !user) return [];
+    const myIds = new Set<string>([
+      ...(user.subCategoryIds ?? []),
+      ...(user.interests ?? []).map((i) => findInterestInCatalog(i)?.id).filter((x): x is string => Boolean(x)),
+    ]);
+    const peerAll = [
+      ...(dailyView.peer.subCategoryIds ?? []),
+      ...(dailyView.peer.interests ?? []).map((i) => findInterestInCatalog(i)?.id).filter((x): x is string => Boolean(x)),
+    ];
+    const seen = new Set<string>();
+    return peerAll.filter((id) => {
+      if (myIds.has(id) && !seen.has(id)) { seen.add(id); return true; }
+      return false;
+    }).slice(0, 4);
+  }, [dailyView?.peer, user]);
 
   // Ferme juste le panneau notifications — la widget est déjà visible sur home
   const goDailyJumelo = () => setNotifOpen(false);
@@ -202,6 +220,7 @@ export default function HomeScreen() {
       if (!user) return;
       void refreshActivity(user.id);
       void loadDailyView();
+      refreshPremium();
     }, [user, refreshActivity, loadDailyView]),
   );
 
@@ -238,9 +257,8 @@ export default function HomeScreen() {
         <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
           <Animated.View entering={FadeInDown.duration(380)} style={styles.topRow}>
             <View style={{ flex: 1, paddingRight: spacing.sm }}>
-              <Text style={[styles.brand, { color: colors.primary }]}>Jumelo</Text>
-              <Text style={[styles.hello, { color: colors.inkMuted }]}>
-                {firstName ? `Salut ${firstName}` : 'Bienvenue'}
+              <Text style={styles.brand}>
+                <Text style={{ color: colors.primaryDark }}>Jum</Text><Text style={{ color: colors.primary }}>elo</Text>
               </Text>
               <Text style={[styles.headline, { color: colors.primaryDark }]}>
                 Trouve{'\n'}
@@ -248,34 +266,51 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={styles.topActions}>
-              <Pressable
-                onPress={() => void openNotifications()}
-                style={[
-                  styles.notifBtn,
-                  { backgroundColor: 'rgba(255,255,255,0.72)', borderColor: colors.border },
-                ]}
-                accessibilityLabel={
-                  unreadLikes > 0
-                    ? `Notifications, ${unreadLikes} non lues`
-                    : 'Notifications'
-                }
-              >
-                <Icon
-                  name="bell"
-                  size={20}
-                  color={unreadLikes > 0 ? colors.primary : colors.inkMuted}
-                  weight={unreadLikes > 0 ? 'fill' : 'regular'}
-                />
-                {unreadLikes > 0 ? (
-                  <View style={[styles.notifBadge, { backgroundColor: colors.primary }]}>
-                    <Text style={styles.notifBadgeText}>
-                      {unreadLikes > 9 ? '9+' : unreadLikes}
-                    </Text>
-                  </View>
+              <Text style={[styles.hello, { color: colors.ink }]}>
+                {firstName ? `Salut ${firstName} 👋` : 'Bienvenue'}
+                {isPremium ? (
+                  <Text style={[styles.premiumBadge, { color: '#c9a227' }]}>{' ✦ Premium'}</Text>
                 ) : null}
-              </Pressable>
-              <JumeloLottie name="spark" size={42} />
-              <ThemeSwitcherButton />
+              </Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                {isAdmin ? (
+                  <Pressable
+                    onPress={() => router.push('/admin')}
+                    style={[styles.notifBtn, { backgroundColor: 'rgba(255,255,255,0.72)', borderColor: colors.border }]}
+                    accessibilityLabel="Administration"
+                  >
+                    <Icon name="shield" size={20} color={colors.inkMuted} weight="regular" />
+                  </Pressable>
+                ) : null}
+                <Pressable
+                  onPress={() => void openNotifications()}
+                  style={[
+                    styles.notifBtn,
+                    { backgroundColor: 'rgba(255,255,255,0.72)', borderColor: colors.border },
+                  ]}
+                  accessibilityLabel={
+                    unreadLikes > 0
+                      ? `Notifications, ${unreadLikes} non lues`
+                      : 'Notifications'
+                  }
+                >
+                  <Icon
+                    name="bell"
+                    size={20}
+                    color={unreadLikes > 0 ? colors.primary : colors.inkMuted}
+                    weight={unreadLikes > 0 ? 'fill' : 'regular'}
+                  />
+                  {unreadLikes > 0 ? (
+                    <View style={[styles.notifBadge, { backgroundColor: colors.primary }]}>
+                      <Text style={styles.notifBadgeText}>
+                        {unreadLikes > 9 ? '9+' : unreadLikes}
+                      </Text>
+                    </View>
+                  ) : null}
+                </Pressable>
+                <JumeloLottie name="spark" size={42} />
+                <ThemeSwitcherButton />
+              </View>
             </View>
           </Animated.View>
 
@@ -299,6 +334,170 @@ export default function HomeScreen() {
             </Animated.View>
           ) : null}
 
+          {/* ─── Jumelo du jour hero ─── */}
+          <Animated.View entering={FadeInDown.delay(60).duration(380)} style={{ marginBottom: spacing.xl }}>
+            <View style={styles.heroDailyTop}>
+              <Text style={styles.heroDailyTitle}>
+                <Text style={{ color: colors.primaryDark }}>Jumelo </Text>
+                <Text style={{ color: colors.primary }}>du jour</Text>
+              </Text>
+              <View style={[styles.heroDailyPill, { backgroundColor: withHexAlpha(colors.primary, 0.1) }]}>
+                <Text style={[styles.heroDailyPillText, { color: colors.primary }]}>24 h · match mutuel</Text>
+              </View>
+            </View>
+
+            {dailyBusy ? (
+              <View style={styles.heroCard}>
+                <LinearGradient colors={[colors.primary, colors.primaryDark]} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={[styles.heroCardGradient, styles.heroCardStatusCenter]}>
+                  <ActivityIndicator color="#fff" size="large" />
+                </LinearGradient>
+              </View>
+            ) : dailyView?.mode === 'card' && dailyView.peer ? (
+              <View style={styles.heroCard}>
+                <LinearGradient
+                  colors={[colors.primary, colors.primaryDark]}
+                  start={{ x: 0, y: 1 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.heroCardGradient}
+                >
+                  <View style={styles.heroLottieDecor} pointerEvents="none">
+                    <JumeloLottie name="spark" size={160} style={{ opacity: 0.1 }} />
+                  </View>
+                  <Pressable
+                    onPress={() => router.push({ pathname: '/user/[id]', params: { id: dailyView.peer!.id, fromDaily: '1', dailyState: 'pending' } })}
+                    style={styles.heroCardTop}
+                  >
+                    <View style={styles.heroPhotoRing}>
+                      {dailyView.peer.photo ? (
+                        <Image source={{ uri: dailyView.peer.photo }} style={styles.heroPhoto} />
+                      ) : (
+                        <Avatar name={dailyView.peer.name} color={withHexAlpha('#fff', 0.3)} size={92} />
+                      )}
+                    </View>
+                    <View style={styles.heroCardInfo}>
+                      <Text style={styles.heroCardName} numberOfLines={1}>
+                        {dailyView.peer.name}{dailyView.peer.age ? `, ${dailyView.peer.age}` : ''}
+                      </Text>
+                      {dailyView.peer.city ? <Text style={styles.heroCardCity}>{dailyView.peer.city}</Text> : null}
+                      <View style={styles.heroCompatBox}>
+                        <Text style={styles.heroCompatPct}>{dailyView.score}%</Text>
+                        <Text style={styles.heroCompatLabel}>{'de points\ncommuns'}</Text>
+                      </View>
+                    </View>
+                  </Pressable>
+                  {commonSubs.length > 0 ? (
+                    <View style={styles.heroChipsRow}>
+                      {commonSubs.map((subId) => (
+                        <View key={subId} style={styles.heroChip}>
+                          <Text style={styles.heroChipText} numberOfLines={1}>{findInterestInCatalog(subId)?.label ?? subId}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                  <View style={styles.heroCardDivider} />
+                  <View style={styles.heroCardActions}>
+                    <Pressable onPress={() => void handleDailyRefuse()} style={styles.heroBtnRefuse}>
+                      <Text style={styles.heroBtnRefuseText}>✕ Passer</Text>
+                    </Pressable>
+                    <Pressable onPress={() => void handleDailyAccept()} style={[styles.heroBtnAccept, { backgroundColor: '#fff' }]}>
+                      <Text style={[styles.heroBtnAcceptText, { color: colors.primaryDark }]}>✓ Jumelo !</Text>
+                    </Pressable>
+                  </View>
+                </LinearGradient>
+              </View>
+            ) : dailyView?.mode === 'waiting_peer' ? (
+              <Pressable
+                style={styles.heroCard}
+                onPress={() => dailyView.peer && router.push({ pathname: '/user/[id]', params: { id: dailyView.peer.id, fromDaily: '1', dailyState: 'accepted' } })}
+              >
+                <LinearGradient colors={['#16a34a', '#15803d']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={[styles.heroCardGradient, styles.heroCardStatusCenter]}>
+                  <View style={styles.heroLottieDecor} pointerEvents="none">
+                    <JumeloLottie name="spark" size={140} style={{ opacity: 0.08 }} />
+                  </View>
+                  <View style={styles.heroPhotoRing}>
+                    {dailyView.peer?.photo ? (<Image source={{ uri: dailyView.peer.photo }} style={styles.heroPhoto} />) : (<Avatar name={dailyView.peer?.name ?? '?'} color={withHexAlpha('#fff', 0.3)} size={92} />)}
+                  </View>
+                  <Text style={[styles.heroCardName, { marginTop: spacing.sm }]}>{dailyView.peer?.name ?? '?'} ✓</Text>
+                  <Text style={styles.heroCardCityCenter}>En attente de sa réponse</Text>
+                  <Icon name="chevronRight" size={18} color="rgba(255,255,255,0.5)" style={{ marginTop: 8 }} />
+                </LinearGradient>
+              </Pressable>
+            ) : dailyView?.mode === 'trial' ? (
+              <Pressable
+                style={styles.heroCard}
+                onPress={() => {
+                  const pid = dailyView.peer?.id ?? dailyView.proposal?.peerId ?? '';
+                  const cid = dailyView.trial?.conversationId ?? '';
+                  router.push({ pathname: '/match/choose-sub', params: { peerId: pid, conversationId: cid } });
+                }}
+              >
+                <LinearGradient colors={['#16a34a', '#15803d']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={[styles.heroCardGradient, styles.heroCardStatusCenter]}>
+                  <View style={styles.heroLottieDecor} pointerEvents="none">
+                    <JumeloLottie name="spark" size={140} style={{ opacity: 0.08 }} />
+                  </View>
+                  <View style={styles.heroPhotoRing}>
+                    {dailyView.peer?.photo ? (<Image source={{ uri: dailyView.peer.photo }} style={styles.heroPhoto} />) : (<Avatar name={dailyView.peer?.name ?? '?'} color={withHexAlpha('#fff', 0.3)} size={92} />)}
+                  </View>
+                  <Text style={[styles.heroCardName, { marginTop: spacing.sm }]}>Match !  {dailyView.peer?.name ?? '?'} ✓</Text>
+                  <Text style={styles.heroCardCityCenter}>
+                    {dailyView.score}% · {getCategory(getDominantUniverse(dailyView.peer?.universes ?? [], dailyView.peer?.subCategoryIds) as any)?.shortLabel ?? 'Jumelo'}
+                  </Text>
+                  <View style={[styles.heroBtnAccept, { backgroundColor: 'rgba(255,255,255,0.16)', marginTop: 16 }]}>
+                    <Text style={[styles.heroBtnAcceptText, { color: '#fff' }]}>Choisir une activité →</Text>
+                  </View>
+                </LinearGradient>
+              </Pressable>
+            ) : dailyView?.mode === 'formed' ? (
+              <Pressable style={styles.heroCard} onPress={() => router.push('/(tabs)/teams')}>
+                <LinearGradient colors={['#16a34a', '#15803d']} start={{ x: 0, y: 1 }} end={{ x: 1, y: 0 }} style={[styles.heroCardGradient, styles.heroCardStatusCenter]}>
+                  <View style={styles.heroLottieDecor} pointerEvents="none">
+                    <JumeloLottie name="confetti" size={200} style={{ opacity: 0.18 }} />
+                  </View>
+                  <Text style={{ fontSize: 52, marginBottom: 8 }}>🎉</Text>
+                  <Text style={styles.heroCardName}>Jumelo formé !</Text>
+                  <Text style={styles.heroCardCityCenter}>Retrouve-le dans Lobby</Text>
+                  <View style={[styles.heroBtnAccept, { backgroundColor: 'rgba(255,255,255,0.16)', marginTop: 16 }]}>
+                    <Text style={[styles.heroBtnAcceptText, { color: '#fff' }]}>Voir le Lobby →</Text>
+                  </View>
+                </LinearGradient>
+              </Pressable>
+            ) : dailyView?.mode === 'cooldown' && dailyView.peer ? (
+              <View style={styles.heroCard}>
+                <LinearGradient
+                  colors={dailyView.decision === 'refused' ? ['#991b1b', '#7f1d1d'] : ['#16a34a', '#15803d']}
+                  start={{ x: 0, y: 1 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.heroCardGradient, styles.heroCardStatusCenter]}
+                >
+                  <View style={styles.heroPhotoRing}>
+                    {dailyView.peer.photo ? (<Image source={{ uri: dailyView.peer.photo }} style={styles.heroPhoto} />) : (<Avatar name={dailyView.peer.name} color={withHexAlpha('#fff', 0.3)} size={92} />)}
+                  </View>
+                  <Text style={[styles.heroCardName, { marginTop: spacing.sm }]}>
+                    {dailyView.peer.name} {dailyView.decision === 'refused' ? '✕' : '✓'}
+                  </Text>
+                  <Text style={styles.heroCardCityCenter}>
+                    {dailyView.decision === 'refused'
+                      ? `Prochain jumelo dans ${Math.ceil(dailyView.msUntilLockEnd / 3_600_000)}h`
+                      : 'En attente de sa réponse'}
+                  </Text>
+                </LinearGradient>
+              </View>
+            ) : (
+              <View style={styles.heroCard}>
+                <LinearGradient
+                  colors={[withHexAlpha(colors.primary, 0.55), withHexAlpha(colors.primaryDark, 0.65)]}
+                  start={{ x: 0, y: 1 }}
+                  end={{ x: 1, y: 0 }}
+                  style={[styles.heroCardGradient, styles.heroCardStatusCenter]}
+                >
+                  <JumeloLottie name="spark" size={72} style={{ opacity: 0.5, marginBottom: 8 }} />
+                  <Text style={styles.heroCardName}>Aucune proposition</Text>
+                  <Text style={styles.heroCardCityCenter}>Reviens dans 24 h</Text>
+                </LinearGradient>
+              </View>
+            )}
+          </Animated.View>
+
           <Animated.View entering={FadeInDown.delay(80).duration(380)} style={styles.entryRow}>
             <ScalePressable
               onPress={() =>
@@ -313,10 +512,13 @@ export default function HomeScreen() {
                 style={styles.entryCard}
               >
                 <View style={styles.entryIconWrap}>
-                  <Icon name="social" size={26} color="#fff" weight="fill" />
+                  <Icon name="mentorat" size={26} color="#fff" weight="fill" />
                 </View>
                 <Text style={styles.entryEyebrow}>Recommandé</Text>
-                <Text style={styles.entryTitle}>Duo</Text>
+                <Text style={styles.entryTitle}>
+                  <Text style={{ color: '#fff' }}>Ton </Text>
+                  <Text style={{ color: 'rgba(255,255,255,0.72)' }}>duo</Text>
+                </Text>
                 <Text style={styles.entrySub}>Binômes existants + créer le tien</Text>
                 <View style={styles.entryCta}>
                   <Text style={styles.entryCtaText}>Voir les duos</Text>
@@ -327,7 +529,9 @@ export default function HomeScreen() {
 
             <ScalePressable
               onPress={() =>
-                router.push({ pathname: '/(tabs)/teams', params: { format: 'groupes' } })
+                blocked
+                  ? openPaywall()
+                  : router.push({ pathname: '/(tabs)/teams', params: { format: 'groupes' } })
               }
               style={styles.entryPress}
             >
@@ -336,29 +540,42 @@ export default function HomeScreen() {
                   styles.entryCard,
                   styles.entryCardSoft,
                   {
-                    backgroundColor: colors.white,
-                    borderColor: colors.border,
+                    backgroundColor: blocked ? 'transparent' : colors.white,
+                    borderColor: blocked ? '#c9861a' : colors.border,
                   },
                 ]}
               >
+                {blocked ? (
+                  <LinearGradient
+                    colors={['#f5c518', '#e8700a']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[StyleSheet.absoluteFillObject, { borderRadius: radii.xl }]}
+                  />
+                ) : null}
                 <View
                   style={[
                     styles.entryIconWrap,
-                    { backgroundColor: colors.primarySoft },
+                    { backgroundColor: blocked ? 'rgba(255,255,255,0.22)' : colors.primarySoft },
                   ]}
                 >
-                  <Icon name="teams" size={26} color={colors.primaryDark} weight="fill" />
+                  <Icon name="teams" size={26} color={blocked ? '#fff' : colors.primaryDark} weight="fill" />
                 </View>
-                <Text style={[styles.entryEyebrow, { color: colors.inkMuted }]}>Annexe</Text>
-                <Text style={[styles.entryTitle, { color: colors.ink }]}>Équipe</Text>
-                <Text style={[styles.entrySub, { color: colors.inkMuted }]}>
-                  Groupes 3+ existants + en créer un
+                <Text style={[styles.entryEyebrow, { color: blocked ? 'rgba(255,255,255,0.8)' : colors.inkMuted }]}>
+                  {blocked ? '✦ Premium' : 'Annexe'}
                 </Text>
-                <View style={[styles.entryCta, { backgroundColor: colors.primarySoft }]}>
-                  <Text style={[styles.entryCtaText, { color: colors.primaryDark }]}>
-                    Voir les équipes
+                <Text style={styles.entryTitle}>
+                  <Text style={{ color: blocked ? '#fff' : colors.primaryDark }}>Ton </Text>
+                  <Text style={{ color: blocked ? 'rgba(255,255,255,0.78)' : colors.primary }}>équipe</Text>
+                </Text>
+                <Text style={[styles.entrySub, { color: blocked ? 'rgba(255,255,255,0.72)' : colors.inkMuted }]}>
+                  {blocked ? 'Réservé aux membres Premium' : 'Groupes 3+ existants + en créer un'}
+                </Text>
+                <View style={[styles.entryCta, { backgroundColor: blocked ? 'rgba(255,255,255,0.18)' : colors.primarySoft }]}>
+                  <Text style={[styles.entryCtaText, { color: blocked ? '#fff' : colors.primaryDark }]}>
+                    {blocked ? 'Débloquer Premium' : 'Voir les équipes'}
                   </Text>
-                  <Icon name="chevronRight" size={14} color={colors.primaryDark} weight="bold" />
+                  <Icon name={blocked ? 'lock' : 'chevronRight'} size={14} color={blocked ? '#fff' : colors.primaryDark} weight="bold" />
                 </View>
               </View>
             </ScalePressable>
@@ -494,136 +711,7 @@ export default function HomeScreen() {
             </View>
           )}
 
-          <SectionHeader
-            title="Jumelo du jour"
-            subtitle="1 proposition · 24 h · match mutuel"
-          />
 
-          {dailyBusy ? (
-            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
-              <ActivityIndicator size="small" color={colors.primary} />
-            </View>
-          ) : dailyView?.mode === 'card' && dailyView.peer ? (
-            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
-              <View style={styles.dailyPeerRow}>
-                {dailyView.peer.photo ? (
-                  <Image source={{ uri: dailyView.peer.photo }} style={styles.dailyPeerPhoto} />
-                ) : (
-                  <Avatar name={dailyView.peer.name} color={dailyView.peer.avatarColor ?? colors.primary} size={48} />
-                )}
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>
-                    {dailyView.peer.name}
-                  </Text>
-                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
-                    {dailyView.score}% de compatibilité
-                  </Text>
-                </View>
-                <View style={styles.dailyActions}>
-                  <Pressable
-                    onPress={() => void handleDailyRefuse()}
-                    style={[styles.dailyActionBtn, { borderColor: '#EF4444', backgroundColor: withHexAlpha('#EF4444', 0.06) }]}
-                  >
-                    <Text style={{ color: '#EF4444', fontSize: 16, fontFamily: fonts.bodyBold }}>✕</Text>
-                  </Pressable>
-                  <Pressable
-                    onPress={() => void handleDailyAccept()}
-                    style={[styles.dailyActionBtn, { borderColor: colors.primary, backgroundColor: withHexAlpha(colors.primary, 0.08) }]}
-                  >
-                    <Text style={{ color: colors.primary, fontSize: 16, fontFamily: fonts.bodyBold }}>✓</Text>
-                  </Pressable>
-                </View>
-              </View>
-            </View>
-          ) : dailyView?.mode === 'waiting_peer' ? (
-            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
-              <View style={styles.dailyPeerRow}>
-                {dailyView.peer?.photo ? (
-                  <Image source={{ uri: dailyView.peer.photo }} style={styles.dailyPeerPhoto} />
-                ) : (
-                  <Avatar name={dailyView.peer?.name ?? '?'} color={dailyView.peer?.avatarColor ?? colors.primary} size={48} />
-                )}
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>
-                    {dailyView.peer?.name ?? '?'}
-                  </Text>
-                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
-                    En attente de sa réponse
-                  </Text>
-                </View>
-                <View style={[styles.dailyStatusBadge, { backgroundColor: withHexAlpha('#22C55E', 0.12), borderColor: withHexAlpha('#22C55E', 0.3) }]}>
-                  <Text style={{ color: '#22C55E', fontSize: 16, fontFamily: fonts.bodyBold }}>✓</Text>
-                </View>
-              </View>
-            </View>
-          ) : dailyView?.mode === 'trial' ? (
-            <Pressable
-              style={[styles.dailyCard, { backgroundColor: withHexAlpha(colors.primary, 0.06), borderColor: withHexAlpha(colors.primary, 0.2) }]}
-              onPress={() => router.push(`/match/${dailyView.proposal?.peerId ?? ''}`)}
-            >
-              <View style={styles.dailyPeerRow}>
-                <Text style={{ fontSize: 22 }}>🤝</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>Essai en cours</Text>
-                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
-                    Confirmez la formation avec {dailyView.peer?.name ?? 'ton jumelo'}
-                  </Text>
-                </View>
-                <Icon name="chevronRight" size={16} color={colors.primary} />
-              </View>
-            </Pressable>
-          ) : dailyView?.mode === 'formed' ? (
-            <Pressable
-              style={[styles.dailyCard, { backgroundColor: withHexAlpha('#22C55E', 0.06), borderColor: withHexAlpha('#22C55E', 0.2) }]}
-              onPress={() => router.push('/(tabs)/teams')}
-            >
-              <View style={styles.dailyPeerRow}>
-                <Text style={{ fontSize: 22 }}>🎉</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>Jumelo formé !</Text>
-                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>Retrouve-le dans Lobby</Text>
-                </View>
-                <Icon name="chevronRight" size={16} color="#22C55E" />
-              </View>
-            </Pressable>
-          ) : dailyView?.mode === 'cooldown' && dailyView.peer ? (
-            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
-              <View style={styles.dailyPeerRow}>
-                {dailyView.peer.photo ? (
-                  <Image source={{ uri: dailyView.peer.photo }} style={styles.dailyPeerPhoto} />
-                ) : (
-                  <Avatar name={dailyView.peer.name} color={dailyView.peer.avatarColor ?? colors.primary} size={48} />
-                )}
-                <View style={{ flex: 1, gap: 2 }}>
-                  <Text style={[styles.dailyPeerName, { color: colors.ink }]}>
-                    {dailyView.peer.name}
-                  </Text>
-                  <Text style={[styles.dailyPeerMeta, { color: colors.inkMuted }]}>
-                    Reviens dans 24 h
-                  </Text>
-                </View>
-                <View style={[
-                  styles.dailyStatusBadge,
-                  dailyView.decision === 'refused'
-                    ? { backgroundColor: withHexAlpha('#EF4444', 0.12), borderColor: withHexAlpha('#EF4444', 0.3) }
-                    : { backgroundColor: withHexAlpha('#22C55E', 0.12), borderColor: withHexAlpha('#22C55E', 0.3) },
-                ]}>
-                  <Text style={{ color: dailyView.decision === 'refused' ? '#EF4444' : '#22C55E', fontSize: 16, fontFamily: fonts.bodyBold }}>
-                    {dailyView.decision === 'refused' ? '✕' : '✓'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-          ) : (
-            <View style={[styles.dailyCard, { backgroundColor: colors.white, borderColor: colors.border }]}>
-              <View style={styles.dailyPeerRow}>
-                <Icon name="jumelo" size={22} color={colors.inkMuted} />
-                <Text style={[styles.dailyPeerMeta, { flex: 1, color: colors.inkMuted }]}>
-                  Aucune proposition pour l'instant — reviens dans 24 h
-                </Text>
-              </View>
-            </View>
-          )}
 
           <ScalePressable
             onPress={() => router.push('/categories')}
@@ -739,7 +827,7 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginBottom: spacing.md,
   },
-  topActions: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  topActions: { flexDirection: 'column', alignItems: 'flex-end', gap: 6 },
   brandRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -754,9 +842,10 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   hello: {
-    ...typography.caption,
-    fontFamily: fonts.bodyMedium,
-    fontSize: 14,
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+    letterSpacing: -0.2,
+    textAlign: 'right',
   },
   headline: {
     ...typography.hero,
@@ -1066,4 +1155,160 @@ const styles = StyleSheet.create({
     color: '#fff',
     letterSpacing: 0.15,
   },
+  heroDailyTop: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: spacing.sm,
+  },
+  heroDailyTitle: {
+    fontFamily: fonts.display,
+    fontSize: 22,
+    letterSpacing: -0.5,
+  },
+  heroDailyPill: {
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  heroDailyPillText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    letterSpacing: 0.2,
+  },
+  heroCard: {
+    borderRadius: radii.xl,
+    overflow: 'hidden',
+    marginBottom: spacing.md,
+  },
+  heroCardGradient: {
+    borderRadius: radii.xl,
+    padding: spacing.lg,
+    paddingBottom: spacing.md,
+  },
+  heroCardStatusCenter: {
+    alignItems: 'center',
+    paddingVertical: spacing.xl,
+  },
+  heroLottieDecor: {
+    position: 'absolute',
+    bottom: -10,
+    right: -10,
+  },
+  heroCardTop: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    alignItems: 'flex-start',
+    marginBottom: spacing.md,
+  },
+  heroPhotoRing: {
+    borderRadius: 50,
+    borderWidth: 2.5,
+    borderColor: 'rgba(255,255,255,0.4)',
+    overflow: 'hidden',
+  },
+  heroPhoto: {
+    width: 92,
+    height: 92,
+    borderRadius: 46,
+  },
+  heroCardInfo: {
+    flex: 1,
+    gap: 2,
+  },
+  heroCardName: {
+    fontFamily: fonts.displaySemi,
+    fontSize: 21,
+    color: '#fff',
+    letterSpacing: -0.4,
+    textAlign: 'center',
+  },
+  heroCardCity: {
+    fontFamily: fonts.body,
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.6)',
+  },
+  heroCardCityCenter: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: 'rgba(255,255,255,0.65)',
+    textAlign: 'center',
+    marginTop: 4,
+  },
+  heroCompatBox: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 6,
+    marginTop: 10,
+  },
+  heroCompatPct: {
+    fontFamily: fonts.display,
+    fontSize: 36,
+    color: '#fff',
+    letterSpacing: -1.2,
+  },
+  heroCompatLabel: {
+    fontFamily: fonts.body,
+    fontSize: 11,
+    color: 'rgba(255,255,255,0.6)',
+    lineHeight: 14,
+  },
+  heroChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: spacing.md,
+  },
+  heroChip: {
+    backgroundColor: 'rgba(255,255,255,0.16)',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.22)',
+  },
+  heroChipText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 12,
+    color: '#fff',
+  },
+  heroCardDivider: {
+    height: 1,
+    backgroundColor: 'rgba(255,255,255,0.12)',
+    marginBottom: spacing.md,
+  },
+  heroCardActions: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  heroBtnRefuse: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: radii.md,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.18)',
+    alignItems: 'center',
+  },
+  heroBtnRefuseText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+    color: 'rgba(255,255,255,0.65)',
+  },
+  heroBtnAccept: {
+    flex: 1,
+    paddingVertical: 14,
+    borderRadius: radii.md,
+    alignItems: 'center',
+  },
+  heroBtnAcceptText: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 15,
+  },
+  premiumBadge: {
+    fontFamily: fonts.bodyBold,
+    fontSize: 11,
+    letterSpacing: 0.3,
+  },
+
 });

@@ -5,6 +5,14 @@ import { useTheme } from '../context/ThemeContext';
 import { Icon } from './Icon';
 import { fonts, spacing, typography } from './tokens';
 
+/** First word dark blue, rest normal blue. Single word: split at midpoint. */
+function splitTitleParts(title: string): [string, string] {
+  const words = title.split(' ');
+  if (words.length > 1) return [words[0], ' ' + words.slice(1).join(' ')];
+  const mid = Math.ceil(title.length / 2);
+  return [title.slice(0, mid), title.slice(mid)];
+}
+
 type SectionHeaderProps = {
   title: string;
   subtitle?: string;
@@ -24,7 +32,9 @@ export function SectionHeader({
   return (
     <View style={styles.row}>
       <View style={{ flex: 1 }}>
-        <Text style={[styles.title, { color: colors.ink }]}>{title}</Text>
+        <Text style={styles.title}>
+          {(() => { const [f, r] = splitTitleParts(title); return (<><Text style={{ color: colors.primaryDark }}>{f}</Text>{r ? <Text style={{ color: colors.primary }}>{r}</Text> : null}</>); })()}
+        </Text>
         {subtitle ? (
           <Text style={[styles.sub, { color: colors.inkMuted }]}>{subtitle}</Text>
         ) : null}

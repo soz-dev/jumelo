@@ -484,6 +484,23 @@ export function getVibesForUniverses(universeIds: UniverseId[]): VibeOption[] {
   return result;
 }
 
+/** Retourne l'universe qui a le plus de sous-catégories sélectionnées. */
+export function getDominantUniverse(
+  universes: UniverseId[],
+  subCategoryIds: string[] = [],
+): UniverseId | undefined {
+  if (!universes.length) return undefined;
+  if (!subCategoryIds.length) return universes[0];
+  let best = universes[0];
+  let bestCount = 0;
+  for (const uid of universes) {
+    const subs = new Set(getCategory(uid)?.subCategories.map((s) => s.id) ?? []);
+    const count = subCategoryIds.filter((s) => subs.has(s)).length;
+    if (count > bestCount) { bestCount = count; best = uid; }
+  }
+  return best;
+}
+
 export const availabilities: { id: Availability; label: string }[] = [
   { id: 'matin', label: 'Matin' },
   { id: 'midi', label: 'Midi' },

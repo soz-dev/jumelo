@@ -18,7 +18,7 @@ import { Atmosphere } from '../../src/components/Atmosphere';
 import { BrandLogo } from '../../src/components/BrandLogo';
 import { ThemeSwitcherButton } from '../../src/components/ThemeSwitcher';
 import { TeamLobbyCard } from '../../src/components/TeamLobbyCard';
-import { UniverseId, categories } from '../../src/constants/catalog';
+import { UniverseId, categories, getCategory, type Level } from '../../src/constants/catalog';
 import { useTheme } from '../../src/context/ThemeContext';
 import { useTeams } from '../../src/context/TeamsContext';
 import {
@@ -47,6 +47,8 @@ export default function TeamsScreen() {
   const [query, setQuery] = useState('');
   const [formatFilter, setFormatFilter] = useState<'all' | 'duo' | 'groupe'>('all');
   const [filter, setFilter] = useState<UniverseId | 'all'>('all');
+  const [subFilter, setSubFilter] = useState<string>('all');
+  const [levelFilter, setLevelFilter] = useState<Level | 'all'>('all');
   const [busyId, setBusyId] = useState<string | null>(null);
   const [duoScores, setDuoScores] = useState<Map<string, DuoScore>>(new Map());
 
@@ -82,18 +84,25 @@ export default function TeamsScreen() {
     };
   }, [jumelos]);
 
+  // Réinitialise la sous-catégorie quand l'univers change
+  useEffect(() => { setSubFilter('all'); }, [filter]);
+
   const filtered = useMemo(
     () =>
       jumelos.filter((team) => {
-        const matchesFilter = filter === 'all' || team.universe === filter;
+        const matchesUniverse = filter === 'all' || team.universe === filter;
+        const matchesSub = subFilter === 'all' || team.subCategoryId === subFilter;
+        const matchesLevel =
+          levelFilter === 'all' ||
+          team.levelLabel?.toLowerCase().includes(levelFilter.toLowerCase());
         const q = query.trim().toLowerCase();
         const matchesQuery =
           !q ||
           team.name.toLowerCase().includes(q) ||
           team.activity.toLowerCase().includes(q);
-        return matchesFilter && matchesQuery;
+        return matchesUniverse && matchesSub && matchesLevel && matchesQuery;
       }),
-    [filter, jumelos, query],
+    [filter, subFilter, levelFilter, jumelos, query],
   );
 
   const onJoinPress = async (teamId: string, state: TeamMembershipState) => {
@@ -253,6 +262,7 @@ export default function TeamsScreen() {
             })}
           </View>
 
+          {/* Filtre univers */}
           <ScrollView
             horizontal
             showsHorizontalScrollIndicator={false}
@@ -274,6 +284,70 @@ export default function TeamsScreen() {
                   <Text style={styles.catEmoji}>{cat.emoji}</Text>
                   <Text style={[styles.catLabel, { color: sel ? '#fff' : colors.inkMuted }]}>
                     {cat.shortLabel}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </ScrollView>
+
+          {/* Filtre sous-catégorie — s'affiche quand un univers est sélectionné */}
+          {filter !== 'all' && (getCategory(filter)?.subCategories.length ?? 0) > 0 ? (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={[styles.filters, { paddingTop: 0 }]}
+            >
+              {[{ id: 'all', label: 'Toutes', emoji: '🔢' }, ...(getCategory(filter)?.subCategories ?? [])].map((sub) => {
+                const sel = subFilter === sub.id;
+                const catColor = getCategory(filter)?.color ?? colors.primary;
+                return (
+                  <Pressable
+                    key={sub.id}
+                    onPress={() => setSubFilter(sub.id)}
+                    style={[
+                      styles.catChip,
+                      sel
+                        ? { backgroundColor: catColor, borderColor: catColor }
+                        : { backgroundColor: colors.white, borderColor: colors.border },
+                    ]}
+                  >
+                    <Text style={styles.catEmoji}>{sub.emoji}</Text>
+                    <Text style={[styles.catLabel, { color: sel ? '#fff' : colors.inkMuted }]}>
+                      {sub.label}
+                    </Text>
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          ) : null}
+
+          {/* Filtre niveau */}
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={[styles.filters, { paddingTop: 0 }]}
+          >
+            {([
+              { id: 'all', label: 'Tous niveaux' },
+              { id: 'debutant', label: 'Débutant' },
+              { id: 'intermediaire', label: 'Intermédiaire' },
+              { id: 'avance', label: 'Avancé' },
+              { id: 'pro', label: 'Pro' },
+            ] as { id: Level | 'all'; label: string }[]).map((lvl) => {
+              const sel = levelFilter === lvl.id;
+              return (
+                <Pressable
+                  key={lvl.id}
+                  onPress={() => setLevelFilter(lvl.id)}
+                  style={[
+                    styles.catChip,
+                    sel
+                      ? { backgroundColor: colors.primary, borderColor: colors.primary }
+                      : { backgroundColor: colors.white, borderColor: colors.border },
+                  ]}
+                >
+                  <Text style={[styles.catLabel, { color: sel ? '#fff' : colors.inkMuted }]}>
+                    {lvl.label}
                   </Text>
                 </Pressable>
               );
@@ -472,4 +546,23 @@ const styles = StyleSheet.create({
   sectionLabel: { fontFamily: fonts.displaySemi, fontSize: 18, letterSpacing: -0.3 },
   sectionBadge: { borderRadius: radii.pill, paddingHorizontal: 9, paddingVertical: 3 },
   sectionBadgeNum: { fontFamily: fonts.bodyBold, fontSize: 13, color: '#fff' },
+
+  // Premium gate
+  gateCard: {
+    borderRadius: radii.xl,
+    borderWidth: 1,
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+    width: '100%',
+  },
+  gateTitle: { fontFamily: fonts.display, fontSize: 28, textAlign: 'center' },
+  gateSub: { fontFamily: fonts.body, fontSize: 14, textAlign: 'center', lineHeight: 21 },
+  freeNote: {
+    marginTop: spacing.lg,
+    borderRadius: radii.lg,
+    padding: spacing.md,
+    width: '100%',
+  },
+  freeNoteText: { fontFamily: fonts.body, fontSize: 13, textAlign: 'center', lineHeight: 18 },
 });
